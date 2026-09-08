@@ -1,0 +1,198 @@
+{
+  "_readme": "Labelled evaluation set. Each case is a synthetic incident report written independently of the seed corpus, with the ground truth a human analyst would assign. Used by scripts/evaluate.py to measure extraction accuracy and retrieval quality, so 'it works' is a number rather than an impression. 'expected_similar_to' names the seed incident a correct memory search should surface first.",
+  "cases": [
+    {
+      "id": "eval_01",
+      "text": "On 4 March 2026 Qasr Financial Group detected file encryption across three servers in the accounting division. The intrusion began with a spearphishing link sent to a.mansour@qasrfg.com.sa which harvested credentials on a fake login page. The attacker authenticated as the user from 62.204.41.180, executed encoded PowerShell, disabled the endpoint agent, spread over SMB shares, deleted shadow copies and files were encrypted. Roughly 12 GB of client records were exfiltrated to cloud storage beforehand. Operations were disrupted for 16 hours.",
+      "expected": {
+        "attack_type": "ransomware",
+        "initial_vector": "phishing",
+        "sector": "finance",
+        "severity": [
+          "high",
+          "critical"
+        ],
+        "techniques": [
+          "T1566.002",
+          "T1078",
+          "T1059.001",
+          "T1562",
+          "T1021.002",
+          "T1490",
+          "T1486",
+          "T1567"
+        ],
+        "impacts": [
+          "data_encrypted",
+          "data_exfiltrated",
+          "service_disruption"
+        ]
+      },
+      "expected_similar_to": "Ransomware via phishing link — regional bank"
+    },
+    {
+      "id": "eval_02",
+      "text": "Aseer Medical Centre reported on 9 April 2026 that its managed service provider was compromised and a malicious update was pushed to 180 clinical workstations. Obfuscated payloads executed through a signed binary proxy, security tooling was disabled on the affected hosts, and files were encrypted. Patient records systems were unavailable for 20 hours and the health regulator was notified. C2 traffic was observed to 45.12.213.99.",
+      "expected": {
+        "attack_type": "ransomware",
+        "initial_vector": "supply_chain",
+        "sector": "healthcare",
+        "severity": [
+          "high",
+          "critical"
+        ],
+        "techniques": [
+          "T1195",
+          "T1027",
+          "T1218",
+          "T1562",
+          "T1486",
+          "T1071"
+        ],
+        "impacts": [
+          "data_encrypted",
+          "service_disruption",
+          "regulatory_exposure"
+        ]
+      },
+      "expected_similar_to": "Ransomware via compromised MSP — healthcare group"
+    },
+    {
+      "id": "eval_03",
+      "text": "Tuwaiq Shipping Company discovered on 17 January 2026 that a finance officer's mailbox had been accessed by an unauthorised party. The officer had entered credentials on a credential harvesting page reached from a phishing link. The attacker signed in with the valid account from 103.44.190.12, created an inbox rule to hide replies, monitored correspondence for eleven days, and then issued a fraudulent transfer request with amended beneficiary details. A wire transfer of SAR 900,000 was executed before the fraud was detected.",
+      "expected": {
+        "attack_type": "business_email_compromise",
+        "initial_vector": "phishing",
+        "sector": "finance",
+        "severity": [
+          "medium",
+          "high"
+        ],
+        "techniques": [
+          "T1566.002",
+          "T1078",
+          "T1114",
+          "T1657"
+        ],
+        "impacts": [
+          "financial_loss",
+          "credential_compromise"
+        ]
+      },
+      "expected_similar_to": "Business email compromise — logistics"
+    },
+    {
+      "id": "eval_04",
+      "text": "An online marketplace disclosed on 2 May 2026 that an attacker exploited a SQL injection flaw in its public-facing storefront application and deployed a web shell on the server. The customer database was enumerated and approximately 95,000 records were exfiltrated over an encrypted channel to 176.10.104.240. The intrusion went undetected for nine days. Regulatory notification obligations were triggered.",
+      "expected": {
+        "attack_type": "data_breach",
+        "initial_vector": "web_exploitation",
+        "sector": "retail",
+        "severity": [
+          "high",
+          "critical"
+        ],
+        "techniques": [
+          "T1190",
+          "T1505.003",
+          "T1041",
+          "T1573"
+        ],
+        "impacts": [
+          "data_exfiltrated",
+          "regulatory_exposure"
+        ]
+      },
+      "expected_similar_to": "Web application exploitation and data breach — e-commerce"
+    },
+    {
+      "id": "eval_05",
+      "text": "A ministry reported on 21 February 2026 that its remote access portal was subjected to password spraying from rotating source addresses including 91.132.14.55. A small set of common passwords was attempted against 3,800 accounts and three were compromised. MFA push prompts were then repeatedly sent to one account until a user approved one. The attacker enumerated directory accounts before detection. No data was exfiltrated.",
+      "expected": {
+        "attack_type": "credential_attack",
+        "initial_vector": "credential_attack",
+        "sector": "government",
+        "severity": [
+          "medium",
+          "high"
+        ],
+        "techniques": [
+          "T1110",
+          "T1621",
+          "T1078",
+          "T1087"
+        ],
+        "impacts": [
+          "credential_compromise"
+        ]
+      },
+      "expected_similar_to": "Password spraying against remote access — government agency"
+    },
+    {
+      "id": "eval_06",
+      "text": "A national telecom operator experienced a distributed denial of service attack on 11 June 2026. A traffic flood peaking at 520 Gbps targeted the customer portal and caused an outage lasting four hours. No intrusion, malware or data exfiltration was identified. Upstream scrubbing was activated to mitigate the flood.",
+      "expected": {
+        "attack_type": "denial_of_service",
+        "initial_vector": "unknown",
+        "sector": "telecom",
+        "severity": [
+          "low",
+          "medium"
+        ],
+        "techniques": [
+          "T1498"
+        ],
+        "impacts": [
+          "service_disruption"
+        ]
+      },
+      "expected_similar_to": "DDoS against public services — telecom"
+    },
+    {
+      "id": "eval_07",
+      "text": "A software vendor identified insider data theft on 28 March 2026. A departing engineer collected proprietary source code and customer records over a two-week period and uploaded roughly 25 GB to personal cloud storage. The activity used the employee's own valid credentials and involved no malware. The account was m.tamimi@vendor-example.io on host LAP-ENG-118.",
+      "expected": {
+        "attack_type": "insider_threat",
+        "initial_vector": "unknown",
+        "sector": "technology",
+        "severity": [
+          "medium",
+          "high"
+        ],
+        "techniques": [
+          "T1078",
+          "T1567",
+          "T1005"
+        ],
+        "impacts": [
+          "data_exfiltrated"
+        ]
+      },
+      "expected_similar_to": "Insider data theft before resignation — technology"
+    },
+    {
+      "id": "eval_08",
+      "text": "An oil and gas operator detected a remote access trojan on an engineering workstation on 14 May 2026. Initial access was a phishing email carrying a macro-enabled document, which the user opened; it spawned an obfuscated PowerShell command and installed a backdoor that beaconed to 194.36.190.22. The attacker carried out system information discovery and remote system discovery before the host was isolated. No lateral movement into the control network occurred and no data was exfiltrated.",
+      "expected": {
+        "attack_type": "malware_infection",
+        "initial_vector": "phishing",
+        "sector": "energy",
+        "severity": [
+          "medium",
+          "high"
+        ],
+        "techniques": [
+          "T1566.001",
+          "T1204",
+          "T1059.001",
+          "T1027",
+          "T1071",
+          "T1082",
+          "T1018"
+        ],
+        "impacts": []
+      },
+      "expected_similar_to": "Phishing attachment leading to remote access trojan — energy"
+    }
+  ]
+}

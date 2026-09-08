@@ -1,0 +1,52 @@
+{
+  "_readme": "Prepared demo scenarios. Each is a synthetic incident report chosen to exercise a different part of the pipeline, with a note on what the presenter should point at. All organisations, people and identifiers are invented.",
+  "scenarios": [
+    {
+      "id": "financial_services",
+      "label": "Financial services — ransomware via phishing",
+      "highlight": "The full journey. Eight identifying values removed, a double-extortion ransomware chain mapped to ATT&CK, five similar incidents recalled, and containment advice this organisation has used five times before.",
+      "watch_for": [
+        "Privacy Shield removes 8 values and the verification pass reports PASS",
+        "Classified as ransomware entered via phishing — not as phishing",
+        "CVE-2024-21412 flagged as a CISA known-exploited vulnerability",
+        "'Isolate affected endpoints' recalled from 5 past incidents"
+      ],
+      "text": "On 12 February 2026 the SOC at Falcon National Bank detected ransomware on WKSTN-FIN-204 in the finance department.\n\nInitial access came from a spearphishing link emailed to sara.nasser@falconbank.com.sa from billing@secure-invoice-portal.top. The user clicked the link and entered credentials on a fake login page.\n\nThe attacker signed in with the valid account from 91.240.118.22, ran encoded PowerShell, and disabled the EDR agent on the host. They moved laterally over SMB shares to FS-CORP-02, deleted shadow copies, and files were encrypted across two file servers. Approximately 40 GB of customer data was exfiltrated to cloud storage before encryption began. C2 beaconing was observed to 45.83.192.17.\n\nThe vulnerability CVE-2024-21412 was exploited on an unpatched host during lateral movement. Operations were disrupted for 14 hours. Reported by CISO Ahmed Alrashid, +966 55 123 4567."
+    },
+    {
+      "id": "healthcare",
+      "label": "Healthcare — supply chain compromise",
+      "highlight": "A different entry vector into the same outcome. Shows that the system separates how an attack started from what it became, and recalls the vendor-access lesson learned by a different organisation.",
+      "watch_for": [
+        "Initial vector is supply chain, attack type is still ransomware",
+        "Regulatory exposure appears in the impact list",
+        "The recalled mitigation 'suspend third-party remote management access' came from a hospital group, not a bank"
+      ],
+      "text": "Al-Noor Hospital Group reported on 3 March 2026 that ransomware had been deployed across its clinical estate.\n\nThe intrusion originated with the group's managed service provider: attackers compromised the MSP's remote management tooling and pushed a malicious update to 210 clinical workstations. Obfuscated payloads executed through a signed binary proxy, and security tooling was disabled on affected hosts before files were encrypted.\n\nPatient scheduling and pharmacy dispensing systems were unavailable for 26 hours. The health regulator was notified within the statutory window. C2 beaconing was observed to 91.219.236.10. Reported by Dr. Hanan Alqahtani, h.alqahtani@alnoor-health.sa, on host CLIN-WS-0087."
+    },
+    {
+      "id": "vulnerability",
+      "label": "Vulnerability exploitation — KEV enrichment",
+      "highlight": "The CISA KEV layer doing real work. Two of the three CVEs are in the known-exploited catalog, each with CISA's mandated remediation action — turning 'a CVE was mentioned' into 'this is being exploited in the wild and here is the required fix'.",
+      "watch_for": [
+        "CVEs enriched with vendor, product and KEV date",
+        "CISA's required action shown per CVE",
+        "Severity escalates to critical because a KEV entry is present",
+        "Official MITRE mitigations (M####) listed alongside recalled actions"
+      ],
+      "text": "Sadeem Cloud Services disclosed an intrusion on 19 April 2026 affecting its customer-facing platform.\n\nAn attacker exploited CVE-2024-21762 on an internet-facing VPN appliance to obtain access without credentials. From there they exploited CVE-2023-34362 against a file transfer service and deployed a web shell on SRV-WEB-11. A third issue, CVE-2021-44228, was also present on the host but no exploitation was confirmed.\n\nThe attacker enumerated the customer database and approximately 60,000 records were exfiltrated over an encrypted channel to 176.113.115.34. The intrusion was undetected for eight days and regulatory notification obligations were triggered. Escalated by Director Maha Alfarsi, maha@sadeemcloud.com, +966 50 998 4412."
+    },
+    {
+      "id": "near_miss",
+      "label": "Near miss — the value of memory",
+      "highlight": "The strongest argument for the product. This incident was contained in 12 minutes because controls recommended after an earlier ransomware case were in place. Memory search surfaces the earlier case, and the mitigation that made the difference carries 100% recorded effectiveness.",
+      "watch_for": [
+        "No encryption occurred — severity is high, not critical",
+        "Memory recalls the original ransomware incident that motivated the controls",
+        "'Enable tamper protection' shows 100% effectiveness across incidents",
+        "The simulation tests whether these controls still hold"
+      ],
+      "text": "Sahm Capital Investment Bank contained a ransomware intrusion on 21 May 2026 before any encryption occurred.\n\nInitial access was a spearphishing link that harvested credentials from an employee in the finance department. The attacker signed in with the valid account, ran encoded PowerShell, and attempted to disable the EDR agent — which triggered a tamper-protection alert. Attempted lateral movement over SMB shares was blocked by network segmentation, and an attempt to delete shadow copies was blocked by application control.\n\nNo files were encrypted and no data was exfiltrated. Total time from first alert to full containment was 12 minutes. Reported by Analyst Reem Alkhalifa, r.alkhalifa@sahmcapital.sa, attacker source 178.62.44.19."
+    }
+  ]
+}
