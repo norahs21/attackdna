@@ -40,6 +40,16 @@ actually worked last time.
 
 ---
 
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [`docs/DEVELOPER_GUIDE_AR.md`](docs/DEVELOPER_GUIDE_AR.md) | دليل المطوّر بالعربي — الملفات، التشغيل، سير العمل، وأين تعدّل كل شيء |
+| [`docs/PITCH_AR.md`](docs/PITCH_AR.md) | نص البيتش بالعربي + الردود على الأسئلة الصعبة + تشيك ليست العرض |
+| [`docs/PHASE_COVERAGE.md`](docs/PHASE_COVERAGE.md) | All 142 plan tasks mapped to code and verification |
+
+---
+
 ## Quick start
 
 ```bash
