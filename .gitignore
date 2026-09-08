@@ -1,7 +1,29 @@
+# Python
 venv/
+.venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Secrets — never commit real keys
 .env
+backend/.env
+*.env
+!.env.example
+
+# Local databases & vector store
+*.db
+*.sqlite3
 backend/attackdna.db
+data/chroma/
+
+# Large raw feeds (regenerate with scripts/download_*.py)
 data/raw/
+
+# OS / editor
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
