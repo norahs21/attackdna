@@ -10,13 +10,23 @@ Ranking blends three things:
   * how effective the responders rated the action,
   * how many separate incidents used it (repeatedly-used actions are proven).
 
-Where similar incidents run out, ATT&CK-aligned baseline controls fill the gap
-and are clearly labelled as such, so "recalled" and "suggested" never blur.
+Recommendations come from three clearly-separated origins, and the label is
+never dropped, because a defender needs to know how much weight to give each:
+
+  ``recalled``   what this organisation actually did before, with a citation
+  ``framework``  an official MITRE ATT&CK mitigation (M####) for an observed
+                 technique — authoritative, but generic to every organisation
+  ``suggested``  a concrete baseline control filling a gap neither covers
+
+Where similar incidents run out, the framework and baseline layers fill the
+gap, so "what worked here" and "what the framework advises" never blur.
 """
 from __future__ import annotations
 
 from collections import defaultdict
 from typing import Dict, List
+
+from app.services.knowledge_base import mitigations_by_technique
 
 # Response phase ordering, so a recommended plan reads in the order a
 # responder would actually execute it.
@@ -130,6 +140,7 @@ def recall_mitigations(similar_incidents: List[dict], observed_technique_ids: Li
     recalled.sort(key=lambda item: -item["score"])
     recalled = recalled[:limit]
 
+    framework = _framework_mitigations(observed_technique_ids)
     suggested = _baseline_gap_fill(observed_technique_ids, recalled)
 
     combined = recalled + suggested
@@ -140,10 +151,47 @@ def recall_mitigations(similar_incidents: List[dict], observed_technique_ids: Li
 
     return {
         "recommended": combined,
+        "framework_mitigations": framework,
         "recalled_count": len(recalled),
         "suggested_count": len(suggested),
+        "framework_count": len(framework),
         "by_phase": _group_by_phase(combined),
     }
+
+
+def _framework_mitigations(technique_ids: List[str], limit: int = 10) -> List[dict]:
+    """Official ATT&CK mitigations covering the observed techniques.
+
+    Ranked by how many of *this incident's* techniques each one addresses, so
+    the control that closes the most of this attack chain comes first.
+    """
+    index = mitigations_by_technique()
+    if not index:
+        return []
+
+    observed = [t for t in technique_ids if t]
+    coverage: Dict[str, dict] = {}
+
+    for technique_id in observed:
+        # A sub-technique inherits its parent's mitigations.
+        candidates = index.get(technique_id) or index.get(technique_id.split(".")[0], [])
+        for mitigation in candidates:
+            entry = coverage.setdefault(mitigation["id"], {
+                "id": mitigation["id"],
+                "name": mitigation["name"],
+                "description": mitigation["description"],
+                "origin": "framework",
+                "covers_techniques": [],
+            })
+            if technique_id not in entry["covers_techniques"]:
+                entry["covers_techniques"].append(technique_id)
+
+    results = list(coverage.values())
+    for entry in results:
+        entry["coverage_count"] = len(entry["covers_techniques"])
+        entry["covers_techniques"].sort()
+    results.sort(key=lambda item: (-item["coverage_count"], item["id"]))
+    return results[:limit]
 
 
 def _baseline_gap_fill(technique_ids: List[str], recalled: List[dict]) -> List[dict]:

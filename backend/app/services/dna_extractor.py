@@ -19,6 +19,8 @@ import re
 from typing import Dict, List, Optional
 
 from app.services import llm_client
+from app.services.attribution import attribute
+from app.services.ioc_extractor import extract_iocs
 from app.services.kev_enricher import enrich_cves, extract_cves, kev_summary
 from app.services.knowledge_base import TACTIC_LABELS, TACTIC_ORDER
 from app.services.mitre_mapper import map_to_attack
@@ -39,7 +41,9 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                                   ("wire transfer", 3), ("ceo fraud", 5), ("inbox rule", 3)],
     "data_breach": [("data breach", 5), ("data exfiltration", 4), ("exfiltrated", 3),
                     ("records were stolen", 5), ("customer data", 3), ("data leak", 4),
-                    ("data was stolen", 4)],
+                    ("data was stolen", 4), ("records were exfiltrated", 5),
+                    ("customer records", 3), ("disclosed a data breach", 5),
+                    ("notification obligations", 3), ("data theft", 4)],
     "web_exploitation": [("sql injection", 5), ("web shell", 5), ("public-facing application", 4),
                          ("remote code execution", 4), ("rce", 3), ("unpatched server", 3),
                          ("web application", 2)],
@@ -79,22 +83,37 @@ DECISIVE_MARKERS: List[tuple] = [
     ("insider_threat", ["insider", "disgruntled employee"]),
 ]
 
+# Sector vocabulary. These deliberately favour words describing the affected
+# *function* over words in the organisation's name, because the Privacy Layer
+# redacts company names: "Qasr Financial Group" becomes "[ORG_REDACTED] Group"
+# and takes the word "Financial" with it. What survives is how the analyst
+# described the business — "the accounting division", "clinical workstations",
+# "the subscriber portal" — so that is what the classifier reads.
 SECTORS: Dict[str, List[str]] = {
     "finance": ["bank", "banking", "financial", "fintech", "insurance", "payment", "sama",
-                "trading", "brokerage", "finance department"],
-    "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi"],
-    "government": ["ministry", "government", "public sector", "municipal", "federal", "agency"],
+                "trading", "brokerage", "finance department", "finance team", "finance officer",
+                "accounting", "accounts payable", "treasury", "wire transfer", "client records",
+                "investment"],
+    "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi",
+                   "clinical", "health regulator", "care provider"],
+    "government": ["ministry", "government", "public sector", "municipal", "federal", "agency",
+                   "civil service", "state entity"],
     "energy": ["oil", "gas", "petrochemical", "refinery", "utility", "power grid", "energy",
-               "scada", "ics"],
-    "education": ["university", "school", "student", "college", "campus", "academic"],
+               "scada", "ics", "control network", "grid operator"],
+    "education": ["university", "school", "student", "college", "campus", "academic", "faculty"],
     # Note: no bare "store" — it matches "object store", "data store" and would
     # file every cloud incident under retail.
     "retail": ["retail", "e-commerce", "ecommerce", "point of sale", "pos terminal",
-               "storefront", "retail chain", "merchant"],
-    "telecom": ["telecom", "operator", "isp", "subscriber", "mobile network"],
-    "technology": ["saas", "software company", "cloud provider", "tech company", "developer"],
-    "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial"],
-    "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse"],
+               "storefront", "retail chain", "merchant", "marketplace", "customer database",
+               "online marketplace"],
+    "telecom": ["telecom", "operator", "isp", "subscriber", "mobile network", "customer portal"],
+    "technology": ["saas", "software company", "cloud provider", "tech company", "developer",
+                   "software vendor", "engineering team", "source code", "repository",
+                   "software provider", "platform provider"],
+    "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial",
+                      "assembly line"],
+    "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse",
+                  "container tracking", "cargo"],
 }
 
 IMPACTS: Dict[str, List[str]] = {
@@ -341,7 +360,71 @@ def extract_dna(sanitized_text: str, ioc_counts: Dict[str, int] | None = None,
     enriched_cves = enrich_cves(dna["cves"])
     dna["cve_details"] = enriched_cves
     dna["kev"] = kev_summary(enriched_cves)
+    dna["iocs"] = extract_iocs(sanitized_text, ioc_counts or {})
+    dna["attribution"] = attribute([t["id"] for t in dna["techniques"]])
     dna["severity"] = _severity(dna, dna["kev"])
     dna["signature"] = build_signature(dna)
     dna["embedding_text"] = embedding_text(dna)
+
+    problems = validate_dna(dna)
+    dna["validation"] = {"valid": not problems, "problems": problems}
     return dna
+
+
+# --------------------------------------------------------------------------
+# Schema validation
+# --------------------------------------------------------------------------
+REQUIRED_FIELDS = {
+    "attack_type": str, "initial_vector": str, "sector": str, "severity": str,
+    "signature": str, "summary": str, "embedding_text": str, "extraction_mode": str,
+    "techniques": list, "tactics": list, "cves": list, "cve_details": list,
+    "impacts": list, "ioc_classes": dict, "kev": dict, "iocs": dict, "attribution": dict,
+}
+
+VALID_SEVERITIES = {"low", "medium", "high", "critical"}
+
+
+def validate_dna(dna: dict) -> List[str]:
+    """Check an extracted DNA against its schema. Returns a list of problems.
+
+    Run on every extraction so a malformed result is visible immediately rather
+    than surfacing three stages later as an empty panel in the UI.
+    """
+    problems: List[str] = []
+
+    for field, expected_type in REQUIRED_FIELDS.items():
+        if field not in dna:
+            problems.append(f"missing field: {field}")
+        elif not isinstance(dna[field], expected_type):
+            problems.append(
+                f"{field} should be {expected_type.__name__}, got {type(dna[field]).__name__}"
+            )
+
+    if dna.get("attack_type") not in set(ATTACK_TYPES) | {"unknown"}:
+        problems.append(f"unknown attack_type: {dna.get('attack_type')}")
+    if dna.get("sector") not in set(SECTORS) | {"unknown"}:
+        problems.append(f"unknown sector: {dna.get('sector')}")
+    if dna.get("severity") not in VALID_SEVERITIES:
+        problems.append(f"invalid severity: {dna.get('severity')}")
+
+    for technique in dna.get("techniques", []):
+        if not isinstance(technique, dict) or "id" not in technique:
+            problems.append(f"malformed technique entry: {technique!r}")
+            continue
+        if not re.fullmatch(r"T\d{4}(?:\.\d{3})?", technique["id"]):
+            problems.append(f"invalid technique id: {technique['id']}")
+        if not technique.get("evidence"):
+            problems.append(f"{technique['id']} has no supporting evidence")
+
+    for impact in dna.get("impacts", []):
+        if impact not in IMPACTS:
+            problems.append(f"unknown impact: {impact}")
+
+    # The privacy invariant: nothing identifying may reach the vector store.
+    embedded = dna.get("embedding_text", "")
+    if "REDACTED" in embedded:
+        problems.append("embedding_text contains redaction tokens")
+    if re.search(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b", embedded):
+        problems.append("embedding_text contains an email address")
+
+    return problems

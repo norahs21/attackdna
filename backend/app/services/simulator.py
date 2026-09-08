@@ -83,6 +83,77 @@ DEFAULT_DETECTION = {
 
 # Decision points are what the exercise is really testing: does the team know
 # who decides, and how fast?
+# What a competent team should DO at each phase — the pass condition for the
+# inject. Separated from the decision prompt on purpose: the prompt tests
+# whether the team knows who decides, this tests whether they know what to do.
+RESPONSE_ACTIONS: Dict[str, List[str]] = {
+    "initial-access": [
+        "Identify every recipient or asset exposed to the same entry vector",
+        "Remove the delivery mechanism across the estate, not just for the reporting user",
+        "Reset credentials for anyone who interacted with it",
+    ],
+    "execution": [
+        "Isolate the executing host while preserving volatile evidence",
+        "Capture the full process tree and parent process before rebuilding",
+        "Sweep for the same execution pattern on other endpoints",
+    ],
+    "persistence": [
+        "Enumerate and remove attacker-created scheduled tasks, services and autoruns",
+        "Verify removal by rebooting and re-checking, not by a single scan",
+    ],
+    "privilege-escalation": [
+        "Treat every account used on the host as compromised",
+        "Escalate to the domain-compromise playbook and notify the identity owner",
+    ],
+    "stealth": [
+        "Re-establish security telemetry on the affected host before further triage",
+        "Treat the silent window as unmonitored and assume activity occurred within it",
+    ],
+    "defense-evasion": [
+        "Re-establish security telemetry on the affected host before further triage",
+        "Treat the silent window as unmonitored and assume activity occurred within it",
+    ],
+    "defense-impairment": [
+        "Restore and re-enable the disabled control, then confirm it reports to the SIEM",
+        "Investigate how the control was disabled and close that path",
+    ],
+    "credential-access": [
+        "Reset credentials for all accounts exposed on the affected host",
+        "Decide on and execute a domain-wide reset if privileged credentials were present",
+        "Invalidate active sessions and tokens, not only passwords",
+    ],
+    "discovery": [
+        "Reconstruct what the attacker learned and treat it as known to them",
+        "Prioritise hardening the assets the enumeration exposed",
+    ],
+    "lateral-movement": [
+        "Map every host reachable from the compromised asset and triage each one",
+        "Block the movement path at the network layer before continuing",
+    ],
+    "collection": [
+        "Identify which data stores the compromised account could reach",
+        "Preserve access logs for the affected repositories",
+    ],
+    "command-and-control": [
+        "Block the destination at the egress point and monitor for fallback channels",
+        "Search historical traffic for earlier contact with the same destination",
+    ],
+    "exfiltration": [
+        "Quantify what left, using proxy and flow records rather than assumption",
+        "Engage legal and privacy owners on notification obligations",
+    ],
+    "impact": [
+        "Declare the incident and activate the business continuity plan",
+        "Begin restore from verified-clean backups and track against the stated RTO",
+        "Preserve encrypted samples and the ransom note for law enforcement",
+    ],
+}
+
+DEFAULT_RESPONSE_ACTIONS = [
+    "Contain the affected asset and preserve evidence",
+    "Determine the blast radius before remediating",
+]
+
 DECISION_PROMPTS: Dict[str, str] = {
     "initial-access": "Who authorises pulling the message from all mailboxes, and how long does that take?",
     "execution": "At what point does the SOC isolate an endpoint without waiting for business approval?",
@@ -214,6 +285,7 @@ def _build_injects(dna: dict) -> List[dict]:
             "decision_point": DECISION_PROMPTS.get(
                 tactic, "What is the next action, and who owns the decision?"
             ),
+            "expected_response_actions": RESPONSE_ACTIONS.get(tactic, DEFAULT_RESPONSE_ACTIONS),
         })
     return injects
 

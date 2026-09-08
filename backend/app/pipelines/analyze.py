@@ -124,6 +124,8 @@ def ingest(
     incident.set_json("cve_details", dna["cve_details"])
     incident.set_json("impacts", dna["impacts"])
     incident.set_json("ioc_classes", dna["ioc_classes"])
+    incident.set_json("iocs", dna.get("iocs", {}))
+    incident.set_json("attribution", dna.get("attribution", {}))
 
     for position, mitigation in enumerate(mitigations or []):
         incident.mitigations.append(MitigationDB(

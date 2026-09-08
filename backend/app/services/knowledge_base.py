@@ -9,7 +9,10 @@ import json
 from functools import lru_cache
 from typing import Dict, List
 
-from app.config import KEV_PATH, TECHNIQUES_PATH
+from app.config import (
+    CAMPAIGNS_PATH, GROUPS_PATH, KEV_PATH, MITIGATIONS_PATH, SOFTWARE_PATH,
+    TECHNIQUES_PATH,
+)
 
 # ATT&CK tactic slugs in kill-chain order, so a technique list can always be
 # rendered as a coherent attack story instead of an unordered bag.
@@ -68,6 +71,61 @@ def load_kev() -> Dict[str, dict]:
         )
     with open(KEV_PATH, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _load_optional(path, label: str, default):
+    """Load a CTI layer, tolerating its absence.
+
+    The CTI files are optional enrichment: if `scripts/process_cti.py` has not
+    been run, the pipeline still works, it just cannot attribute or cite
+    official mitigations. Failing softly keeps the demo alive on a fresh clone.
+    """
+    if not path.exists():
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return default
+
+
+@lru_cache(maxsize=1)
+def load_mitigations() -> Dict[str, dict]:
+    """Official ATT&CK mitigations (M####) keyed by id."""
+    return _load_optional(MITIGATIONS_PATH, "mitigations", {})
+
+
+@lru_cache(maxsize=1)
+def load_groups() -> List[dict]:
+    """Known threat groups (G####) with the techniques attributed to them."""
+    return _load_optional(GROUPS_PATH, "groups", [])
+
+
+@lru_cache(maxsize=1)
+def load_software() -> List[dict]:
+    """Known malware and tools (S####) with the techniques they implement."""
+    return _load_optional(SOFTWARE_PATH, "software", [])
+
+
+@lru_cache(maxsize=1)
+def load_campaigns() -> List[dict]:
+    """Named campaigns (C####), attributed to a group where ATT&CK knows one."""
+    return _load_optional(CAMPAIGNS_PATH, "campaigns", [])
+
+
+@lru_cache(maxsize=1)
+def mitigations_by_technique() -> Dict[str, List[dict]]:
+    """technique id -> the official mitigations that address it."""
+    index: Dict[str, List[dict]] = {}
+    for mitigation in load_mitigations().values():
+        for technique_id in mitigation.get("techniques", []):
+            index.setdefault(technique_id, []).append(mitigation)
+    return index
+
+
+def cti_available() -> bool:
+    """Whether the optional CTI layers have been processed."""
+    return bool(load_mitigations()) and bool(load_groups())
 
 
 def sort_tactics(tactics: List[str]) -> List[str]:

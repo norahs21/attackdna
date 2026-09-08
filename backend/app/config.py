@@ -45,7 +45,14 @@ LLM_ENABLED = bool(LLM_API_KEY) and LLM_API_KEY not in {"your_key_here", "change
 DATA_DIR = PROJECT_ROOT / "data"
 TECHNIQUES_PATH = DATA_DIR / "processed" / "techniques.json"
 KEV_PATH = DATA_DIR / "processed" / "kev_lookup.json"
+# CTI layers, produced by scripts/process_cti.py
+MITIGATIONS_PATH = DATA_DIR / "processed" / "mitigations.json"
+GROUPS_PATH = DATA_DIR / "processed" / "groups.json"
+SOFTWARE_PATH = DATA_DIR / "processed" / "software.json"
+CAMPAIGNS_PATH = DATA_DIR / "processed" / "campaigns.json"
 SEED_INCIDENTS_PATH = DATA_DIR / "seed" / "incidents.json"
+DEMO_SCENARIOS_PATH = DATA_DIR / "seed" / "demo_scenarios.json"
+EVALUATION_SET_PATH = DATA_DIR / "seed" / "evaluation_set.json"
 
 # --- Vector memory ---
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")

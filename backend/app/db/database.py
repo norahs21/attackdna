@@ -62,6 +62,8 @@ class IncidentDB(Base):
     cve_details = Column(Text, default="[]")
     impacts = Column(Text, default="[]")
     ioc_classes = Column(Text, default="{}")
+    iocs = Column(Text, default="{}")
+    attribution = Column(Text, default="{}")
 
     redaction_count = Column(Integer, default=0)
     embedding_text = Column(Text, nullable=True)
@@ -110,6 +112,8 @@ class IncidentDB(Base):
             "cve_details": self.get_json("cve_details", []),
             "impacts": self.get_json("impacts", []),
             "ioc_classes": self.get_json("ioc_classes", {}),
+            "iocs": self.get_json("iocs", {}),
+            "attribution": self.get_json("attribution", {}),
             "redaction_count": self.redaction_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "mitigations": [m.to_dict() for m in self.mitigations],

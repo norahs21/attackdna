@@ -13,6 +13,7 @@ Every match carries the evidence phrase that produced it, so the UI can show
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Dict, List
 
 from app.services.knowledge_base import describe_technique, sort_tactics, technique_index
@@ -29,7 +30,10 @@ ALIASES: Dict[str, List[str]] = {
                   "fake login page", "malicious link", "phishing url"],
     "T1566": ["phishing", "spear phishing", "spearphishing", "phishing email", "phishing campaign"],
     "T1078": ["valid accounts", "compromised account", "stolen credentials", "legitimate credentials",
-              "reused password", "account takeover", "credential stuffing"],
+              "reused password", "account takeover", "credential stuffing",
+              "valid account", "signed in with the valid account", "own valid credentials",
+              "authenticated as the user", "used the stolen credentials",
+              "logged in with the stolen", "harvested credentials"],
     "T1190": ["exploited a vulnerability", "public-facing application", "web application exploit",
               "unpatched server", "internet-facing", "sql injection", "remote code execution"],
     "T1133": ["external remote services", "vpn access", "exposed rdp", "remote desktop exposed"],
@@ -58,11 +62,15 @@ ALIASES: Dict[str, List[str]] = {
     # Credential access
     "T1003": ["credential dumping", "lsass", "mimikatz", "ntds.dit", "sam hive", "hashdump"],
     "T1110": ["brute force", "password spraying", "password guessing", "login attempts"],
-    "T1621": ["mfa fatigue", "push bombing", "mfa bombing", "multi-factor request generation"],
+    "T1621": ["mfa fatigue", "push bombing", "mfa bombing", "multi-factor request generation",
+              "mfa push prompts", "mfa prompts", "push prompts", "until a user approved",
+              "repeatedly sent to one account"],
     "T1552": ["hardcoded credentials", "credentials in file", "plaintext password", "exposed secret",
               "unsecured credentials", "leaked api key"],
     # Discovery
-    "T1087": ["account discovery", "enumerated users", "user enumeration"],
+    "T1087": ["account discovery", "enumerated users", "user enumeration",
+              "enumerated directory accounts", "directory enumeration",
+              "enumerated accounts", "bulk directory enumeration"],
     "T1018": ["network scan", "scanned the network", "remote system discovery", "host discovery"],
     "T1082": ["system information discovery", "fingerprinted the host"],
     "T1046": ["port scan", "network service scanning", "service discovery"],
@@ -72,14 +80,20 @@ ALIASES: Dict[str, List[str]] = {
     "T1021": ["lateral movement", "moved laterally", "pivoted to", "remote services"],
     "T1550": ["pass the hash", "pass the ticket", "token theft", "stolen session cookie"],
     # Collection / C2 / exfiltration
-    "T1005": ["collected data", "staged files", "data from local system"],
+    "T1005": ["collected data", "staged files", "data from local system",
+              "collected proprietary", "collected source code", "gathered files from the host",
+              "copied files locally"],
+    "T1505.003": ["web shell", "webshell", "deployed a web shell"],
     "T1114": ["mailbox access", "email collection", "read mailboxes", "inbox rule"],
     "T1071": ["command and control", "c2 channel", "c2 server", "beacon", "beaconing",
               "application layer protocol"],
     "T1573": ["encrypted channel", "tls c2", "encrypted c2"],
-    "T1567": ["exfiltration to cloud", "uploaded to dropbox", "uploaded to mega", "cloud storage exfil"],
+    "T1567": ["exfiltration to cloud", "uploaded to dropbox", "uploaded to mega", "cloud storage exfil",
+              "exfiltrated to cloud storage", "uploaded to personal cloud storage",
+              "uploaded to cloud storage", "personal cloud storage"],
     "T1041": ["exfiltrated over c2", "data exfiltration", "exfiltrated data", "data theft",
-              "stole data", "data was stolen"],
+              "stole data", "data was stolen", "exfiltrated over an encrypted channel",
+              "records were exfiltrated", "were exfiltrated over"],
     "T1048": ["exfiltration over alternative protocol", "dns tunneling", "ftp exfiltration"],
     # Impact
     "T1486": ["ransomware", "ransom note", "files were encrypted", "encrypted files",
@@ -120,13 +134,30 @@ def _alias_matches(text_lower: str) -> Dict[str, List[str]]:
     return hits
 
 
+@lru_cache(maxsize=1)
+def _alias_phrase_owners() -> Dict[str, str]:
+    """phrase -> the technique the curated table assigns it to."""
+    return {phrase: technique_id
+            for technique_id, phrases in ALIASES.items()
+            for phrase in phrases}
+
+
 def _name_matches(text_lower: str) -> Dict[str, List[str]]:
     """Match official ATT&CK technique names appearing verbatim in the text."""
     hits: Dict[str, List[str]] = {}
+    owners = _alias_phrase_owners()
     for technique_id, record in technique_index().items():
         name = record.get("name", "")
         name_lower = name.lower()
         if len(name) < MIN_NAME_LENGTH or name_lower in NAME_MATCH_STOPLIST:
+            continue
+        # ATT&CK reuses names across tactics: "Spearphishing Link" is both
+        # T1566.002 (initial access) and T1598.003 (reconnaissance). When the
+        # curated alias table has already claimed a phrase for one technique,
+        # that decision wins — otherwise every phishing report also reports a
+        # reconnaissance phase that never happened.
+        owner = owners.get(name_lower)
+        if owner is not None and owner != technique_id:
             continue
         if re.search(rf"(?<![a-z0-9]){re.escape(name_lower)}(?![a-z0-9])", text_lower):
             hits.setdefault(technique_id, []).append(name)

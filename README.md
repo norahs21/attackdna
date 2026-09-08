@@ -24,11 +24,12 @@ actually worked last time.
                               │
                     ② Attack DNA extraction    hybrid rules + LLM
                               ▼
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       MITRE ATT&CK     Vector Memory     CISA KEV
-         709 techniques   ChromaDB        1,695 known-exploited CVEs
-              └───────────────┼───────────────┘
+        ┌─────────────┬───────┼────────┬──────────────┐
+        ▼             ▼       ▼        ▼              ▼
+  MITRE ATT&CK   CISA KEV  Vector   ATT&CK CTI    IoC profile
+  709 techniques  1,695     Memory  44 mitigations  shareable vs.
+                  KEV CVEs  ChromaDB 172 groups     victim-linked
+        └─────────────┴───────┼────────┴──────────────┘
                               ▼
                     ③ Similar Incidents        explainable re-ranking
                               ▼
@@ -42,11 +43,35 @@ actually worked last time.
 ## Quick start
 
 ```bash
-make setup     # virtualenv + dependencies
-make data      # download & process MITRE ATT&CK and CISA KEV
-make seed      # load the historical incident corpus into memory
+make all       # dependencies + knowledge bases + seeded memory
 make demo      # http://localhost:8501
 ```
+
+Or step by step:
+
+```bash
+make setup     # virtualenv + dependencies
+make data      # download & process MITRE ATT&CK, CISA KEV and the CTI layers
+make seed      # load the historical incident corpus into memory
+make demo      # http://localhost:8501
+make eval      # measure accuracy against the labelled evaluation set
+```
+
+### Measured results
+
+`make eval` scores the pipeline against 8 labelled cases written independently
+of the seed corpus. Current rule-based numbers (no API key, no network):
+
+| Metric | Result |
+|---|---|
+| Attack type accuracy | **100%** |
+| Initial vector accuracy | **100%** |
+| Sector accuracy | **100%** |
+| Severity band accuracy | **100%** |
+| ATT&CK mapping precision / recall / F1 | **87% / 86% / 84%** |
+| Memory retrieval precision@1 | **100%** |
+| Privacy verified clean (0 residual leaks) | **100%** |
+| Mean end-to-end latency | **0.40 s** |
 
 No API key is required. Without one the system runs in **rule-based mode**: every
 stage still executes, extraction is deterministic instead of model-assisted. Add a
@@ -102,6 +127,38 @@ Splitting `attack_type` from `initial_vector` matters: phishing that ends in
 ransomware is a **ransomware** incident that *arrived by* phishing. Filing it as
 "phishing" would sit it next to the wrong playbooks.
 
+Every extraction is checked against the DNA schema (`validate_dna`), including
+the privacy invariant that `embedding_text` may never contain a redaction token
+or an email address. A malformed result is visible immediately, not three
+stages later as an empty panel.
+
+### IoC extraction — the tension, resolved
+
+The Privacy Layer removes IPs, domains and mailboxes, which are exactly the
+indicators a SOC normally shares. So indicators are split in two:
+
+- **Shareable** — file hashes, CVEs, ransomware extensions, protocols, ports,
+  registry keys. These identify the *attacker's tooling*, survive sanitization
+  with their values intact, and are safe to circulate between organisations.
+- **Victim-linked** — addresses, domains, mailboxes, hosts, accounts. Removed,
+  but their *shape* is kept: "3 distinct network addresses, 1 mailbox". That is
+  what keeps one compromised account distinguishable from fourteen.
+
+### Threat intelligence — resemblance, not attribution
+
+An incident's technique set is compared against the documented TTPs of 172
+ATT&CK threat groups and 825 malware families and tools, weighted by technique
+specificity (a technique used by 150 groups carries almost no signal; one used
+by three carries a lot).
+
+The output is deliberately conservative. Matches are labelled `weak`,
+`moderate` or `notable` — **never "confirmed"** — and every result carries the
+caveat that technique overlap indicates resemblance to how an actor is
+*documented* to operate, not evidence that they did this. Real attribution
+needs infrastructure and tooling evidence that a sanitized report deliberately
+does not contain. Overstating this would be the easiest way for the system to
+mislead a SOC, so the scoring is built to refuse to.
+
 ### ③ Vector Memory — `backend/app/services/vector_memory.py`
 
 Only DNA-derived text is embedded — never the report — so the vector store is
@@ -136,25 +193,37 @@ semantically, and only structural overlap separates them.
 
 ### ⑤ Mitigation Memory — `backend/app/services/mitigation_memory.py`
 
-Ranks what was actually done before, blending source-incident similarity, the
-effectiveness responders recorded, and how many separate incidents used the action.
-Recalled actions cite the incident they came from. Where memory has no coverage for
-an observed technique, ATT&CK-aligned baseline controls fill the gap and are clearly
-labelled `suggested` — recalled and generated advice never blur.
+Recommendations come from three clearly-separated origins, and the label is
+never dropped, because a defender needs to know how much weight to give each:
+
+| Origin | Meaning |
+|---|---|
+| `recalled` | What **this organisation** actually did before, cited back to the incident |
+| `framework` | An official **MITRE ATT&CK mitigation** (M####) for an observed technique |
+| `suggested` | A concrete baseline control filling a gap neither covers |
+
+Recalled actions are ranked by source-incident similarity, the effectiveness
+responders recorded, and how many separate incidents used the action.
 
 ```
 Contain
   [recalled · used in 5 past incidents · avg effectiveness 92%]  Isolate affected endpoints immediately
   [recalled · used in 2 past incidents · avg effectiveness 95%]  Disable the compromised account and revoke sessions
   [baseline control]                                             Alert on service creation over SMB from non-admin hosts
+
+Official MITRE ATT&CK mitigations
+  M1018  User Account Management         covers 4: T1021, T1078, T1490, T1566.002
+  M1017  User Training                   covers 3: T1003, T1078, T1566.002
+  M1026  Privileged Account Management   covers 3: T1003, T1059.001, T1078
 ```
 
 ### ⑥ Safe Simulation — `backend/app/services/simulator.py`
 
 Produces a **defensive tabletop exercise**: injects the SOC is told about, the
-detection that should fire, its telemetry source, and the decision the team must
-make. It contains no payloads, commands, exploit code, phishing copy or attacker
-infrastructure — and `tests/test_pipeline.py` asserts that.
+detection that should fire, its telemetry source, the decision the team must
+make, and the response actions a competent team should take. It contains no
+payloads, commands, exploit code, phishing copy or attacker infrastructure —
+and `tests/test_pipeline.py` asserts that.
 
 This is not a limitation bolted on afterwards. A tabletop tests whether detection
 and response actually work, which is the question a SOC has. Generating a working
@@ -205,23 +274,31 @@ backend/app/
   models/schemas.py            request/response contracts
   services/
     sanitizer.py               ① Privacy Layer
-    knowledge_base.py          MITRE ATT&CK + CISA KEV loaders
+    knowledge_base.py          ATT&CK, KEV and CTI loaders
     mitre_mapper.py            behaviour → ATT&CK, with evidence
     kev_enricher.py            CVE → known-exploited status
-    dna_extractor.py           ② Attack DNA
+    ioc_extractor.py           shareable vs. victim-linked indicators
+    attribution.py             behavioural resemblance to known actors
+    dna_extractor.py           ② Attack DNA + schema validation
     llm_client.py              optional Claude wrapper, fails soft
     vector_memory.py           ③ Vector Memory (3-tier backend)
     similarity.py              ④ explainable re-ranking
-    mitigation_memory.py       ⑤ what worked before
+    mitigation_memory.py       ⑤ recalled + framework + baseline actions
     simulator.py               ⑥ safe tabletop generation
   pipelines/analyze.py         analyze() / ingest() / reindex_memory()
   routes/                      FastAPI endpoints
 frontend/app.py                Streamlit demo — the full six-step journey
-scripts/                       data download/processing + memory seeding
+scripts/
+  download_*.py, process_*.py  knowledge-base preparation
+  process_cti.py               ATT&CK mitigations, groups, software, campaigns
+  seed_memory.py               load the historical corpus
+  evaluate.py                  accuracy measurement
 data/
-  processed/                   ATT&CK techniques + KEV lookup (committed)
-  seed/incidents.json          synthetic historical corpus
-tests/                         62 tests
+  processed/                   ATT&CK, KEV and CTI layers (committed)
+  seed/incidents.json          synthetic historical corpus (14 incidents)
+  seed/evaluation_set.json     labelled cases for accuracy measurement
+  seed/demo_scenarios.json     prepared demo scenarios with presenter notes
+tests/                         93 tests
 ```
 
 ---
@@ -229,12 +306,25 @@ tests/                         62 tests
 ## Testing
 
 ```bash
-make test
+make test     # 93 tests
+make eval     # accuracy measurement against labelled cases
 ```
 
-62 tests covering redaction correctness, fingerprint preservation, ATT&CK mapping
-precision, DNA classification, memory recall and ranking, the API contract, and the
-simulation safety boundary.
+The suite covers redaction correctness, fingerprint preservation, ATT&CK mapping
+precision, DNA classification and schema validation, IoC separation, CTI
+attribution conservatism, memory recall and ranking, the API contract, the
+simulation safety boundary, and demo readiness.
+
+Demo-readiness tests are worth calling out — they answer *"will this hold up on
+stage?"*:
+
+- **Offline operation.** Every outbound socket is blocked and the full pipeline
+  must still complete. If any stage quietly depends on the network, this fails.
+- **Determinism.** The same report analysed repeatedly must produce an identical
+  signature, severity and technique list.
+- **Performance.** Every prepared scenario must finish within a 5-second budget
+  (current mean: 0.40 s).
+- **Scenario hygiene.** No prepared demo scenario may leak an identifier.
 
 ---
 
@@ -243,6 +333,13 @@ simulation safety boundary.
 - **MITRE ATT&CK** and **CISA KEV** are refreshed with `make data`. Current ATT&CK
   releases split the old `defense-evasion` tactic into `stealth` and
   `defense-impairment`; both spellings are handled.
+- The **CTI layers** (`scripts/process_cti.py`) are optional enrichment. Without
+  them the pipeline still runs — it just cannot attribute or cite official
+  mitigations — so a fresh clone never breaks.
+- **No model training is involved anywhere.** The rule layers are curated
+  vocabularies, the embeddings come from a pre-trained MiniLM, and the optional
+  LLM is used through its API. There is nothing to fine-tune, and no training
+  data to collect.
 - `data/seed/incidents.json` is **entirely synthetic**. Every organisation, person
   and identifier is invented. The reports are stored un-sanitized on purpose:
   seeding runs them through the real Privacy Layer, so the seeded corpus is proof

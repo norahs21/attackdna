@@ -19,11 +19,13 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from app.config import LLM_MODEL  # noqa: E402
+from app.config import DEMO_SCENARIOS_PATH, LLM_MODEL  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402
 from app.pipelines.analyze import analyze, ingest  # noqa: E402
 from app.services import llm_client, vector_memory  # noqa: E402
-from app.services.knowledge_base import TACTIC_LABELS, load_kev, load_techniques  # noqa: E402
+from app.services.knowledge_base import (  # noqa: E402
+    TACTIC_LABELS, cti_available, load_groups, load_kev, load_mitigations, load_techniques,
+)
 
 API_URL = os.getenv("ATTACKDNA_API_URL", "").rstrip("/")
 
@@ -56,21 +58,6 @@ STYLE = """
 """
 st.markdown(STYLE, unsafe_allow_html=True)
 
-SAMPLE_REPORT = """On 12 February 2026 the SOC at Falcon National Bank detected ransomware on \
-WKSTN-FIN-204 in the finance department.
-
-Initial access came from a spearphishing link emailed to sara.nasser@falconbank.com.sa from \
-billing@secure-invoice-portal.top. The user clicked the link and entered credentials on a fake login page.
-
-The attacker signed in with the valid account from 91.240.118.22, ran encoded PowerShell, and disabled \
-the EDR agent on the host. They moved laterally over SMB shares to FS-CORP-02, deleted shadow copies, \
-and files were encrypted across two file servers. Approximately 40 GB of customer data was exfiltrated \
-to cloud storage before encryption began. C2 beaconing was observed to 45.83.192.17.
-
-The vulnerability CVE-2024-21412 was exploited on an unpatched host during lateral movement. \
-Operations were disrupted for 14 hours. Reported by CISO Ahmed Alrashid, +966 55 123 4567."""
-
-
 # --------------------------------------------------------------------------
 # Backend access
 # --------------------------------------------------------------------------
@@ -78,6 +65,20 @@ Operations were disrupted for 14 hours. Reported by CISO Ahmed Alrashid, +966 55
 def bootstrap():
     init_db()
     return True
+
+
+@st.cache_data
+def load_scenarios() -> list:
+    """Prepared demo scenarios, each exercising a different part of the pipeline."""
+    import json
+
+    if not DEMO_SCENARIOS_PATH.exists():
+        return []
+    try:
+        with open(DEMO_SCENARIOS_PATH, "r", encoding="utf-8") as handle:
+            return json.load(handle)["scenarios"]
+    except (json.JSONDecodeError, OSError, KeyError):
+        return []
 
 
 def run_pipeline(text: str, top_k: int, use_llm: bool, persist: bool, title: str | None):
@@ -135,6 +136,8 @@ with st.sidebar:
     persist = st.toggle("Commit to memory", value=False,
                         help="Store this incident so future incidents can learn from it. "
                              "Only the sanitized text and its DNA are kept.")
+    demo_mode = st.toggle("Demo mode", value=True,
+                          help="Show presenter notes on what to point at in each scenario.")
 
     st.divider()
     st.markdown("### 🧠 Memory")
@@ -147,6 +150,12 @@ with st.sidebar:
         st.caption(f"CISA KEV entries: **{len(load_kev()):,}**")
     except FileNotFoundError:
         st.error("Knowledge base missing. Run the download and process scripts.")
+
+    if cti_available():
+        st.caption(f"ATT&CK mitigations: **{len(load_mitigations())}**")
+        st.caption(f"Threat groups: **{len(load_groups())}**")
+    else:
+        st.caption("CTI layers not loaded — run `python scripts/process_cti.py`")
 
     if API_URL:
         st.caption(f"API mode: `{API_URL}`")
@@ -162,21 +171,41 @@ st.markdown(
 )
 
 st.markdown('<div class="step-head">① Upload</div>', unsafe_allow_html=True)
-st.markdown("Paste an incident report, or upload one. Names, IPs, emails and company "
-            "information can be left in — removing them is the system's first job.")
+st.markdown("Paste an incident report, upload one, or pick a prepared scenario. Names, IPs, "
+            "emails and company information can be left in — removing them is the system's first job.")
+
+scenarios = load_scenarios()
+scenario = None
+if scenarios:
+    labels = [s["label"] for s in scenarios]
+    chosen = st.selectbox("Prepared scenario", labels, index=0,
+                          help="Each scenario exercises a different part of the pipeline.")
+    scenario = next(s for s in scenarios if s["label"] == chosen)
 
 uploaded = st.file_uploader("Incident report", type=["txt", "md", "log"],
                             label_visibility="collapsed")
-default_text = uploaded.read().decode("utf-8", errors="replace") if uploaded else SAMPLE_REPORT
+
+if uploaded:
+    default_text = uploaded.read().decode("utf-8", errors="replace")
+elif scenario:
+    default_text = scenario["text"]
+else:
+    default_text = ""
+
+if scenario and demo_mode and not uploaded:
+    st.info(f"**{scenario['highlight']}**")
+    with st.expander("Presenter notes — what to point at"):
+        for note in scenario["watch_for"]:
+            st.markdown(f"- {note}")
 
 report = st.text_area("Incident report", value=default_text, height=260,
-                      label_visibility="collapsed")
+                      label_visibility="collapsed", key=f"report_{scenario['id'] if scenario else 'blank'}")
 
 run = st.button("Analyze incident", type="primary", width="stretch")
 
 if not run:
-    st.info("The report above is a synthetic sample. Press **Analyze incident** to run "
-            "all six stages of the pipeline.")
+    st.info("Every scenario is synthetic — invented organisations, people and identifiers. "
+            "Press **Analyze incident** to run all six stages of the pipeline.")
     st.stop()
 
 if len(report.strip()) < 20:
@@ -289,6 +318,81 @@ with ctx_col:
     else:
         st.caption("No CVEs referenced in this report.")
 
+# --- Indicators of Compromise ---
+iocs = dna.get("iocs", {})
+if iocs:
+    st.markdown("**Indicators of Compromise**")
+    ioc_left, ioc_right = st.columns(2)
+    with ioc_left:
+        st.markdown(f"*Shareable* — {iocs['shareable_count']} indicator(s) that identify "
+                    "the attacker's tooling and survive sanitization:")
+        shareable = iocs["shareable"]
+        if shareable["hashes"]:
+            for entry in shareable["hashes"]:
+                st.code(f"{entry['type']}: {entry['value']}", language=None)
+        for label, key in [("CVEs", "cves"), ("File artefacts", "file_extensions"),
+                           ("Protocols", "protocols"), ("Registry keys", "registry_keys")]:
+            if shareable[key]:
+                st.markdown(f"- **{label}:** {', '.join(str(v) for v in shareable[key])}")
+        if shareable["ports"]:
+            st.markdown(f"- **Ports:** {', '.join(str(p) for p in shareable['ports'])}")
+        if not iocs["shareable_count"]:
+            st.caption("None identified.")
+    with ioc_right:
+        st.markdown(f"*Victim-linked* — {iocs['redacted_count']} indicator(s) removed, "
+                    "counts retained:")
+        if iocs["redacted_indicators"]:
+            for entry in iocs["redacted_indicators"]:
+                st.markdown(f"- {entry['distinct_count']} distinct **{entry['label']}**")
+        else:
+            st.caption("None found.")
+        st.caption(iocs["note"])
+
+# --- CTI attribution ---
+attribution = dna.get("attribution", {})
+if attribution.get("available") and (attribution["groups"] or attribution["software"]):
+    st.markdown("**Threat intelligence — behavioural resemblance**")
+    st.caption(attribution["caveat"])
+
+    attr_left, attr_right = st.columns(2)
+    with attr_left:
+        st.markdown("*Threat groups*")
+        if attribution["groups"]:
+            st.dataframe(
+                [{
+                    "Group": f"{g['id']} {g['name']}",
+                    "Overlap": f"{g['coverage']:.0%}",
+                    "Shared": g["shared_count"],
+                    "Confidence": g["confidence"],
+                } for g in attribution["groups"]],
+                width="stretch", hide_index=True,
+            )
+        else:
+            st.caption("No group above the reporting threshold.")
+    with attr_right:
+        st.markdown("*Malware / tooling*")
+        if attribution["software"]:
+            st.dataframe(
+                [{
+                    "Software": f"{s['id']} {s['name']}",
+                    "Overlap": f"{s['coverage']:.0%}",
+                    "Shared": s["shared_count"],
+                    "Confidence": s["confidence"],
+                } for s in attribution["software"]],
+                width="stretch", hide_index=True,
+            )
+        else:
+            st.caption("No software above the reporting threshold.")
+
+    if attribution["campaigns"]:
+        st.caption("Related documented campaigns: " + ", ".join(
+            f"{c['name']} ({c['attributed_to_name']})" for c in attribution["campaigns"][:3]
+        ))
+
+validation = dna.get("validation", {})
+if validation and not validation.get("valid", True):
+    st.warning(f"DNA schema validation reported: {', '.join(validation['problems'])}")
+
 # --------------------------------------------------------------------------
 # ④ Memory Search
 # --------------------------------------------------------------------------
@@ -364,6 +468,22 @@ for group in mitigations["by_phase"]:
             )
             st.caption(f"Source: {names}")
 
+framework = mitigations.get("framework_mitigations", [])
+if framework:
+    st.markdown("#### Official MITRE ATT&CK mitigations")
+    st.caption("Authoritative framework controls for the techniques observed, ranked by how "
+               "much of this attack chain each one covers. Generic to every organisation — "
+               "the recalled actions above are specific to yours.")
+    st.dataframe(
+        [{
+            "ID": m["id"],
+            "Mitigation": m["name"],
+            "Covers": m["coverage_count"],
+            "Techniques": ", ".join(m["covers_techniques"]),
+        } for m in framework],
+        width="stretch", hide_index=True,
+    )
+
 # --------------------------------------------------------------------------
 # ⑥ Simulate
 # --------------------------------------------------------------------------
@@ -397,6 +517,9 @@ if simulation:
             st.markdown(f"**Expected detection:** {inject['expected_detection']}  \n"
                         f"*Source: {inject['detection_source']}*")
             st.markdown(f"**Decision point:** {inject['decision_point']}")
+            st.markdown("**Expected response actions:**")
+            for step in inject.get("expected_response_actions", []):
+                st.markdown(f"- {step}")
 
     st.markdown("### Success criteria")
     for criterion in simulation["success_criteria"]:

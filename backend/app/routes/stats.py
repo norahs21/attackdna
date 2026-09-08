@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 from app.config import LLM_MODEL
 from app.db.database import IncidentDB, get_session
 from app.services import llm_client, vector_memory
-from app.services.knowledge_base import load_kev, load_techniques
+from app.services.knowledge_base import (
+    cti_available, load_campaigns, load_groups, load_kev, load_mitigations,
+    load_software, load_techniques,
+)
 
 router = APIRouter(tags=["stats"])
 
@@ -27,7 +30,15 @@ def stats(session: Session = Depends(get_session)):
         cve_counter.update(incident.get_json("cves", []))
 
     try:
-        kb = {"techniques": len(load_techniques()), "known_exploited_cves": len(load_kev())}
+        kb = {
+            "techniques": len(load_techniques()),
+            "known_exploited_cves": len(load_kev()),
+            "attack_mitigations": len(load_mitigations()),
+            "threat_groups": len(load_groups()),
+            "software": len(load_software()),
+            "campaigns": len(load_campaigns()),
+            "cti_available": cti_available(),
+        }
     except FileNotFoundError as exc:
         kb = {"error": str(exc)}
 
