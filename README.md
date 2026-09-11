@@ -78,7 +78,7 @@ of the seed corpus. Current rule-based numbers (no API key, no network):
 | Initial vector accuracy | **100%** |
 | Sector accuracy | **100%** |
 | Severity band accuracy | **100%** |
-| ATT&CK mapping precision / recall / F1 | **87% / 86% / 84%** |
+| ATT&CK mapping precision / recall / F1 | **87% / 88% / 86%** |
 | Memory retrieval precision@1 | **100%** |
 | Privacy verified clean (0 residual leaks) | **100%** |
 | Mean end-to-end latency | **0.40 s** |
@@ -305,10 +305,11 @@ scripts/
   evaluate.py                  accuracy measurement
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
-  seed/incidents.json          synthetic historical corpus (14 incidents)
+  seed/public_incidents.json   10 real publicly-documented breaches, cited
+  seed/incidents.json          14 synthetic incidents for sector breadth
   seed/evaluation_set.json     labelled cases for accuracy measurement
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         93 tests
+tests/                         119 tests
 ```
 
 ---
@@ -316,7 +317,7 @@ tests/                         93 tests
 ## Testing
 
 ```bash
-make test     # 93 tests
+make test     # 119 tests
 make eval     # accuracy measurement against labelled cases
 ```
 
@@ -350,7 +351,17 @@ stage?"*:
   vocabularies, the embeddings come from a pre-trained MiniLM, and the optional
   LLM is used through its API. There is nothing to fine-tune, and no training
   data to collect.
-- `data/seed/incidents.json` is **entirely synthetic**. Every organisation, person
-  and identifier is invented. The reports are stored un-sanitized on purpose:
-  seeding runs them through the real Privacy Layer, so the seeded corpus is proof
-  the pipeline works rather than a hand-cleaned shortcut.
+- The corpus has **two provenances**, and the UI never shows a recalled action
+  without saying which:
+  - `data/seed/public_incidents.json` — **10 real, publicly documented breaches**
+    (Norsk Hydro, Colonial Pipeline, Change Healthcare, MOVEit, NotPetya, Equifax,
+    Target, SolarWinds, Kaseya, Uber), compiled from public reporting with the
+    source URL on every entry. These answer the first question anyone asks of a
+    memory system: where does the memory come from?
+  - `data/seed/incidents.json` — **14 synthetic incidents** covering sectors the
+    public set does not. Every organisation, person and identifier is invented.
+- Reports of both kinds are stored un-sanitized on purpose: seeding runs them
+  through the real Privacy Layer, so the seeded corpus is proof the pipeline works
+  rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the
+  victim has already disclosed, the name is public record, and keeping it is what
+  makes the memory auditable.

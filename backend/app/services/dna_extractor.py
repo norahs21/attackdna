@@ -43,7 +43,10 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                     ("records were stolen", 5), ("customer data", 3), ("data leak", 4),
                     ("data was stolen", 4), ("records were exfiltrated", 5),
                     ("customer records", 3), ("disclosed a data breach", 5),
-                    ("notification obligations", 3), ("data theft", 4)],
+                    ("notification obligations", 3), ("data theft", 4),
+                    ("records were compromised", 5), ("payment card record", 5),
+                    ("were exposed", 4), ("published stolen data", 5),
+                    ("leak site", 3), ("stole around", 3)],
     "web_exploitation": [("sql injection", 5), ("web shell", 5), ("public-facing application", 4),
                          ("remote code execution", 4), ("rce", 3), ("unpatched server", 3),
                          ("web application", 2)],
@@ -93,23 +96,32 @@ SECTORS: Dict[str, List[str]] = {
     "finance": ["bank", "banking", "financial", "fintech", "insurance", "payment", "sama",
                 "trading", "brokerage", "finance department", "finance team", "finance officer",
                 "accounting", "accounts payable", "treasury", "wire transfer", "client records",
-                "investment"],
+                "investment", "credit bureau"],
     "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi",
-                   "clinical", "health regulator", "care provider"],
+                   "clinical", "health regulator", "care provider",
+                   "protected health information", "prescription", "healthcare claims",
+                   "healthcare payments"],
     "government": ["ministry", "government", "public sector", "municipal", "federal", "agency",
                    "civil service", "state entity"],
     "energy": ["oil", "gas", "petrochemical", "refinery", "utility", "power grid", "energy",
-               "scada", "ics", "control network", "grid operator"],
+               "scada", "ics", "control network", "grid operator", "pipeline",
+               "pipeline operator", "fuel"],
     "education": ["university", "school", "student", "college", "campus", "academic", "faculty"],
     # Note: no bare "store" — it matches "object store", "data store" and would
     # file every cloud incident under retail.
+    # "marketplace" alone is dropped: "credential marketplace" is where stolen
+    # logins are sold, not a retailer.
     "retail": ["retail", "e-commerce", "ecommerce", "point of sale", "pos terminal",
-               "storefront", "retail chain", "merchant", "marketplace", "customer database",
-               "online marketplace"],
-    "telecom": ["telecom", "operator", "isp", "subscriber", "mobile network", "customer portal"],
+               "storefront", "retail chain", "merchant", "customer database",
+               "online marketplace", "retailer"],
+    # "operator" alone is dropped: pipeline, grid and plant operators are not telecoms.
+    "telecom": ["telecom", "isp", "subscriber", "mobile network", "customer portal",
+                "mobile operator", "network operator"],
     "technology": ["saas", "software company", "cloud provider", "tech company", "developer",
                    "software vendor", "engineering team", "source code", "repository",
-                   "software provider", "platform provider"],
+                   "software provider", "platform provider", "managed service provider",
+                   "software product", "management platform", "build environment",
+                   "software supplier", "technology company"],
     "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial",
                       "assembly line"],
     "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse",
@@ -121,10 +133,15 @@ IMPACTS: Dict[str, List[str]] = {
     "data_exfiltrated": ["exfiltrated", "data theft", "stolen data", "uploaded to", "data leak"],
     "service_disruption": ["outage", "downtime", "unavailable", "disrupted", "offline",
                            "operations halted", "service disruption"],
-    "financial_loss": ["financial loss", "fraudulent transfer", "funds", "sar ", "usd ",
-                       "ransom paid", "monetary"],
+    # Currency codes carry no trailing space: whole-word matching handles the
+    # separator, and a trailing space would make the term unmatchable.
+    "financial_loss": ["financial loss", "fraudulent transfer", "funds", "sar", "usd",
+                       "ransom paid", "monetary", "financial impact", "paid a ransom",
+                       "cost of around", "estimated cost"],
     "credential_compromise": ["credentials were compromised", "password reset", "account compromised",
-                              "credential dumping", "stolen credentials"],
+                              "credential dumping", "stolen credentials", "stolen password",
+                              "compromised password", "corporate password", "obtained a password",
+                              "credentials were stolen"],
     "regulatory_exposure": ["regulator", "notification obligation", "gdpr", "pdpl", "compliance breach",
                             "reportable"],
 }
@@ -155,13 +172,23 @@ Summarise the attack's behaviour for defensive reuse. Output ONLY a JSON object:
 Only include technique_ids you can justify from the text."""
 
 
+def _term_matches(term: str, text_lower: str) -> bool:
+    """Whole-word match that tolerates a simple plural.
+
+    Boundaries stop "isp" firing inside "dispute"; the optional plural stops the
+    boundaries from rejecting "plants" for the term "plant". Both failures were
+    found by running real published breach reports through the extractor, and
+    each silently mis-filed incidents.
+    """
+    return bool(re.search(
+        rf"(?<![a-z0-9]){re.escape(term)}(?:e?s)?(?![a-z0-9])", text_lower
+    ))
+
+
 def _score_category(text_lower: str, vocab: Dict[str, List[tuple]]) -> Dict[str, int]:
     scores: Dict[str, int] = {}
     for label, terms in vocab.items():
-        total = 0
-        for term, weight in terms:
-            if re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", text_lower):
-                total += weight
+        total = sum(weight for term, weight in terms if _term_matches(term, text_lower))
         if total:
             scores[label] = total
     return scores
@@ -199,9 +226,16 @@ def _classify_attack(type_scores: Dict[str, int], text_lower: str) -> tuple:
 
 
 def _match_keywords(text_lower: str, vocab: Dict[str, List[str]]) -> Dict[str, int]:
+    """Count distinct vocabulary terms present, matching on word boundaries.
+
+    Boundaries are not optional here. Plain substring matching makes "isp" fire
+    on "dispute" and "ics" on "logistics", which silently files incidents under
+    the wrong sector — a bug found by running real public breach reports through
+    the extractor.
+    """
     scores: Dict[str, int] = {}
     for label, terms in vocab.items():
-        hits = sum(1 for term in terms if term in text_lower)
+        hits = sum(1 for term in terms if _term_matches(term, text_lower))
         if hits:
             scores[label] = hits
     return scores

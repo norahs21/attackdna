@@ -41,6 +41,15 @@ class IncidentDB(Base):
     source = Column(String, nullable=True, default="upload")
     occurred_at = Column(DateTime, nullable=True)
 
+    # Provenance. An analyst weighing a recalled action needs to know whether it
+    # came from their own organisation, from a publicly documented breach, or
+    # from synthetic training data — so the corpus records which, and the UI
+    # never shows a recalled action without it.
+    provenance = Column(String, nullable=True, default="internal", index=True)
+    source_name = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    why_it_matters = Column(Text, nullable=True)
+
     # Opt-in only — see the module docstring.
     raw_text = Column(Text, nullable=True)
     sanitized_text = Column(Text, nullable=False)
@@ -96,6 +105,10 @@ class IncidentDB(Base):
             "id": self.id,
             "title": self.title,
             "source": self.source,
+            "provenance": self.provenance,
+            "source_name": self.source_name,
+            "source_url": self.source_url,
+            "why_it_matters": self.why_it_matters,
             "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None,
             "sanitized_text": self.sanitized_text,
             "attack_type": self.attack_type,

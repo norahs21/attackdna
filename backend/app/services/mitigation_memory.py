@@ -125,6 +125,8 @@ def recall_mitigations(similar_incidents: List[dict], observed_technique_ids: Li
                 "incident_id": incident.get("incident_id"),
                 "title": incident.get("title"),
                 "similarity": weight,
+                "provenance": incident.get("provenance", "internal"),
+                "source_url": incident.get("source_url"),
             })
 
     recalled = []

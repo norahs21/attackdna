@@ -142,6 +142,10 @@ def find_similar_incidents(
         results.append({
             "incident_id": incident.id,
             "title": incident.title,
+            "provenance": incident.provenance,
+            "source_name": incident.source_name,
+            "source_url": incident.source_url,
+            "why_it_matters": incident.why_it_matters,
             "occurred_at": incident.occurred_at.isoformat() if incident.occurred_at else None,
             "similarity": round(combined, 4),
             "semantic_similarity": round(semantic, 4),

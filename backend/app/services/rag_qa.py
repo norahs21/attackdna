@@ -181,6 +181,9 @@ def _sources(retrieved: List[Dict]) -> List[Dict]:
                             if entry["incident"].occurred_at else None),
             "similarity": entry["similarity"],
             "summary": entry["incident"].summary,
+            "provenance": entry["incident"].provenance,
+            "source_name": entry["incident"].source_name,
+            "source_url": entry["incident"].source_url,
         }
         for entry in retrieved
     ]

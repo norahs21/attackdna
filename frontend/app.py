@@ -52,6 +52,8 @@ STYLE = """
   .pill-low      { background: rgba(34,197,94,.16);  color: #4ade80; border-color: rgba(34,197,94,.4); }
   .pill-recalled { background: rgba(79,140,255,.16); color: #7aa8ff; border-color: rgba(79,140,255,.4); }
   .pill-baseline { background: rgba(127,127,127,.14); color: #9aa4b2; }
+  .pill-public   { background: rgba(16,185,129,.16); color: #34d399; border-color: rgba(16,185,129,.45); }
+  .pill-synthetic{ background: rgba(168,85,247,.14); color: #c084fc; border-color: rgba(168,85,247,.4); }
   .redact { color: #f87171; font-weight: 600; }
   .step-head { font-size: .78rem; letter-spacing: .12em; color: #6b7280; text-transform: uppercase; }
 </style>
@@ -65,6 +67,21 @@ st.markdown(STYLE, unsafe_allow_html=True)
 def bootstrap():
     init_db()
     return True
+
+
+def corpus_provenance() -> dict:
+    """How many incidents in memory come from each kind of source."""
+    from sqlalchemy import func
+
+    from app.db.database import IncidentDB
+
+    session = SessionLocal()
+    try:
+        rows = (session.query(IncidentDB.provenance, func.count(IncidentDB.id))
+                .group_by(IncidentDB.provenance).all())
+        return {(provenance or "internal"): count for provenance, count in rows}
+    finally:
+        session.close()
 
 
 @st.cache_data
@@ -106,6 +123,21 @@ def run_pipeline(text: str, top_k: int, use_llm: bool, persist: bool, title: str
 
 def severity_pill(severity: str) -> str:
     return f'<span class="pill pill-{severity}">{severity.upper()}</span>'
+
+
+def provenance_pill(provenance: str) -> str:
+    """Where an incident came from — never shown without it.
+
+    An analyst weighing a recalled action needs to know whether it is drawn
+    from a real documented breach or from synthetic training data.
+    """
+    labels = {
+        "public": ("pill-public", "REAL · PUBLICLY DOCUMENTED"),
+        "synthetic": ("pill-synthetic", "SYNTHETIC"),
+        "internal": ("pill-recalled", "INTERNAL"),
+    }
+    css, label = labels.get(provenance or "internal", ("pill-baseline", "UNKNOWN"))
+    return f'<span class="pill {css}">{label}</span>'
 
 
 def highlight_redactions(text: str) -> str:
@@ -152,6 +184,16 @@ with st.sidebar:
     st.markdown("### 🧠 Memory")
     memory = vector_memory.memory_stats()
     st.metric("Incidents in memory", memory["incidents_in_memory"])
+
+    # Provenance is the answer to "where does the memory come from?", so it is
+    # on screen permanently rather than buried in a data file.
+    counts = corpus_provenance()
+    if counts.get("public"):
+        st.caption(f"🟢 **{counts['public']}** real, publicly documented breaches")
+    if counts.get("synthetic"):
+        st.caption(f"🟣 **{counts['synthetic']}** synthetic incidents")
+    if counts.get("internal"):
+        st.caption(f"🔵 **{counts['internal']}** your own incidents")
     st.caption(f"Backend: `{memory['backend']}`")
 
     try:
@@ -243,12 +285,15 @@ if mode == "Ask the memory":
             with st.expander(
                 f"{source['similarity']:.0%} — {source['title']} · {cited}"
             ):
+                st.markdown(provenance_pill(source.get("provenance")), unsafe_allow_html=True)
                 st.markdown(
                     f"**Type:** {source['attack_type']} · **Sector:** {source['sector']} · "
                     f"**Severity:** {source['severity']} · "
                     f"**Date:** {source['occurred_at'] or 'undated'}"
                 )
                 st.write(source["summary"])
+                if source.get("source_url"):
+                    st.caption(f"Source: [{source.get('source_name')}]({source['source_url']})")
                 st.caption(f"`{source['incident_id']}`")
     else:
         st.caption("Nothing in memory matched closely enough to cite.")
@@ -511,6 +556,12 @@ else:
             score_cols[2].metric("Structural", f"{match['structural_similarity']:.0%}",
                                  help="Shared techniques, tactics, attack type, sector and CVEs")
 
+            st.markdown(provenance_pill(match.get("provenance")), unsafe_allow_html=True)
+            if match.get("source_url"):
+                st.caption(f"Source: [{match.get('source_name')}]({match['source_url']})")
+            if match.get("why_it_matters"):
+                st.info(match["why_it_matters"])
+
             st.markdown("**Why this matched**")
             for reason in match["match_reasons"]:
                 st.markdown(f"- {reason}")
@@ -559,7 +610,9 @@ for group in mitigations["by_phase"]:
         )
         if action["sources"]:
             names = ", ".join(
-                f"{s['title']} ({s['similarity']:.0%})" for s in action["sources"][:3]
+                f"{s['title']} ({s['similarity']:.0%})"
+                + (" ⬤" if s.get("provenance") == "public" else "")
+                for s in action["sources"][:3]
             )
             st.caption(f"Source: {names}")
 
