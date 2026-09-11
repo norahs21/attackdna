@@ -37,7 +37,7 @@ DATABASE_URL = _resolve_database_url(
 
 # --- LLM ---
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
-LLM_MODEL = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-5")
 # A placeholder key must never be treated as usable.
 LLM_ENABLED = bool(LLM_API_KEY) and LLM_API_KEY not in {"your_key_here", "changeme"}
 

@@ -22,7 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 from app.config import DEMO_SCENARIOS_PATH, LLM_MODEL  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402
 from app.pipelines.analyze import analyze, ingest  # noqa: E402
-from app.services import llm_client, vector_memory  # noqa: E402
+from app.services import llm_client, rag_qa, vector_memory  # noqa: E402
 from app.services.knowledge_base import (  # noqa: E402
     TACTIC_LABELS, cti_available, load_groups, load_kev, load_mitigations, load_techniques,
 )
@@ -123,6 +123,15 @@ def highlight_redactions(text: str) -> str:
 bootstrap()
 
 with st.sidebar:
+    st.markdown("### 🧭 Mode")
+    mode = st.radio(
+        "Mode", ["Analyze an incident", "Ask the memory"],
+        label_visibility="collapsed",
+        help="Analyze runs the six-stage pipeline on a report. "
+             "Ask queries the incidents already in memory.",
+    )
+
+    st.divider()
     st.markdown("### ⚙️ Configuration")
     use_llm = st.toggle("Use LLM enrichment", value=llm_client.is_available(),
                         disabled=not llm_client.is_available())
@@ -170,6 +179,92 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --------------------------------------------------------------------------
+# Ask the memory — retrieval-augmented Q&A over the corpus
+# --------------------------------------------------------------------------
+if mode == "Ask the memory":
+    st.markdown('<div class="step-head">Ask the memory</div>', unsafe_allow_html=True)
+    st.subheader("Question the incidents you already have")
+    st.markdown(
+        "Retrieval-augmented answers built **only** from incidents in memory. "
+        "Every citation is checked against what was actually retrieved, so a source "
+        "the model invents never reaches you."
+    )
+
+    suggestions = rag_qa.suggested_questions()
+    picked = st.selectbox("Example questions", ["— write my own —"] + suggestions, index=1)
+    default_question = "" if picked.startswith("—") else picked
+
+    question = st.text_input(
+        "Your question", value=default_question,
+        placeholder="e.g. Have we seen ransomware that disabled the EDR agent before?",
+        key=f"q_{picked}",
+    )
+    asked = st.button("Ask", type="primary", width="stretch")
+
+    if not asked or not question.strip():
+        st.info(f"**{vector_memory.memory_stats()['incidents_in_memory']} incidents** are in "
+                "memory. Pick an example above or write your own question, then press **Ask**.")
+        st.stop()
+
+    with st.spinner("Searching memory..."):
+        session = SessionLocal()
+        try:
+            answer = rag_qa.ask(session, question, top_k=6, use_llm=use_llm)
+        finally:
+            session.close()
+
+    if answer["answered_from_corpus"]:
+        st.success(answer["answer"])
+    else:
+        st.warning(answer["answer"])
+
+    meta = st.columns(4)
+    meta[0].metric("Incidents retrieved", answer["retrieved_count"])
+    meta[1].metric("Citations", len(answer["citations"]))
+    meta[2].metric("Confidence", answer.get("confidence", "—").title())
+    meta[3].metric("Mode", "Grounded LLM" if answer["mode"] == "llm-grounded" else "Retrieval only")
+
+    if answer["unverified_citations"]:
+        st.error(
+            f"**{len(answer['unverified_citations'])} citation(s) were rejected** — the model "
+            "referenced incident ids that were not in the retrieved set, so they were removed "
+            "before display."
+        )
+
+    if answer.get("language") == "ar" and answer["search_query"] != answer["question"]:
+        st.caption(f"Arabic question rewritten for retrieval: *{answer['search_query']}*")
+
+    if answer["sources"]:
+        st.markdown("#### Sources")
+        st.caption("The incidents retrieved from memory. Cited ones are marked.")
+        for source in answer["sources"]:
+            cited = "✅ cited" if source["incident_id"] in answer["citations"] else "retrieved"
+            with st.expander(
+                f"{source['similarity']:.0%} — {source['title']} · {cited}"
+            ):
+                st.markdown(
+                    f"**Type:** {source['attack_type']} · **Sector:** {source['sector']} · "
+                    f"**Severity:** {source['severity']} · "
+                    f"**Date:** {source['occurred_at'] or 'undated'}"
+                )
+                st.write(source["summary"])
+                st.caption(f"`{source['incident_id']}`")
+    else:
+        st.caption("Nothing in memory matched closely enough to cite.")
+
+    st.divider()
+    st.caption(
+        "This is the retrieval-augmented generation loop: incidents are embedded into a "
+        "vector store, retrieved by meaning, and the answer is generated strictly from what "
+        "came back. With no API key the same retrieval runs and returns a structured digest."
+    )
+    st.stop()
+
+
+# --------------------------------------------------------------------------
+# Analyze an incident — the six-stage pipeline
+# --------------------------------------------------------------------------
 st.markdown('<div class="step-head">① Upload</div>', unsafe_allow_html=True)
 st.markdown("Paste an incident report, upload one, or pick a prepared scenario. Names, IPs, "
             "emails and company information can be left in — removing them is the system's first job.")
