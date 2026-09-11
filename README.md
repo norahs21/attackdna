@@ -84,8 +84,19 @@ of the seed corpus. Current rule-based numbers (no API key, no network):
 | Mean end-to-end latency | **0.40 s** |
 
 No API key is required. Without one the system runs in **rule-based mode**: every
-stage still executes, extraction is deterministic instead of model-assisted. Add a
-key to `backend/.env` to enable hybrid mode.
+stage still executes, extraction is deterministic instead of model-assisted.
+
+To enable the AI layer, put a key in `backend/.env` and verify it:
+
+```bash
+cp .env.example backend/.env     # then set LLM_API_KEY=sk-ant-...
+make check-llm                   # proves the key works and shows what it adds
+```
+
+`make check-llm` makes one small real call and names the exact cause when it
+fails — no key, placeholder key, rejected key, model not permitted, no credit,
+or no network — because `complete_json` fails soft by design, and silent
+degradation during setup is indistinguishable from having no key at all.
 
 To explore the API instead of the UI:
 
@@ -309,7 +320,7 @@ data/
   seed/incidents.json          14 synthetic incidents for sector breadth
   seed/evaluation_set.json     labelled cases for accuracy measurement
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         119 tests
+tests/                         138 tests
 ```
 
 ---
@@ -317,7 +328,7 @@ tests/                         119 tests
 ## Testing
 
 ```bash
-make test     # 119 tests
+make test     # 138 tests
 make eval     # accuracy measurement against labelled cases
 ```
 

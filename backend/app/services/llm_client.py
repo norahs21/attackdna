@@ -106,6 +106,88 @@ def complete_json(system: str, prompt: str, max_tokens: int = 2000,
     return _parse_json(text)
 
 
+def diagnose() -> dict:
+    """Explain precisely why the LLM path is or is not working.
+
+    `complete_json` fails soft by design — a broken key must never break the
+    demo. But silent degradation is the wrong behaviour during setup: "rule-based
+    mode" looks identical whether no key is configured, the key is rejected, or
+    the account has no credit. This makes one real call and names the cause.
+
+    Never returns the key, and never raises.
+    """
+    import anthropic
+
+    result = {"ok": False, "stage": "unknown", "model": LLM_MODEL,
+              "detail": "", "remedy": ""}
+
+    if not LLM_API_KEY:
+        return {**result, "stage": "no_key",
+                "detail": "LLM_API_KEY is empty in backend/.env",
+                "remedy": "Add LLM_API_KEY=sk-ant-... to backend/.env, then restart."}
+
+    if not LLM_ENABLED:
+        return {**result, "stage": "placeholder_key",
+                "detail": "LLM_API_KEY is still the placeholder value",
+                "remedy": "Replace 'your_key_here' with a real key from console.anthropic.com."}
+
+    client = _get_client()
+    if client is None:
+        return {**result, "stage": "sdk_missing",
+                "detail": "The anthropic SDK could not be initialised",
+                "remedy": "Run: pip install -r backend/requirements.txt"}
+
+    try:
+        response = client.messages.create(
+            model=LLM_MODEL,
+            max_tokens=16,
+            messages=[{"role": "user", "content": "Reply with the single word: ok"}],
+            output_config={"effort": "low"},
+        )
+        text = "".join(b.text for b in response.content
+                       if getattr(b, "type", None) == "text").strip()
+        return {**result, "ok": True, "stage": "ok",
+                "detail": f"Model replied: {text!r} "
+                          f"({response.usage.input_tokens} in / "
+                          f"{response.usage.output_tokens} out tokens)",
+                "remedy": ""}
+
+    # Most specific first: each of these needs a different fix.
+    except anthropic.AuthenticationError:
+        return {**result, "stage": "auth_failed",
+                "detail": "The API key was rejected (401)",
+                "remedy": "Check the key is copied whole and not expired or revoked."}
+    except anthropic.PermissionDeniedError:
+        return {**result, "stage": "permission_denied",
+                "detail": f"The key is valid but not permitted to use {LLM_MODEL} (403)",
+                "remedy": "Check the workspace has access to this model, or set "
+                          "LLM_MODEL to one it does."}
+    except anthropic.NotFoundError:
+        return {**result, "stage": "model_not_found",
+                "detail": f"Model '{LLM_MODEL}' was not found (404)",
+                "remedy": "Check LLM_MODEL in backend/.env against the model list."}
+    except anthropic.BadRequestError as exc:
+        return {**result, "stage": "bad_request",
+                "detail": f"The request was rejected (400): {exc}",
+                "remedy": "Often means this model does not accept a parameter we sent; "
+                          "the pipeline retries without it, so this may be harmless."}
+    except anthropic.RateLimitError:
+        return {**result, "stage": "rate_limited",
+                "detail": "Rate limited or out of credit (429)",
+                "remedy": "Check the credit balance on the account, then retry."}
+    except anthropic.APIConnectionError as exc:
+        return {**result, "stage": "network",
+                "detail": f"Could not reach the API: {exc}",
+                "remedy": "Check the internet connection, VPN or proxy."}
+    except anthropic.APIStatusError as exc:
+        return {**result, "stage": "api_error",
+                "detail": f"HTTP {exc.status_code}: {exc}",
+                "remedy": "Retry; if it persists, check the Anthropic status page."}
+    except Exception as exc:  # noqa: BLE001
+        return {**result, "stage": "unexpected",
+                "detail": f"{type(exc).__name__}: {exc}", "remedy": ""}
+
+
 def _parse_json(text: str) -> Optional[dict]:
     """Pull a JSON object out of a model response, fenced or bare."""
     if not text:
