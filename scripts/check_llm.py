@@ -1,4 +1,4 @@
-"""Verify the Claude API key is wired up correctly, and show what it changes.
+"""Verify the LLM API key is wired up correctly, and show what it changes.
 
     python scripts/check_llm.py
 
@@ -11,7 +11,11 @@ Runs four checks:
 
 The key itself is never printed. Nothing here writes to the database.
 
-Cost: a handful of small requests, well under one US cent in total.
+Works with either provider: an Anthropic key (sk-ant-...) or a Google
+Gemini key (AIza...). The provider is inferred from the key prefix.
+
+Cost: a handful of small requests — free-tier on Gemini, under a US cent
+on Anthropic.
 """
 from __future__ import annotations
 
@@ -21,8 +25,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from app.config import LLM_API_KEY, LLM_MODEL  # noqa: E402
-from app.config import BACKEND_DIR  # noqa: E402
+from app.config import BACKEND_DIR, LLM_API_KEY  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402
 from app.services import llm_client, rag_qa  # noqa: E402
 from app.services.dna_extractor import extract_dna  # noqa: E402
@@ -40,8 +43,11 @@ SAMPLE = (
 
 QUESTION = "Have we seen ransomware that disabled the EDR agent before?"
 
-# Kept in step with the default in app/config.py.
-RECOMMENDED_MODEL = "claude-opus-5"
+PROVIDER_LABELS = {
+    "anthropic": "Anthropic Claude",
+    "gemini": "Google Gemini",
+    "none": "none configured",
+}
 
 
 def masked_key() -> str:
@@ -59,22 +65,17 @@ def rule(title: str) -> None:
 
 def main() -> None:
     print("=" * 68)
-    print("ATTACKDNA — Claude API key check")
+    print("ATTACKDNA — LLM API key check")
     print("=" * 68)
+    provider = llm_client.provider_name()
     print(f"  Config file : backend/.env")
     print(f"  Key loaded  : {masked_key()}")
-    print(f"  Model       : {LLM_MODEL}")
+    print(f"  Provider    : {PROVIDER_LABELS.get(provider, provider)}")
+    print(f"  Model       : {llm_client.active_model()}")
 
     if not (BACKEND_DIR / ".env").exists():
         print("\n  NOTE  backend/.env does not exist yet.")
         print("        Run: cp .env.example backend/.env")
-
-    # A .env written before the model default changed keeps overriding it, and
-    # the override is silent — worth saying out loud during setup.
-    if LLM_MODEL != RECOMMENDED_MODEL:
-        print(f"\n  NOTE  backend/.env pins '{LLM_MODEL}'.")
-        print(f"        The current recommended model is '{RECOMMENDED_MODEL}'.")
-        print(f"        To switch, set LLM_MODEL={RECOMMENDED_MODEL} in backend/.env.")
 
     # ---- 1. Connection ----
     rule("1. Connection")

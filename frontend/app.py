@@ -19,7 +19,7 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from app.config import DEMO_SCENARIOS_PATH, LLM_MODEL  # noqa: E402
+from app.config import DEMO_SCENARIOS_PATH  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402
 from app.pipelines.analyze import analyze, ingest  # noqa: E402
 from app.services import llm_client, rag_qa, vector_memory  # noqa: E402
@@ -168,7 +168,8 @@ with st.sidebar:
     use_llm = st.toggle("Use LLM enrichment", value=llm_client.is_available(),
                         disabled=not llm_client.is_available())
     if llm_client.is_available():
-        st.caption(f"Hybrid mode · `{LLM_MODEL}`")
+        st.caption(f"Hybrid mode · {llm_client.provider_name().title()} · "
+                   f"`{llm_client.active_model()}`")
     else:
         st.caption("Rule-based mode · no API key set. "
                    "Every stage still runs; extraction is deterministic.")

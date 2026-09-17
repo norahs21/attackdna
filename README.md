@@ -86,12 +86,22 @@ of the seed corpus. Current rule-based numbers (no API key, no network):
 No API key is required. Without one the system runs in **rule-based mode**: every
 stage still executes, extraction is deterministic instead of model-assisted.
 
-To enable the AI layer, put a key in `backend/.env` and verify it:
+To enable the AI layer, put a key in `backend/.env` and verify it. **Either
+provider works** — paste one key and the provider is inferred from its prefix:
+
+| Provider | Key prefix | Where |
+|---|---|---|
+| Google Gemini | `AIza...` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — has a free tier |
+| Anthropic Claude | `sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) — pay as you go |
 
 ```bash
-cp .env.example backend/.env     # then set LLM_API_KEY=sk-ant-...
+cp .env.example backend/.env     # then set LLM_API_KEY=...
 make check-llm                   # proves the key works and shows what it adds
 ```
+
+Adding a provider touches `backend/app/services/llm_providers/` and nothing
+else: extraction, simulation and Ask-the-memory are written once against the
+`llm_client` facade, never against a vendor SDK.
 
 `make check-llm` makes one small real call and names the exact cause when it
 fails — no key, placeholder key, rejected key, model not permitted, no credit,
@@ -301,7 +311,8 @@ backend/app/
     ioc_extractor.py           shareable vs. victim-linked indicators
     attribution.py             behavioural resemblance to known actors
     dna_extractor.py           ② Attack DNA + schema validation
-    llm_client.py              optional Claude wrapper, fails soft
+    llm_client.py              provider-agnostic LLM facade, fails soft
+    llm_providers/             Anthropic and Gemini backends
     vector_memory.py           ③ Vector Memory (3-tier backend)
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
@@ -320,7 +331,7 @@ data/
   seed/incidents.json          14 synthetic incidents for sector breadth
   seed/evaluation_set.json     labelled cases for accuracy measurement
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         138 tests
+tests/                         157 tests
 ```
 
 ---
@@ -328,7 +339,7 @@ tests/                         138 tests
 ## Testing
 
 ```bash
-make test     # 138 tests
+make test     # 157 tests
 make eval     # accuracy measurement against labelled cases
 ```
 
