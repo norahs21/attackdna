@@ -26,6 +26,35 @@ from pathlib import Path
 
 import streamlit as st
 
+
+def _require_streamlit_runtime() -> None:
+    """Fail loudly when run as a plain script instead of through Streamlit.
+
+    A Streamlit script run with `python` executes top to bottom, renders
+    nothing, prints a warning per widget and exits 0 — the single most
+    confusing way this app can fail, because it looks like nothing happened at
+    all. An IDE's Run button does exactly this.
+    """
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+    if get_script_run_ctx() is not None:
+        return
+
+    print(
+        "\nATTACKDNA is a Streamlit app — it cannot run as a plain Python script.\n"
+        "Nothing was rendered because there is no Streamlit server to render into.\n\n"
+        "Start it with:\n\n"
+        "    make demo\n\n"
+        "or, without make:\n\n"
+        "    .venv/bin/streamlit run frontend/app.py\n\n"
+        "Then open http://localhost:8501 if a browser tab does not appear.\n",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+
+_require_streamlit_runtime()
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
