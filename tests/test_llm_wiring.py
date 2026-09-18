@@ -164,13 +164,11 @@ def test_gemini_reports_a_missing_key(monkeypatch):
 
 def test_gemini_lists_available_models_when_the_model_is_wrong(monkeypatch):
     """A wrong model name should produce the right ones, not a dead end."""
-    from google.genai import errors
-
     class _NotFound:
         class models:
             @staticmethod
             def generate_content(**kwargs):
-                raise errors.ClientError(404, {"error": {"message": "model not found"}})
+                raise gemini_provider.GeminiAPIError(404, "model not found")
 
     monkeypatch.setattr(gemini_provider, "LLM_API_KEY", GEMINI_KEY)
     monkeypatch.setattr(gemini_provider, "_get_client", lambda: _NotFound())
@@ -286,6 +284,122 @@ def test_gemini_parses_json_mode_output(monkeypatch):
 
     monkeypatch.setattr(gemini_provider, "_get_client", lambda: _Json())
     assert gemini_provider.complete_json("s", "p") == {"attack_type": "ransomware"}
+
+
+# --- Gemini talks to the REST API directly -------------------------------
+# The SDK would drag in google-auth -> cryptography, a Rust extension that
+# cannot be installed everywhere. These tests hold the hand-rolled transport
+# to the same standard the SDK was trusted for.
+
+def _fake_requests(monkeypatch, status=200, body=None):
+    """Capture the outgoing call instead of making it."""
+    import requests
+
+    sent = {}
+
+    class _FakeResponse:
+        status_code = status
+
+        @staticmethod
+        def json():
+            return body if body is not None else {}
+
+        text = "raw body"
+
+    def _request(method, url, headers=None, json=None, timeout=None):
+        sent.update(method=method, url=url, headers=headers or {}, json=json,
+                    timeout=timeout)
+        return _FakeResponse()
+
+    monkeypatch.setattr(requests, "request", _request)
+    return sent
+
+
+def test_the_gemini_key_travels_in_a_header_not_the_url(monkeypatch):
+    """A key in a query string ends up in proxy logs and tracebacks."""
+    monkeypatch.setattr(gemini_provider, "LLM_API_KEY", GEMINI_KEY)
+    sent = _fake_requests(monkeypatch, body={"models": []})
+
+    gemini_provider._request("GET", "/models")
+
+    assert sent["headers"]["x-goog-api-key"] == GEMINI_KEY
+    assert GEMINI_KEY not in sent["url"]
+
+
+def test_gemini_asks_for_json_mode_and_passes_the_thinking_budget(monkeypatch):
+    sent = _fake_requests(monkeypatch, body={
+        "candidates": [{"content": {"parts": [{"text": '{"a": 1}'}]}}],
+    })
+
+    response = gemini_provider._Models().generate_content(
+        model="gemini-2.5-flash", contents="prompt", system="system instruction",
+        max_tokens=128, thinking_budget=2048,
+    )
+
+    config = sent["json"]["generationConfig"]
+    assert config["responseMimeType"] == "application/json"
+    assert config["thinkingConfig"]["thinkingBudget"] == 2048
+    assert config["maxOutputTokens"] == 128
+    assert sent["json"]["systemInstruction"]["parts"][0]["text"] == "system instruction"
+    assert response.text == '{"a": 1}'
+
+
+def test_gemini_joins_a_multi_part_answer(monkeypatch):
+    """The API may split one answer across parts; concatenating is the contract."""
+    _fake_requests(monkeypatch, body={
+        "candidates": [{"content": {"parts": [{"text": '{"a":'}, {"text": " 1}"}]}}],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 4},
+    })
+
+    response = gemini_provider._Models().generate_content(
+        model="m", contents="p", max_tokens=64,
+    )
+
+    assert response.text == '{"a": 1}'
+    assert response.usage_metadata.prompt_token_count == 10
+
+
+def test_a_filtered_gemini_answer_has_no_text_rather_than_crashing(monkeypatch):
+    """A safety filter returns a candidate with no parts at all."""
+    _fake_requests(monkeypatch, body={"candidates": [{"finishReason": "SAFETY"}]})
+
+    response = gemini_provider._Models().generate_content(
+        model="m", contents="p", max_tokens=64,
+    )
+
+    assert response.text is None
+
+
+def test_a_gemini_http_error_carries_its_status_and_message(monkeypatch):
+    """diagnose() maps the status to a fix, so it must survive the transport."""
+    _fake_requests(monkeypatch, status=429,
+                   body={"error": {"message": "Quota exceeded"}})
+
+    with pytest.raises(gemini_provider.GeminiAPIError) as caught:
+        gemini_provider._request("GET", "/models")
+
+    assert caught.value.code == 429
+    assert "Quota exceeded" in caught.value.message
+
+
+def test_gemini_needs_no_heavyweight_sdk():
+    """Guards the reason this transport is hand-rolled.
+
+    `google-genai` pulls in google-auth -> cryptography, which has to be built
+    from source wherever no wheel matches — that turned `make setup` into a
+    Rust toolchain hunt. Nothing here should quietly reintroduce it.
+    """
+    from pathlib import Path
+
+    requirements = (Path(__file__).resolve().parent.parent
+                    / "backend" / "requirements.txt").read_text()
+    declared = [line.split("#")[0].strip() for line in requirements.splitlines()]
+    declared = [line for line in declared if line]
+
+    assert not any("google-genai" in line or "cryptography" in line
+                   for line in declared)
+    assert any(line.startswith("requests") for line in declared), \
+        "the Gemini transport needs requests"
 
 
 @pytest.mark.parametrize("backend", [anthropic_provider, gemini_provider])

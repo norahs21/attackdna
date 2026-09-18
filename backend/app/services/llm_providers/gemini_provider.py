@@ -1,11 +1,19 @@
 """Google Gemini backend.
 
-Uses the `google-genai` SDK. Two things make Gemini a good fit for this
-project's LLM calls:
+Talks to the Generative Language REST API directly over `requests` rather than
+through the `google-genai` SDK. That is a deliberate trade, not laziness: the
+SDK pulls in `google-auth`, which requires `cryptography`, which is a Rust
+extension with no wheel for every platform — so a machine without a Rust
+toolchain cannot install this project at all. The SDK exists to handle OAuth
+and service-account credentials; ATTACKDNA authenticates with a single API key
+header and needs none of it. Two HTTP calls replace ~40MB of dependencies, and
+`make setup` works on any Python that can run the rest of the app.
 
-* **Native JSON output.** `response_mime_type="application/json"` makes the
-  model return parseable JSON directly, so the fragile "find the JSON inside
-  the prose" step the Anthropic path needs is unnecessary here.
+Two things make Gemini a good fit for this project's LLM calls:
+
+* **Native JSON output.** `responseMimeType: application/json` makes the model
+  return parseable JSON directly, so the fragile "find the JSON inside the
+  prose" step the Anthropic path needs is unnecessary here.
 * **A free tier.** Enough for development and a demo without a credit card.
 
 Model names move faster than this file does, so nothing is hardcoded as truth:
@@ -18,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.config import LLM_API_KEY, LLM_MODEL
 
@@ -31,6 +39,9 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 # Google AI Studio keys start with this. Used only to auto-detect the provider.
 KEY_PREFIX = "AIza"
 
+API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+TIMEOUT_SECONDS = 60
+
 # Gemini has no `effort` parameter; it has a thinking budget in tokens.
 # These keep the mapping explicit rather than scattering magic numbers.
 EFFORT_THINKING_BUDGET = {"low": 0, "medium": 2048, "high": 8192}
@@ -39,8 +50,115 @@ _client = None
 _client_failed = False
 
 
+class GeminiAPIError(RuntimeError):
+    """An error the API itself reported, carrying the HTTP status.
+
+    `diagnose()` turns the status into an explanation, so it must survive the
+    trip out of the transport layer rather than collapsing into a string.
+    """
+
+    def __init__(self, code: int, message: str):
+        self.code = code
+        self.message = message
+        super().__init__(f"{code}: {message}")
+
+
 def model_name() -> str:
     return LLM_MODEL if LLM_MODEL and "gemini" in LLM_MODEL.lower() else DEFAULT_MODEL
+
+
+# --- Transport ------------------------------------------------------------
+# The nested `client.models.generate_content(...)` shape mirrors the SDK the
+# rest of this file was written against, so swapping the transport did not
+# ripple into the call sites or the tests.
+
+class _Model:
+    """One entry from the models listing."""
+
+    def __init__(self, name: str, supported_actions: List[str]):
+        self.name = name
+        self.supported_actions = supported_actions
+
+
+class _Response:
+    """A generateContent reply, flattened to the two fields callers read."""
+
+    def __init__(self, text: Optional[str], usage_metadata: Any = None):
+        self.text = text
+        self.usage_metadata = usage_metadata
+
+
+class _Usage:
+    def __init__(self, prompt_token_count: int, candidates_token_count: int):
+        self.prompt_token_count = prompt_token_count
+        self.candidates_token_count = candidates_token_count
+
+
+class _Models:
+    def generate_content(self, *, model: str, contents: str,
+                         system: Optional[str] = None, max_tokens: int = 2000,
+                         thinking_budget: int = 0) -> _Response:
+        payload: Dict[str, Any] = {
+            "contents": [{"role": "user", "parts": [{"text": contents}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "responseMimeType": "application/json",
+                "thinkingConfig": {"thinkingBudget": thinking_budget},
+            },
+        }
+        if system:
+            payload["systemInstruction"] = {"parts": [{"text": system}]}
+
+        body = _request("POST", f"/models/{model}:generateContent", json_body=payload)
+
+        # A safety filter or an exhausted budget yields a candidate with no
+        # parts, so every step here has to tolerate absence.
+        candidates = body.get("candidates") or []
+        parts = (candidates[0].get("content", {}).get("parts", []) if candidates else [])
+        text = "".join(part.get("text", "") for part in parts) or None
+
+        usage_body = body.get("usageMetadata") or {}
+        usage = _Usage(usage_body.get("promptTokenCount", 0),
+                       usage_body.get("candidatesTokenCount", 0)) if usage_body else None
+        return _Response(text, usage)
+
+    def list(self) -> List[_Model]:
+        body = _request("GET", "/models")
+        return [
+            _Model(model.get("name", ""), model.get("supportedGenerationMethods", []))
+            for model in body.get("models", [])
+        ]
+
+
+class _RestClient:
+    def __init__(self):
+        self.models = _Models()
+
+
+def _request(method: str, path: str, json_body: Optional[dict] = None) -> dict:
+    """One API call. Raises GeminiAPIError for anything the API rejected.
+
+    The key travels in a header rather than the query string so it cannot end
+    up in a proxy log or a traceback that quotes the URL.
+    """
+    import requests
+
+    response = requests.request(
+        method,
+        f"{API_BASE}{path}",
+        headers={"x-goog-api-key": LLM_API_KEY, "Content-Type": "application/json"},
+        json=json_body,
+        timeout=TIMEOUT_SECONDS,
+    )
+
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("error", {}).get("message", response.text)
+        except ValueError:
+            detail = response.text
+        raise GeminiAPIError(response.status_code, detail)
+
+    return response.json()
 
 
 def _get_client():
@@ -48,13 +166,12 @@ def _get_client():
     if _client is not None or _client_failed:
         return _client
     try:
-        from google import genai
-
-        _client = genai.Client(api_key=LLM_API_KEY)
+        import requests  # noqa: F401  — checked here so failure is diagnosable
     except Exception as exc:  # noqa: BLE001
         logger.warning("Gemini unavailable, using rule-based path: %s", exc)
         _client_failed = True
         return None
+    _client = _RestClient()
     return _client
 
 
@@ -69,20 +186,13 @@ def complete_json(system: str, prompt: str, max_tokens: int = 2000,
     if client is None:
         return None
 
-    from google.genai import types
-
-    config = types.GenerateContentConfig(
-        system_instruction=system,
-        max_output_tokens=max_tokens,
-        response_mime_type="application/json",
-        thinking_config=types.ThinkingConfig(
-            thinking_budget=EFFORT_THINKING_BUDGET.get(effort, 0)
-        ),
-    )
-
     try:
         response = client.models.generate_content(
-            model=model_name(), contents=prompt, config=config
+            model=model_name(),
+            contents=prompt,
+            system=system,
+            max_tokens=max_tokens,
+            thinking_budget=EFFORT_THINKING_BUDGET.get(effort, 0),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Gemini call failed, using rule-based path: %s", exc)
@@ -140,8 +250,6 @@ def list_models(limit: int = 12) -> List[str]:
 
 def diagnose() -> dict:
     """Explain precisely why the Gemini path is or is not working."""
-    from google.genai import errors
-
     result = {"ok": False, "stage": "unknown", "provider": "gemini",
               "model": model_name(), "detail": "", "remedy": ""}
 
@@ -153,20 +261,15 @@ def diagnose() -> dict:
     client = _get_client()
     if client is None:
         return {**result, "stage": "sdk_missing",
-                "detail": "The google-genai SDK could not be initialised",
+                "detail": "The HTTP client could not be initialised",
                 "remedy": "Run: pip install -r backend/requirements.txt"}
 
     try:
-        from google.genai import types
-
         response = client.models.generate_content(
             model=model_name(),
             contents="Reply with JSON: {\"status\": \"ok\"}",
-            config=types.GenerateContentConfig(
-                max_output_tokens=64,
-                response_mime_type="application/json",
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
-            ),
+            max_tokens=64,
+            thinking_budget=0,
         )
         usage = getattr(response, "usage_metadata", None)
         tokens = (f" ({usage.prompt_token_count} in / "
@@ -174,9 +277,8 @@ def diagnose() -> dict:
         return {**result, "ok": True, "stage": "ok",
                 "detail": f"Model replied: {(response.text or '').strip()!r}{tokens}"}
 
-    except errors.ClientError as exc:
-        status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-        message = str(exc)
+    except GeminiAPIError as exc:
+        status, message = exc.code, exc.message
 
         if status == 400 and "API key not valid" in message:
             return {**result, "stage": "auth_failed",
@@ -197,14 +299,14 @@ def diagnose() -> dict:
             return {**result, "stage": "rate_limited",
                     "detail": "Rate limit or free-tier quota exhausted (429)",
                     "remedy": "Wait for the quota window to reset, or use a lighter model."}
+        if status >= 500:
+            return {**result, "stage": "api_error",
+                    "detail": f"Gemini server error: {message}",
+                    "remedy": "Transient — retry in a moment."}
         return {**result, "stage": "api_error",
                 "detail": f"{status}: {message}",
                 "remedy": "Check the key and model name in backend/.env."}
 
-    except errors.ServerError as exc:
-        return {**result, "stage": "api_error",
-                "detail": f"Gemini server error: {exc}",
-                "remedy": "Transient — retry in a moment."}
     except Exception as exc:  # noqa: BLE001
         name = type(exc).__name__
         if "Connect" in name or "Timeout" in name:

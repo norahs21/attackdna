@@ -19,8 +19,13 @@ numpy>=1.26
 
 # --- LLM (optional; the pipeline runs fully without a key) ---
 # Either provider works; the one used is inferred from the key prefix.
+#
+# Gemini has no entry here on purpose. Its `google-genai` SDK depends on
+# google-auth -> cryptography, a Rust extension that has to be compiled on any
+# platform without a matching wheel — which makes installing this project
+# impossible on those machines for a feature we do not use, since an API key
+# needs no OAuth. gemini_provider calls the REST API with `requests` instead.
 anthropic>=0.40
-google-genai>=1.0
 
 # --- Demo UI ---
 streamlit>=1.38
