@@ -300,3 +300,43 @@ def test_gemini_parses_json_mode_output(monkeypatch):
 def test_json_extraction_handles_the_shapes_models_actually_return(backend, payload,
                                                                    expected):
     assert backend._parse_json(payload) == expected
+
+
+# --- Schema drift ---------------------------------------------------------
+def test_an_older_database_gains_missing_columns_instead_of_failing(tmp_path,
+                                                                    monkeypatch):
+    """A database created before a field was added must still open.
+
+    `create_all` never adds a column to an existing table, so without this the
+    failure surfaces as "no such column" at query time, long after the cause.
+    """
+    import sqlite3
+
+    from sqlalchemy import create_engine
+
+    from app.db import database
+
+    db_path = tmp_path / "old.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "CREATE TABLE incidents (id TEXT PRIMARY KEY, title TEXT, "
+        "sanitized_text TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO incidents (id, title, sanitized_text) "
+        "VALUES ('inc_old', 'Legacy row', 'text')"
+    )
+    connection.commit()
+    connection.close()
+
+    monkeypatch.setattr(database, "DATABASE_URL", f"sqlite:///{db_path}")
+    monkeypatch.setattr(
+        database, "engine",
+        create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False}),
+    )
+
+    database.init_db()
+
+    columns = {row[1] for row in sqlite3.connect(db_path).execute(
+        "PRAGMA table_info(incidents)")}
+    assert {"provenance", "iocs", "attribution", "initial_vector"} <= columns

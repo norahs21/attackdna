@@ -167,8 +167,42 @@ class MitigationDB(Base):
         }
 
 
+def _add_missing_columns() -> None:
+    """Bring an existing SQLite file up to the current model.
+
+    `create_all` creates missing *tables* but never adds a column to a table
+    that already exists, so a database created before a field was added fails
+    at query time with "no such column" — long after the cause. This project
+    has no migration tool by design (it should run from a clean clone with one
+    command), so the gap is closed here instead.
+
+    Only additive changes are handled, which is all this schema has needed:
+    every added column is nullable or defaulted, so backfilling is unnecessary.
+    A renamed or retyped column would still require `make reset`.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        return  # Other engines get a real migration tool if this ever grows one.
+
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in inspector.get_table_names():
+                continue
+            existing = {col["name"] for col in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                column_type = column.type.compile(dialect=engine.dialect)
+                connection.execute(
+                    text(f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {column_type}')
+                )
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
 
 
 def get_session():
