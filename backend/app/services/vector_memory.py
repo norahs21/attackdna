@@ -34,11 +34,46 @@ _lock = threading.Lock()
 # ==========================================================================
 # Tier 3: dependency-free TF-IDF store (also the fallback for the others)
 # ==========================================================================
+# Question scaffolding carries no retrieval signal: every question contains
+# some of it and no incident record contains any of it. Left in, these words
+# are not merely useless — they are the *most* heavily weighted terms in the
+# query, because a word absent from the corpus gets the highest IDF of all.
+QUESTION_STOPWORDS = frozenset("""
+a about after again against all also am an and any are as at be because been
+before being below between both but by can cannot could did do does doing
+done down during each few for from further had has have having he her here
+hers him his how i if in into is it its just me more most my no nor not of
+off on once only or other our ours out over own same she should so some such
+than that the their theirs them then there these they this those through to
+too under until up us very was we were what when where which while who whom
+why will with would you your yours ever seen get got give take tell show
+""".split())
+
+
 class TfidfMemory:
     """A small in-process TF-IDF index persisted as JSON.
 
     Adequate for hackathon-scale corpora (hundreds of incidents) and it needs
     no model download, so `python -m scripts.seed_memory` always works.
+
+    Two things separate this from a naive TF-IDF and both are load-bearing:
+
+    * **Question scaffolding is stopped.** See QUESTION_STOPWORDS. Without
+      this, "Have we seen ransomware?" scored 0.03 against a document holding
+      the word "ransomware" — the scaffolding took nearly all the query's
+      weight, because IDF rewards rarity and no incident record says "have we
+      seen". The one real term was left with almost none of it.
+
+    * **A content word the corpus has never seen still counts, against the
+      match.** It cannot contribute to any score, but dropping it would make
+      "satellite uplink attack" score as well as "ransomware" on the strength
+      of the word "attack" alone. Keeping it in the query's norm is what makes
+      an absolute relevance floor meaningful: the score then reflects how much
+      of what was asked the corpus actually covers, not just whether some word
+      happened to overlap.
+
+    Document vectors are built once per corpus state rather than per query,
+    which also turns querying from O(docs x terms) rebuilds into a lookup.
     """
 
     backend_name = "tfidf"
@@ -46,6 +81,9 @@ class TfidfMemory:
     def __init__(self) -> None:
         self.path = CHROMA_DIR / "tfidf_memory.json"
         self.docs: Dict[str, dict] = {}
+        self._index: Optional[Dict[str, Dict[str, float]]] = None
+        self._idf: Dict[str, float] = {}
+        self._unseen_idf: float = 1.0
         self._load()
 
     def _load(self) -> None:
@@ -56,6 +94,7 @@ class TfidfMemory:
             except (json.JSONDecodeError, OSError):
                 logger.warning("TF-IDF memory unreadable; starting empty")
                 self.docs = {}
+        self._index = None
 
     def _persist(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,40 +103,94 @@ class TfidfMemory:
 
     @staticmethod
     def _tokenize(text: str) -> List[str]:
-        return re.findall(r"[a-z0-9][a-z0-9.\-]*", (text or "").lower())
+        """Split into terms, keeping internal dots and dashes.
 
-    def _vector(self, text: str) -> Dict[str, float]:
-        tokens = self._tokenize(text)
+        Those have to survive inside a term — CVE-2024-21412, T1059.001 and
+        evil.example.com are single terms, not three. A *trailing* one is
+        sentence punctuation, and stripping it is what makes a question about
+        "ransomware" match a record that ends a sentence with "ransomware."
+        """
+        tokens = re.findall(r"[a-z0-9][a-z0-9.\-]*", (text or "").lower())
+        stripped = (token.rstrip(".-") for token in tokens)
+        return [token for token in stripped
+                if token and token not in QUESTION_STOPWORDS]
+
+    # ---- Index -----------------------------------------------------------
+    def _build_index(self) -> None:
+        """Compute IDF over the corpus, then every document's unit vector."""
+        total_docs = max(1, len(self.docs))
+        doc_freq: Dict[str, int] = {}
+        for doc in self.docs.values():
+            for token in set(doc["tokens"]):
+                doc_freq[token] = doc_freq.get(token, 0) + 1
+
+        self._idf = {
+            token: math.log((total_docs + 1) / (frequency + 1)) + 1.0
+            for token, frequency in doc_freq.items()
+        }
+        # What an unseen term would score: the rarest possible, doc_freq zero.
+        self._unseen_idf = math.log(total_docs + 1) + 1.0
+        self._index = {
+            incident_id: self._document_vector(self._tokenize(doc["text"]))
+            for incident_id, doc in self.docs.items()
+        }
+
+    def _document_vector(self, tokens: List[str]) -> Dict[str, float]:
+        """TF-IDF for a stored document, normalised to unit length."""
         if not tokens:
             return {}
         counts: Dict[str, int] = {}
         for token in tokens:
             counts[token] = counts.get(token, 0) + 1
 
-        total_docs = max(1, len(self.docs))
-        vector: Dict[str, float] = {}
-        for token, count in counts.items():
-            doc_freq = sum(1 for d in self.docs.values() if token in d["tokens"])
-            idf = math.log((total_docs + 1) / (doc_freq + 1)) + 1.0
-            vector[token] = (count / len(tokens)) * idf
-
-        norm = math.sqrt(sum(v * v for v in vector.values())) or 1.0
+        vector = {token: (count / len(tokens)) * self._idf.get(token, self._unseen_idf)
+                  for token, count in counts.items()}
+        norm = math.sqrt(sum(value * value for value in vector.values())) or 1.0
         return {token: value / norm for token, value in vector.items()}
 
+    def _query_vector(self, tokens: List[str]) -> Dict[str, float]:
+        """TF-IDF for a question, keeping unknown terms in the norm only.
+
+        An unknown term matches nothing, so it is left out of the returned
+        vector — but its weight still divides into the terms that remain. That
+        is deliberate: a question the corpus mostly cannot speak to should
+        score low even when one of its words happens to appear everywhere.
+        """
+        if not tokens:
+            return {}
+        counts: Dict[str, int] = {}
+        for token in tokens:
+            counts[token] = counts.get(token, 0) + 1
+
+        weights = {token: (count / len(tokens)) * self._idf.get(token, self._unseen_idf)
+                   for token, count in counts.items()}
+        norm = math.sqrt(sum(value * value for value in weights.values())) or 1.0
+        return {token: value / norm
+                for token, value in weights.items() if token in self._idf}
+
+    def _vectors(self) -> Dict[str, Dict[str, float]]:
+        if self._index is None:
+            self._build_index()
+        return self._index or {}
+
+    # ---- Store -----------------------------------------------------------
     def add(self, incident_id: str, text: str, metadata: dict) -> None:
         self.docs[incident_id] = {
             "text": text,
             "tokens": list(set(self._tokenize(text))),
             "metadata": metadata,
         }
+        self._index = None  # IDF shifts with every document, so rebuild lazily.
         self._persist()
 
     def delete(self, incident_id: str) -> None:
         if self.docs.pop(incident_id, None) is not None:
+            self._index = None
             self._persist()
 
     def query(self, text: str, top_k: int, exclude_id: Optional[str] = None) -> List[dict]:
-        query_vector = self._vector(text)
+        vectors = self._vectors()
+        query_vector = self._query_vector(self._tokenize(text))
         if not query_vector:
             return []
 
@@ -105,8 +198,9 @@ class TfidfMemory:
         for incident_id, doc in self.docs.items():
             if incident_id == exclude_id:
                 continue
-            doc_vector = self._vector(doc["text"])
-            score = sum(query_vector.get(t, 0.0) * doc_vector.get(t, 0.0) for t in query_vector)
+            doc_vector = vectors.get(incident_id, {})
+            score = sum(weight * doc_vector.get(token, 0.0)
+                        for token, weight in query_vector.items())
             results.append({
                 "incident_id": incident_id,
                 "similarity": round(max(0.0, min(1.0, score)), 4),
@@ -121,6 +215,7 @@ class TfidfMemory:
 
     def reset(self) -> None:
         self.docs = {}
+        self._index = None
         self._persist()
 
 
@@ -284,6 +379,32 @@ def find_similar(embedding_text: str, top_k: int, exclude_id: Optional[str] = No
     cutoff = SIMILARITY_THRESHOLD if threshold is None else threshold
     matches = get_memory().query(embedding_text, top_k=top_k, exclude_id=exclude_id)
     return [m for m in matches if m["similarity"] >= cutoff]
+
+
+# --------------------------------------------------------------------------
+# Relevance floors are per backend because the scores are not comparable.
+#
+# Measured on the 24-incident demo corpus, top hit per question:
+#
+#   backend   relevant questions   off-topic questions   floor
+#   MiniLM    0.64 - 0.86          0.53 - 0.70           0.73
+#   TF-IDF    0.03 - 0.59          0.00 - 0.06           0.10
+#
+# MiniLM's range is compressed and high because any two security texts are
+# semantically close; TF-IDF's is low and sparse because it needs literal word
+# overlap. One number cannot serve both — a floor of 0.73 on TF-IDF rejects
+# every question ever asked, which is exactly what it did before this existed.
+#
+# Both floors sit above the off-topic band rather than below the relevant one:
+# the offline path has no judgement of its own, so it should stay silent when
+# unsure rather than present a loose match as an answer.
+RELEVANCE_FLOORS = {"tfidf": 0.10}
+DEFAULT_RELEVANCE_FLOOR = 0.73
+
+
+def relevance_floor() -> float:
+    """The similarity below which a match should not be called an answer."""
+    return RELEVANCE_FLOORS.get(get_memory().backend_name, DEFAULT_RELEVANCE_FLOOR)
 
 
 def memory_stats() -> dict:
