@@ -33,7 +33,10 @@ all: setup data seed
 setup:
 	@echo "Using $(PYTHON) ($$($(PYTHON) --version 2>&1))"
 	$(PYTHON) -m venv .venv
-	$(PIP) install --upgrade pip
+	# A venv ships an old pip, which cannot read the wheel tags of recent
+	# releases and falls back to building from source — cryptography then needs
+	# a Rust toolchain and the install dies. Upgrading first avoids all of it.
+	$(PIP) install --upgrade pip setuptools wheel
 	$(PIP) install -r backend/requirements.txt
 	@echo ""
 	@echo "Installing vector-search extras (optional)..."
