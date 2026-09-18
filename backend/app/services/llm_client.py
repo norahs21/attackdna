@@ -38,7 +38,7 @@ def resolve_provider() -> Optional[str]:
     if not LLM_ENABLED:
         return None
     for name, backend in PROVIDERS.items():
-        if LLM_API_KEY.startswith(backend.KEY_PREFIX):
+        if LLM_API_KEY.startswith(backend.KEY_PREFIXES):
             return name
     return None
 
@@ -106,7 +106,7 @@ def diagnose() -> dict:
     if backend is None:
         return {**base, "stage": "unknown_provider",
                 "detail": "The key does not match any known provider prefix "
-                          f"({', '.join(b.KEY_PREFIX for b in PROVIDERS.values())})",
+                          f"({', '.join(p for b in PROVIDERS.values() for p in b.KEY_PREFIXES)})",
                 "remedy": "Set LLM_PROVIDER=anthropic or LLM_PROVIDER=gemini in "
                           "backend/.env to say which API this key belongs to."}
 

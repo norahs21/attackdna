@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = "claude-opus-5"
 
 # Anthropic keys start with this. Used only to auto-detect the provider.
-KEY_PREFIX = "sk-ant-"
+KEY_PREFIXES = ("sk-ant-",)
+KEY_PREFIX = KEY_PREFIXES[0]  # The one to name in messages.
 
 _client = None
 _client_failed = False
