@@ -84,6 +84,12 @@ def corpus_provenance() -> dict:
         session.close()
 
 
+@st.cache_data(show_spinner=False)
+def llm_status() -> dict:
+    """Why the LLM layer is or is not working. Cached: it can call the API."""
+    return llm_client.diagnose()
+
+
 @st.cache_data
 def load_scenarios() -> list:
     """Prepared demo scenarios, each exercising a different part of the pipeline."""
@@ -171,8 +177,18 @@ with st.sidebar:
         st.caption(f"Hybrid mode · {llm_client.provider_name().title()} · "
                    f"`{llm_client.active_model()}`")
     else:
-        st.caption("Rule-based mode · no API key set. "
-                   "Every stage still runs; extraction is deterministic.")
+        # A key that is set but not usable is a different problem from no key
+        # at all, and saying "no API key set" for both sends the reader looking
+        # in the wrong place — the toggle stays greyed out and nothing on
+        # screen says why. diagnose() already knows which case it is.
+        status = llm_status()
+        st.caption("Rule-based mode · every stage still runs; "
+                   "extraction is deterministic.")
+        if status["stage"] == "no_key":
+            st.caption("No API key set — add one to `backend/.env`, then restart.")
+        else:
+            st.warning(f"**LLM off — {status['detail']}**\n\n{status['remedy']}\n\n"
+                       "Run `make check-llm` for the full diagnosis.")
 
     top_k = st.slider("Similar incidents to retrieve", 1, 10, 5)
     persist = st.toggle("Commit to memory", value=False,
