@@ -56,8 +56,14 @@ def _require_streamlit_runtime() -> None:
 _require_streamlit_runtime()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "backend"))
+
+# Order matters, and getting it wrong fails in a way that reads like nonsense.
+# This file is itself named app.py, so with frontend/ ahead of backend/ the
+# import `app.config` resolves `app` to *this script* and reports that "'app'
+# is not a package". backend/ therefore has to be searched first; frontend/
+# only needs to be reachable for the sibling modules below.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from app.config import DEMO_SCENARIOS_PATH  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402

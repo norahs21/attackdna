@@ -65,6 +65,32 @@ def test_the_app_starts_without_an_exception(corpus):
     assert not app.exception
 
 
+def test_the_app_starts_in_an_interpreter_that_has_imported_nothing():
+    """The only honest check that `streamlit run` works.
+
+    Every other test here runs after conftest has already imported the backend
+    `app` package, so `sys.modules` is primed and an import that would fail
+    from cold succeeds. That masked a real break: this file is itself named
+    app.py, and with frontend/ ahead of backend/ on the path, `app.config`
+    resolved `app` to this script and the demo died on launch — while the suite
+    stayed green. A fresh interpreter is the only way to see it.
+    """
+    import subprocess
+    import sys as _sys
+
+    probe = (
+        "from streamlit.testing.v1 import AppTest\n"
+        f"at = AppTest.from_file({APP!r}, default_timeout={TIMEOUT}).run()\n"
+        "raise SystemExit(str(at.exception[0].value) if at.exception else 0)\n"
+    )
+    finished = subprocess.run([_sys.executable, "-c", probe],
+                              capture_output=True, text=True, timeout=TIMEOUT * 2)
+
+    assert finished.returncode == 0, (
+        f"the app fails to start from a cold interpreter: {finished.returncode}"
+    )
+
+
 def test_every_mode_renders(corpus):
     for mode in ["Analyze an incident", "Ask the memory", "Memory dashboard"]:
         app = _run(mode)
