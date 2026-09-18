@@ -36,8 +36,15 @@ logger = logging.getLogger(__name__)
 # and diagnose() lists what the key can actually reach.
 DEFAULT_MODEL = "gemini-2.5-flash"
 
-# Google AI Studio keys start with this. Used only to auto-detect the provider.
-KEY_PREFIX = "AIza"
+# Google issues AI Studio keys in two formats, and which one you get depends on
+# when and where the key was created rather than on anything the user chooses.
+# Recognising only the older "AIza" form left anyone with a newer key staring at
+# "the key does not match any known provider prefix" for a key that was
+# perfectly valid. Used only to auto-detect the provider; LLM_PROVIDER still
+# overrides, and a key of either shape that Google rejects is reported by
+# diagnose() rather than guessed at.
+KEY_PREFIXES = ("AIza", "AQ.")
+KEY_PREFIX = KEY_PREFIXES[0]  # The one to name in messages.
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT_SECONDS = 60

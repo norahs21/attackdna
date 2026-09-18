@@ -49,6 +49,9 @@ def test_the_env_file_is_gitignored():
 @pytest.mark.parametrize("key,expected", [
     (ANTHROPIC_KEY, "anthropic"),
     (GEMINI_KEY, "gemini"),
+    # Google issues AI Studio keys in two shapes; both are Gemini keys, and
+    # recognising only the older one stranded anyone holding a newer one.
+    ("AQ.Ab8ExampleExampleExampleValue", "gemini"),
 ])
 def test_the_provider_is_inferred_from_the_key_prefix(monkeypatch, key, expected):
     """Pasting a key should be enough — no second setting to get wrong."""
@@ -82,7 +85,18 @@ def test_every_provider_implements_the_whole_interface():
     for backend in llm_client.PROVIDERS.values():
         for name in ("available", "complete_json", "diagnose", "model_name"):
             assert callable(getattr(backend, name)), f"{backend.__name__} lacks {name}"
-        assert isinstance(backend.KEY_PREFIX, str) and backend.KEY_PREFIX
+        assert isinstance(backend.KEY_PREFIXES, tuple) and backend.KEY_PREFIXES
+        assert all(isinstance(prefix, str) and prefix for prefix in backend.KEY_PREFIXES)
+        assert backend.KEY_PREFIX in backend.KEY_PREFIXES
+
+
+def test_no_two_providers_claim_the_same_key_prefix():
+    """Inference is only sound while the prefixes stay unambiguous."""
+    seen = set()
+    for backend in llm_client.PROVIDERS.values():
+        for prefix in backend.KEY_PREFIXES:
+            assert prefix not in seen, f"{prefix} is claimed by two providers"
+            seen.add(prefix)
 
 
 def test_each_provider_falls_back_to_its_own_default_model(monkeypatch):
