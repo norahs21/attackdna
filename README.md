@@ -60,7 +60,7 @@ make demo      # http://localhost:8501
 Or step by step:
 
 ```bash
-make setup     # virtualenv + dependencies
+make setup     # virtualenv + dependencies (picks Python 3.12 when available)
 make data      # download & process MITRE ATT&CK, CISA KEV and the CTI layers
 make seed      # load the historical incident corpus into memory
 make demo      # http://localhost:8501
@@ -198,6 +198,12 @@ structurally incapable of holding victim identifiers. Backends, in preference or
 1. `sentence-transformers` (`all-MiniLM-L6-v2`) if installed
 2. ChromaDB's bundled ONNX MiniLM — the same model, no torch (**default**)
 3. TF-IDF — no downloads, works fully offline
+
+ChromaDB is installed from `backend/requirements-vector.txt`, separately from the
+core set, because it depends on `onnxruntime`, which lags new Python releases and
+fails to resolve on 3.13. Keeping it out of the core set means a failed install
+costs semantic search, not the whole application — `make setup` says so and
+carries on, and the TF-IDF backend takes over automatically.
 
 ### ④ Similar Incidents — `backend/app/services/similarity.py`
 

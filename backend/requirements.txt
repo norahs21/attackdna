@@ -8,11 +8,10 @@ python-multipart>=0.0.9
 SQLAlchemy>=2.0.30
 
 # --- Vector memory ---
-# ChromaDB ships an ONNX build of all-MiniLM-L6-v2, so semantic embeddings work
-# with no extra download and no torch. Installing sentence-transformers is
-# optional: vector_memory prefers it automatically when present, but it pulls in
-# ~1 GB of torch for the same model, so it is not required here.
-chromadb>=0.5.0
+# ChromaDB lives in requirements-vector.txt because it depends on onnxruntime,
+# which lags new Python releases and fails to resolve on 3.13. Keeping it out of
+# the core set means a failed install costs semantic search, not the whole app:
+# vector_memory falls back to TF-IDF automatically.
 
 # --- Fallback retrieval + data handling ---
 scikit-learn>=1.5
@@ -20,8 +19,13 @@ numpy>=1.26
 
 # --- LLM (optional; the pipeline runs fully without a key) ---
 # Either provider works; the one used is inferred from the key prefix.
+#
+# Gemini has no entry here on purpose. Its `google-genai` SDK depends on
+# google-auth -> cryptography, a Rust extension that has to be compiled on any
+# platform without a matching wheel — which makes installing this project
+# impossible on those machines for a feature we do not use, since an API key
+# needs no OAuth. gemini_provider calls the REST API with `requests` instead.
 anthropic>=0.40
-google-genai>=1.0
 
 # --- Demo UI ---
 streamlit>=1.38
