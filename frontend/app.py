@@ -19,10 +19,10 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from app.config import DEMO_SCENARIOS_PATH, LLM_MODEL  # noqa: E402
+from app.config import DEMO_SCENARIOS_PATH  # noqa: E402
 from app.db.database import SessionLocal, init_db  # noqa: E402
 from app.pipelines.analyze import analyze, ingest  # noqa: E402
-from app.services import llm_client, vector_memory  # noqa: E402
+from app.services import llm_client, rag_qa, vector_memory  # noqa: E402
 from app.services.knowledge_base import (  # noqa: E402
     TACTIC_LABELS, cti_available, load_groups, load_kev, load_mitigations, load_techniques,
 )
@@ -52,6 +52,8 @@ STYLE = """
   .pill-low      { background: rgba(34,197,94,.16);  color: #4ade80; border-color: rgba(34,197,94,.4); }
   .pill-recalled { background: rgba(79,140,255,.16); color: #7aa8ff; border-color: rgba(79,140,255,.4); }
   .pill-baseline { background: rgba(127,127,127,.14); color: #9aa4b2; }
+  .pill-public   { background: rgba(16,185,129,.16); color: #34d399; border-color: rgba(16,185,129,.45); }
+  .pill-synthetic{ background: rgba(168,85,247,.14); color: #c084fc; border-color: rgba(168,85,247,.4); }
   .redact { color: #f87171; font-weight: 600; }
   .step-head { font-size: .78rem; letter-spacing: .12em; color: #6b7280; text-transform: uppercase; }
 </style>
@@ -65,6 +67,21 @@ st.markdown(STYLE, unsafe_allow_html=True)
 def bootstrap():
     init_db()
     return True
+
+
+def corpus_provenance() -> dict:
+    """How many incidents in memory come from each kind of source."""
+    from sqlalchemy import func
+
+    from app.db.database import IncidentDB
+
+    session = SessionLocal()
+    try:
+        rows = (session.query(IncidentDB.provenance, func.count(IncidentDB.id))
+                .group_by(IncidentDB.provenance).all())
+        return {(provenance or "internal"): count for provenance, count in rows}
+    finally:
+        session.close()
 
 
 @st.cache_data
@@ -108,6 +125,21 @@ def severity_pill(severity: str) -> str:
     return f'<span class="pill pill-{severity}">{severity.upper()}</span>'
 
 
+def provenance_pill(provenance: str) -> str:
+    """Where an incident came from — never shown without it.
+
+    An analyst weighing a recalled action needs to know whether it is drawn
+    from a real documented breach or from synthetic training data.
+    """
+    labels = {
+        "public": ("pill-public", "REAL · PUBLICLY DOCUMENTED"),
+        "synthetic": ("pill-synthetic", "SYNTHETIC"),
+        "internal": ("pill-recalled", "INTERNAL"),
+    }
+    css, label = labels.get(provenance or "internal", ("pill-baseline", "UNKNOWN"))
+    return f'<span class="pill {css}">{label}</span>'
+
+
 def highlight_redactions(text: str) -> str:
     """Render redaction tokens in red so removals are visible at a glance."""
     import html
@@ -123,11 +155,21 @@ def highlight_redactions(text: str) -> str:
 bootstrap()
 
 with st.sidebar:
+    st.markdown("### 🧭 Mode")
+    mode = st.radio(
+        "Mode", ["Analyze an incident", "Ask the memory"],
+        label_visibility="collapsed",
+        help="Analyze runs the six-stage pipeline on a report. "
+             "Ask queries the incidents already in memory.",
+    )
+
+    st.divider()
     st.markdown("### ⚙️ Configuration")
     use_llm = st.toggle("Use LLM enrichment", value=llm_client.is_available(),
                         disabled=not llm_client.is_available())
     if llm_client.is_available():
-        st.caption(f"Hybrid mode · `{LLM_MODEL}`")
+        st.caption(f"Hybrid mode · {llm_client.provider_name().title()} · "
+                   f"`{llm_client.active_model()}`")
     else:
         st.caption("Rule-based mode · no API key set. "
                    "Every stage still runs; extraction is deterministic.")
@@ -143,6 +185,16 @@ with st.sidebar:
     st.markdown("### 🧠 Memory")
     memory = vector_memory.memory_stats()
     st.metric("Incidents in memory", memory["incidents_in_memory"])
+
+    # Provenance is the answer to "where does the memory come from?", so it is
+    # on screen permanently rather than buried in a data file.
+    counts = corpus_provenance()
+    if counts.get("public"):
+        st.caption(f"🟢 **{counts['public']}** real, publicly documented breaches")
+    if counts.get("synthetic"):
+        st.caption(f"🟣 **{counts['synthetic']}** synthetic incidents")
+    if counts.get("internal"):
+        st.caption(f"🔵 **{counts['internal']}** your own incidents")
     st.caption(f"Backend: `{memory['backend']}`")
 
     try:
@@ -170,6 +222,95 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --------------------------------------------------------------------------
+# Ask the memory — retrieval-augmented Q&A over the corpus
+# --------------------------------------------------------------------------
+if mode == "Ask the memory":
+    st.markdown('<div class="step-head">Ask the memory</div>', unsafe_allow_html=True)
+    st.subheader("Question the incidents you already have")
+    st.markdown(
+        "Retrieval-augmented answers built **only** from incidents in memory. "
+        "Every citation is checked against what was actually retrieved, so a source "
+        "the model invents never reaches you."
+    )
+
+    suggestions = rag_qa.suggested_questions()
+    picked = st.selectbox("Example questions", ["— write my own —"] + suggestions, index=1)
+    default_question = "" if picked.startswith("—") else picked
+
+    question = st.text_input(
+        "Your question", value=default_question,
+        placeholder="e.g. Have we seen ransomware that disabled the EDR agent before?",
+        key=f"q_{picked}",
+    )
+    asked = st.button("Ask", type="primary", width="stretch")
+
+    if not asked or not question.strip():
+        st.info(f"**{vector_memory.memory_stats()['incidents_in_memory']} incidents** are in "
+                "memory. Pick an example above or write your own question, then press **Ask**.")
+        st.stop()
+
+    with st.spinner("Searching memory..."):
+        session = SessionLocal()
+        try:
+            answer = rag_qa.ask(session, question, top_k=6, use_llm=use_llm)
+        finally:
+            session.close()
+
+    if answer["answered_from_corpus"]:
+        st.success(answer["answer"])
+    else:
+        st.warning(answer["answer"])
+
+    meta = st.columns(4)
+    meta[0].metric("Incidents retrieved", answer["retrieved_count"])
+    meta[1].metric("Citations", len(answer["citations"]))
+    meta[2].metric("Confidence", answer.get("confidence", "—").title())
+    meta[3].metric("Mode", "Grounded LLM" if answer["mode"] == "llm-grounded" else "Retrieval only")
+
+    if answer["unverified_citations"]:
+        st.error(
+            f"**{len(answer['unverified_citations'])} citation(s) were rejected** — the model "
+            "referenced incident ids that were not in the retrieved set, so they were removed "
+            "before display."
+        )
+
+    if answer.get("language") == "ar" and answer["search_query"] != answer["question"]:
+        st.caption(f"Arabic question rewritten for retrieval: *{answer['search_query']}*")
+
+    if answer["sources"]:
+        st.markdown("#### Sources")
+        st.caption("The incidents retrieved from memory. Cited ones are marked.")
+        for source in answer["sources"]:
+            cited = "✅ cited" if source["incident_id"] in answer["citations"] else "retrieved"
+            with st.expander(
+                f"{source['similarity']:.0%} — {source['title']} · {cited}"
+            ):
+                st.markdown(provenance_pill(source.get("provenance")), unsafe_allow_html=True)
+                st.markdown(
+                    f"**Type:** {source['attack_type']} · **Sector:** {source['sector']} · "
+                    f"**Severity:** {source['severity']} · "
+                    f"**Date:** {source['occurred_at'] or 'undated'}"
+                )
+                st.write(source["summary"])
+                if source.get("source_url"):
+                    st.caption(f"Source: [{source.get('source_name')}]({source['source_url']})")
+                st.caption(f"`{source['incident_id']}`")
+    else:
+        st.caption("Nothing in memory matched closely enough to cite.")
+
+    st.divider()
+    st.caption(
+        "This is the retrieval-augmented generation loop: incidents are embedded into a "
+        "vector store, retrieved by meaning, and the answer is generated strictly from what "
+        "came back. With no API key the same retrieval runs and returns a structured digest."
+    )
+    st.stop()
+
+
+# --------------------------------------------------------------------------
+# Analyze an incident — the six-stage pipeline
+# --------------------------------------------------------------------------
 st.markdown('<div class="step-head">① Upload</div>', unsafe_allow_html=True)
 st.markdown("Paste an incident report, upload one, or pick a prepared scenario. Names, IPs, "
             "emails and company information can be left in — removing them is the system's first job.")
@@ -416,6 +557,12 @@ else:
             score_cols[2].metric("Structural", f"{match['structural_similarity']:.0%}",
                                  help="Shared techniques, tactics, attack type, sector and CVEs")
 
+            st.markdown(provenance_pill(match.get("provenance")), unsafe_allow_html=True)
+            if match.get("source_url"):
+                st.caption(f"Source: [{match.get('source_name')}]({match['source_url']})")
+            if match.get("why_it_matters"):
+                st.info(match["why_it_matters"])
+
             st.markdown("**Why this matched**")
             for reason in match["match_reasons"]:
                 st.markdown(f"- {reason}")
@@ -464,7 +611,9 @@ for group in mitigations["by_phase"]:
         )
         if action["sources"]:
             names = ", ".join(
-                f"{s['title']} ({s['similarity']:.0%})" for s in action["sources"][:3]
+                f"{s['title']} ({s['similarity']:.0%})"
+                + (" ⬤" if s.get("provenance") == "public" else "")
+                for s in action["sources"][:3]
             )
             st.caption(f"Source: {names}")
 

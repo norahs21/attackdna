@@ -19,7 +19,9 @@ scikit-learn>=1.5
 numpy>=1.26
 
 # --- LLM (optional; the pipeline runs fully without a key) ---
+# Either provider works; the one used is inferred from the key prefix.
 anthropic>=0.40
+google-genai>=1.0
 
 # --- Demo UI ---
 streamlit>=1.38

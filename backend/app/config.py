@@ -35,9 +35,14 @@ DATABASE_URL = _resolve_database_url(
     os.getenv("DATABASE_URL", f"sqlite:///{BACKEND_DIR / 'attackdna.db'}")
 )
 
-# --- LLM ---
+# --- LLM (optional; the pipeline runs fully without it) ---
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
-LLM_MODEL = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+# "auto" infers the provider from the key prefix (sk-ant- / AIza). Set
+# explicitly to "anthropic" or "gemini" to override.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+# Empty means "let the selected provider choose its own default", so the model
+# does not have to be changed when the provider is.
+LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
 # A placeholder key must never be treated as usable.
 LLM_ENABLED = bool(LLM_API_KEY) and LLM_API_KEY not in {"your_key_here", "changeme"}
 

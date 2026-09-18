@@ -41,6 +41,15 @@ class IncidentDB(Base):
     source = Column(String, nullable=True, default="upload")
     occurred_at = Column(DateTime, nullable=True)
 
+    # Provenance. An analyst weighing a recalled action needs to know whether it
+    # came from their own organisation, from a publicly documented breach, or
+    # from synthetic training data — so the corpus records which, and the UI
+    # never shows a recalled action without it.
+    provenance = Column(String, nullable=True, default="internal", index=True)
+    source_name = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    why_it_matters = Column(Text, nullable=True)
+
     # Opt-in only — see the module docstring.
     raw_text = Column(Text, nullable=True)
     sanitized_text = Column(Text, nullable=False)
@@ -96,6 +105,10 @@ class IncidentDB(Base):
             "id": self.id,
             "title": self.title,
             "source": self.source,
+            "provenance": self.provenance,
+            "source_name": self.source_name,
+            "source_url": self.source_url,
+            "why_it_matters": self.why_it_matters,
             "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None,
             "sanitized_text": self.sanitized_text,
             "attack_type": self.attack_type,
@@ -154,8 +167,42 @@ class MitigationDB(Base):
         }
 
 
+def _add_missing_columns() -> None:
+    """Bring an existing SQLite file up to the current model.
+
+    `create_all` creates missing *tables* but never adds a column to a table
+    that already exists, so a database created before a field was added fails
+    at query time with "no such column" — long after the cause. This project
+    has no migration tool by design (it should run from a clean clone with one
+    command), so the gap is closed here instead.
+
+    Only additive changes are handled, which is all this schema has needed:
+    every added column is nullable or defaulted, so backfilling is unnecessary.
+    A renamed or retyped column would still require `make reset`.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        return  # Other engines get a real migration tool if this ever grows one.
+
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in inspector.get_table_names():
+                continue
+            existing = {col["name"] for col in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                column_type = column.type.compile(dialect=engine.dialect)
+                connection.execute(
+                    text(f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {column_type}')
+                )
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
 
 
 def get_session():

@@ -78,14 +78,35 @@ of the seed corpus. Current rule-based numbers (no API key, no network):
 | Initial vector accuracy | **100%** |
 | Sector accuracy | **100%** |
 | Severity band accuracy | **100%** |
-| ATT&CK mapping precision / recall / F1 | **87% / 86% / 84%** |
+| ATT&CK mapping precision / recall / F1 | **87% / 88% / 86%** |
 | Memory retrieval precision@1 | **100%** |
 | Privacy verified clean (0 residual leaks) | **100%** |
 | Mean end-to-end latency | **0.40 s** |
 
 No API key is required. Without one the system runs in **rule-based mode**: every
-stage still executes, extraction is deterministic instead of model-assisted. Add a
-key to `backend/.env` to enable hybrid mode.
+stage still executes, extraction is deterministic instead of model-assisted.
+
+To enable the AI layer, put a key in `backend/.env` and verify it. **Either
+provider works** — paste one key and the provider is inferred from its prefix:
+
+| Provider | Key prefix | Where |
+|---|---|---|
+| Google Gemini | `AIza...` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — has a free tier |
+| Anthropic Claude | `sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) — pay as you go |
+
+```bash
+cp .env.example backend/.env     # then set LLM_API_KEY=...
+make check-llm                   # proves the key works and shows what it adds
+```
+
+Adding a provider touches `backend/app/services/llm_providers/` and nothing
+else: extraction, simulation and Ask-the-memory are written once against the
+`llm_client` facade, never against a vendor SDK.
+
+`make check-llm` makes one small real call and names the exact cause when it
+fails — no key, placeholder key, rejected key, model not permitted, no credit,
+or no network — because `complete_json` fails soft by design, and silent
+degradation during setup is indistinguishable from having no key at all.
 
 To explore the API instead of the UI:
 
@@ -290,7 +311,8 @@ backend/app/
     ioc_extractor.py           shareable vs. victim-linked indicators
     attribution.py             behavioural resemblance to known actors
     dna_extractor.py           ② Attack DNA + schema validation
-    llm_client.py              optional Claude wrapper, fails soft
+    llm_client.py              provider-agnostic LLM facade, fails soft
+    llm_providers/             Anthropic and Gemini backends
     vector_memory.py           ③ Vector Memory (3-tier backend)
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
@@ -305,10 +327,11 @@ scripts/
   evaluate.py                  accuracy measurement
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
-  seed/incidents.json          synthetic historical corpus (14 incidents)
+  seed/public_incidents.json   10 real publicly-documented breaches, cited
+  seed/incidents.json          14 synthetic incidents for sector breadth
   seed/evaluation_set.json     labelled cases for accuracy measurement
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         93 tests
+tests/                         157 tests
 ```
 
 ---
@@ -316,7 +339,7 @@ tests/                         93 tests
 ## Testing
 
 ```bash
-make test     # 93 tests
+make test     # 157 tests
 make eval     # accuracy measurement against labelled cases
 ```
 
@@ -350,7 +373,17 @@ stage?"*:
   vocabularies, the embeddings come from a pre-trained MiniLM, and the optional
   LLM is used through its API. There is nothing to fine-tune, and no training
   data to collect.
-- `data/seed/incidents.json` is **entirely synthetic**. Every organisation, person
-  and identifier is invented. The reports are stored un-sanitized on purpose:
-  seeding runs them through the real Privacy Layer, so the seeded corpus is proof
-  the pipeline works rather than a hand-cleaned shortcut.
+- The corpus has **two provenances**, and the UI never shows a recalled action
+  without saying which:
+  - `data/seed/public_incidents.json` — **10 real, publicly documented breaches**
+    (Norsk Hydro, Colonial Pipeline, Change Healthcare, MOVEit, NotPetya, Equifax,
+    Target, SolarWinds, Kaseya, Uber), compiled from public reporting with the
+    source URL on every entry. These answer the first question anyone asks of a
+    memory system: where does the memory come from?
+  - `data/seed/incidents.json` — **14 synthetic incidents** covering sectors the
+    public set does not. Every organisation, person and identifier is invented.
+- Reports of both kinds are stored un-sanitized on purpose: seeding runs them
+  through the real Privacy Layer, so the seeded corpus is proof the pipeline works
+  rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the
+  victim has already disclosed, the name is public record, and keeping it is what
+  makes the memory auditable.

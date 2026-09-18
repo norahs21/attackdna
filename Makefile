@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 PIP := .venv/bin/pip
 
-.PHONY: help setup data seed api demo test eval clean reset all
+.PHONY: help setup data seed api demo test eval check-llm clean reset all
 
 help:
 	@echo "ATTACKDNA"
@@ -14,6 +14,7 @@ help:
 	@echo "  make api     Run the FastAPI service        (http://localhost:8000/docs)"
 	@echo "  make test    Run the test suite"
 	@echo "  make eval    Measure accuracy against the labelled evaluation set"
+	@echo "  make check-llm  Verify the Claude API key works and show what it adds"
 	@echo "  make reset   Wipe the database and vector memory, then reseed"
 
 all: setup data seed
@@ -36,6 +37,9 @@ data:
 
 eval:
 	$(PY) scripts/evaluate.py
+
+check-llm:
+	$(PY) scripts/check_llm.py
 
 seed:
 	$(PY) scripts/seed_memory.py --reset

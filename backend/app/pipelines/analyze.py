@@ -92,6 +92,10 @@ def ingest(
     store_raw: bool = False,
     use_llm: bool = True,
     top_k: int = SIMILARITY_TOP_K,
+    provenance: str = "internal",
+    source_name: Optional[str] = None,
+    source_url: Optional[str] = None,
+    why_it_matters: Optional[str] = None,
 ) -> dict:
     """Analyze an incident, persist it, and commit it to vector memory.
 
@@ -104,6 +108,10 @@ def ingest(
     incident = IncidentDB(
         title=title or _derive_title(dna),
         source=source,
+        provenance=provenance,
+        source_name=source_name,
+        source_url=source_url,
+        why_it_matters=why_it_matters,
         occurred_at=occurred_at,
         raw_text=raw_text if store_raw else None,
         sanitized_text=result["privacy"]["sanitized_text"],

@@ -62,6 +62,14 @@ class SimulateRequest(BaseModel):
     use_llm: bool = True
 
 
+class AskRequest(BaseModel):
+    """Ask the incident corpus a question in plain language."""
+
+    question: str = Field(..., min_length=3, max_length=1000)
+    top_k: int = Field(6, ge=1, le=20)
+    use_llm: bool = True
+
+
 class MitigationAppendRequest(BaseModel):
     mitigations: List[MitigationIn] = Field(..., min_length=1)
 

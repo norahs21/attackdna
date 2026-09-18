@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import IncidentDB, get_session
-from app.models.schemas import SearchRequest, SimulateRequest
+from app.models.schemas import AskRequest, SearchRequest, SimulateRequest
+from app.services import rag_qa
 from app.services.dna_extractor import extract_dna
 from app.services.mitigation_memory import recall_mitigations
 from app.services.sanitizer import sanitize
@@ -37,6 +38,23 @@ def search_memory(request: SearchRequest, session: Session = Depends(get_session
         "similar_incidents": similar,
         "mitigations": mitigations,
     }
+
+
+@router.post("/ask", summary="Ask the incident corpus a question (RAG)")
+def ask_memory(request: AskRequest, session: Session = Depends(get_session)):
+    """Retrieval-augmented answer over the organisation's own incidents.
+
+    The answer is built only from retrieved incidents, every citation is
+    verified against what was actually retrieved, and with no API key the same
+    retrieval returns a structured digest instead.
+    """
+    return rag_qa.ask(session, request.question, top_k=request.top_k,
+                      use_llm=request.use_llm)
+
+
+@router.get("/ask/suggestions", summary="Starter questions for the memory")
+def ask_suggestions():
+    return {"questions": rag_qa.suggested_questions()}
 
 
 @router.post("/simulate", summary="Generate a safe defensive tabletop exercise")

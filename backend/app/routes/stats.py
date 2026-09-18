@@ -6,7 +6,6 @@ from collections import Counter
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.config import LLM_MODEL
 from app.db.database import IncidentDB, get_session
 from app.services import llm_client, vector_memory
 from app.services.knowledge_base import (
@@ -56,7 +55,8 @@ def stats(session: Session = Depends(get_session)):
         "memory": vector_memory.memory_stats(),
         "llm": {
             "available": llm_client.is_available(),
-            "model": LLM_MODEL if llm_client.is_available() else None,
+            "provider": llm_client.provider_name(),
+            "model": llm_client.active_model() if llm_client.is_available() else None,
             "mode": "hybrid (rules + LLM)" if llm_client.is_available() else "rule-based",
         },
     }

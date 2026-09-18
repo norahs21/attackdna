@@ -1,0 +1,437 @@
+{
+  "_readme": "Real, publicly documented security incidents, compiled from public reporting, regulatory filings and the affected organisations' own statements. Every entry cites its source. These are ingested through the same pipeline as everything else: the Privacy Layer redacts identifying values from the report body, while the title keeps the public attribution — for an incident the victim has already disclosed publicly, the name is public record, and keeping it is what makes the memory auditable. A member organisation's own incidents would carry a generic title instead.",
+  "_accuracy_note": "These summaries capture the widely-reported facts of each incident at the level of detail a threat-intelligence write-up would use. They are teaching material, not forensic reports. Verify against the cited source before quoting a specific figure in a presentation.",
+  "_provenance": "public",
+  "incidents": [
+    {
+      "title": "Norsk Hydro — LockerGoga ransomware (2019)",
+      "occurred_at": "2019-03-19",
+      "source_name": "Norsk Hydro public statements and post-incident reporting",
+      "source_url": "https://www.hydro.com/en/media/news/2019/hydro-subject-to-cyber-attack/",
+      "why_it_matters": "The reference case for refusing to pay. Hydro restored from backup, ran plants manually, and published daily updates throughout — the transparency itself became the lesson.",
+      "text": "On 19 March 2019 Norsk Hydro, a Norwegian aluminium producer, was hit by LockerGoga ransomware that spread across its global IT estate and encrypted files on roughly 22,000 computers in 40 countries. The attackers had gained a foothold in the network some time before deployment and obtained domain administrator privileges, which were used to distribute the ransomware broadly. Files were encrypted across business systems and several plants lost IT control of production lines.\n\nHydro declined to pay the ransom. It isolated affected systems, switched a number of smelting and extrusion plants to manual operation, and restored systems from backups. The company published daily public updates and webcasts throughout the recovery, and briefed peers and authorities openly. Financial impact was reported at well over USD 70 million. Full recovery took months.",
+      "mitigations": [
+        {
+          "action": "Isolate affected endpoints from the network immediately",
+          "category": "contain",
+          "effectiveness": 0.85,
+          "notes": "Estate-wide isolation limited further spread but production IT was already lost."
+        },
+        {
+          "action": "Switch affected production lines to manual operation to keep the business running",
+          "category": "recover",
+          "effectiveness": 0.9,
+          "notes": "Manual fallback procedures existed and were rehearsed; this is why operations continued at all."
+        },
+        {
+          "action": "Restore from backup rather than paying the ransom",
+          "category": "recover",
+          "effectiveness": 0.9,
+          "notes": "Recovery took months but avoided funding the attacker and left no dependency on attacker-supplied tooling."
+        },
+        {
+          "action": "Force a domain-wide credential reset, including krbtgt twice",
+          "category": "eradicate",
+          "effectiveness": 0.9,
+          "notes": "Domain admin privileges had been obtained before deployment."
+        },
+        {
+          "action": "Publish transparent daily updates to staff, customers and the public",
+          "category": "recover",
+          "effectiveness": 0.95,
+          "notes": "Openness preserved customer trust and is now cited as the model response."
+        },
+        {
+          "action": "Maintain immutable, air-gapped backups and rehearse restore times",
+          "category": "harden",
+          "effectiveness": 0.95
+        }
+      ]
+    },
+    {
+      "title": "Colonial Pipeline — DarkSide ransomware (2021)",
+      "occurred_at": "2021-05-07",
+      "source_name": "US Congressional testimony and public incident reporting",
+      "source_url": "https://www.cisa.gov/news-events/cybersecurity-advisories/aa21-131a",
+      "why_it_matters": "One legacy VPN account without MFA took down fuel supply to the US East Coast. The single most-cited argument for MFA on all remote access.",
+      "text": "On 7 May 2021 Colonial Pipeline, a major US fuel pipeline operator, discovered ransomware from the DarkSide group on its business IT network. Initial access was through a legacy VPN account that was still enabled and was not protected by multi-factor authentication; the password was reported to have appeared in a credential dump, indicating reuse. The attackers stole around 100 GB of data before deploying ransomware against the corporate environment.\n\nColonial proactively shut down pipeline operations because it could not confirm the safety of the operational technology environment, causing fuel supply disruption and panic buying across the US East Coast. The company engaged external incident responders and paid a ransom of approximately USD 4.4 million; the US Department of Justice later recovered roughly USD 2.3 million of it. The operational technology systems themselves were not confirmed to have been compromised.",
+      "mitigations": [
+        {
+          "action": "Shut down operational technology proactively when IT compromise cannot be scoped",
+          "category": "contain",
+          "effectiveness": 0.8,
+          "notes": "Safe but extremely costly; better IT/OT segmentation would have made the shutdown unnecessary."
+        },
+        {
+          "action": "Disable the compromised account and revoke all active sessions and tokens",
+          "category": "contain",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Enforce phishing-resistant MFA (FIDO2/WebAuthn) for all users",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "Root cause. The VPN account had no MFA."
+        },
+        {
+          "action": "Audit and disable dormant and legacy remote access accounts",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "The account was legacy and still enabled."
+        },
+        {
+          "action": "Segment the OT network from corporate IT with an enforced boundary",
+          "category": "harden",
+          "effectiveness": 0.95,
+          "notes": "Clear segmentation would have allowed pipeline operations to continue."
+        },
+        {
+          "action": "Monitor credential marketplaces for corporate domains",
+          "category": "detect",
+          "effectiveness": 0.8
+        }
+      ]
+    },
+    {
+      "title": "Change Healthcare — BlackCat/ALPHV ransomware (2024)",
+      "occurred_at": "2024-02-21",
+      "source_name": "UnitedHealth Group congressional testimony and public statements",
+      "source_url": "https://www.hhs.gov/about/news/2024/03/05/hhs-statement-regarding-cyberattack-change-healthcare.html",
+      "why_it_matters": "A Citrix portal without MFA, in a company processing a third of US healthcare claims. Shows how one control gap becomes a national-scale outage.",
+      "text": "In February 2024 Change Healthcare, a US healthcare payments processor handling a large share of national claims traffic, suffered a ransomware attack attributed to the BlackCat/ALPHV group. Initial access was obtained using stolen credentials against a remote access Citrix portal that was not protected by multi-factor authentication. The attackers moved laterally, exfiltrated a large volume of protected health information, and deployed ransomware roughly nine days after the initial intrusion.\n\nSystems were taken offline, disrupting claims processing, prescription fulfilment and provider payments across the United States for weeks. A ransom of approximately USD 22 million was paid. The company later reported that protected health information for a very large number of individuals was affected, triggering extensive regulatory notification obligations.",
+      "mitigations": [
+        {
+          "action": "Disconnect affected systems from the network to halt the attack",
+          "category": "contain",
+          "effectiveness": 0.8,
+          "notes": "Effective containment but caused a national service outage, because there was no partial-failure mode."
+        },
+        {
+          "action": "Enforce phishing-resistant MFA (FIDO2/WebAuthn) for all users",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "Root cause: the Citrix portal had no MFA."
+        },
+        {
+          "action": "Apply MFA to every externally reachable service, verified by external attack surface scanning",
+          "category": "harden",
+          "effectiveness": 0.95,
+          "notes": "The gap was a single server missed in the rollout."
+        },
+        {
+          "action": "Alert on abnormal outbound data volume per user or per host",
+          "category": "detect",
+          "effectiveness": 0.9,
+          "notes": "Nine days of dwell time and bulk exfiltration preceded encryption."
+        },
+        {
+          "action": "Engage regulators and notify affected individuals per statutory timelines",
+          "category": "recover",
+          "effectiveness": 0.7
+        },
+        {
+          "action": "Design critical services for degraded-mode operation rather than full shutdown",
+          "category": "harden",
+          "effectiveness": 0.9
+        }
+      ]
+    },
+    {
+      "title": "MOVEit Transfer — Cl0p mass exploitation (2023)",
+      "occurred_at": "2023-05-27",
+      "source_name": "CISA advisory AA23-158A and Progress Software security advisories",
+      "source_url": "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-158a",
+      "why_it_matters": "A single zero-day in a file transfer product breached thousands of organisations at once. The clearest demonstration that your attack surface includes your vendors' code.",
+      "text": "In late May 2023 the Cl0p ransomware group began mass exploitation of CVE-2023-34362, a previously unknown SQL injection vulnerability in Progress Software's MOVEit Transfer managed file transfer product. Exploitation allowed the attackers to deploy a web shell, known publicly as LEMURLOOT, on internet-facing MOVEit servers, enumerate the underlying database, and exfiltrate stored files.\n\nBecause MOVEit is widely used to move sensitive data between organisations, the campaign affected thousands of entities across government, finance, healthcare and education, including many that were breached through a third party rather than directly. The group published stolen data on a leak site rather than deploying encryption. Progress released emergency patches and organisations were advised to assume compromise, hunt for the web shell, and rotate credentials stored on affected servers.",
+      "mitigations": [
+        {
+          "action": "Take the affected application offline and preserve forensic images",
+          "category": "contain",
+          "effectiveness": 0.85
+        },
+        {
+          "action": "Patch the exploited service and inspect for web shells left behind",
+          "category": "eradicate",
+          "effectiveness": 0.95,
+          "notes": "Patching alone was insufficient; web shells persisted after patching."
+        },
+        {
+          "action": "Rotate every credential and key stored on or reachable from the affected server",
+          "category": "eradicate",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Place the public-facing application behind a WAF with virtual patching",
+          "category": "harden",
+          "effectiveness": 0.85,
+          "notes": "Buys time against a zero-day before a vendor patch exists."
+        },
+        {
+          "action": "Maintain an inventory of internet-facing third-party software with named owners",
+          "category": "harden",
+          "effectiveness": 0.9,
+          "notes": "Many victims did not know they were running an exposed instance."
+        },
+        {
+          "action": "Alert on abnormal outbound data volume per user or per host",
+          "category": "detect",
+          "effectiveness": 0.9
+        }
+      ]
+    },
+    {
+      "title": "Kaseya VSA — REvil supply chain ransomware (2021)",
+      "occurred_at": "2021-07-02",
+      "source_name": "CISA advisory and Kaseya public incident updates",
+      "source_url": "https://www.cisa.gov/news-events/alerts/2021/07/02/kaseya-vsa-supply-chain-ransomware-attack",
+      "why_it_matters": "Ransomware delivered through the very tool used to manage and secure endpoints. Trusted management software is the highest-value target in any estate.",
+      "text": "On 2 July 2021 the REvil ransomware group exploited zero-day vulnerabilities in Kaseya VSA, a remote monitoring and management platform used by managed service providers. The attackers pushed a malicious update through the VSA agent to downstream customer endpoints, which executed the ransomware payload with the elevated trust the management agent carries. Endpoint security tooling was bypassed or disabled on many affected hosts.\n\nApproximately 1,500 downstream businesses were affected across multiple countries, including retail chains that closed stores. Kaseya shut down its SaaS servers and urgently advised on-premises VSA customers to shut their servers down until a patch was available. A universal decryptor was later obtained and distributed to victims.",
+      "mitigations": [
+        {
+          "action": "Suspend all third-party remote management access pending vendor assurance",
+          "category": "contain",
+          "effectiveness": 0.95,
+          "notes": "The decisive action; speed of shutdown determined how many endpoints were reached."
+        },
+        {
+          "action": "Isolate affected endpoints from the network immediately",
+          "category": "contain",
+          "effectiveness": 0.85
+        },
+        {
+          "action": "Rebuild affected hosts from image; shadow copies cannot be trusted",
+          "category": "recover",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Require vendors to use dedicated, monitored, time-bound access accounts",
+          "category": "harden",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Enable tamper protection on all endpoint security agents",
+          "category": "harden",
+          "effectiveness": 0.9,
+          "notes": "Security tooling was disabled on affected hosts."
+        },
+        {
+          "action": "Alert whenever an EDR agent stops reporting or a security service is stopped",
+          "category": "detect",
+          "effectiveness": 0.95
+        }
+      ]
+    },
+    {
+      "title": "SolarWinds Orion — SUNBURST supply chain compromise (2020)",
+      "occurred_at": "2020-12-13",
+      "source_name": "CISA Emergency Directive 21-01 and public incident analysis",
+      "source_url": "https://www.cisa.gov/news-events/directives/ed-21-01-mitigate-solarwinds-orion-code-compromise",
+      "why_it_matters": "Months of undetected access across government and Fortune 500 networks, delivered through a signed software update. The benchmark for supply chain espionage.",
+      "text": "In December 2020 it became public that the build environment of SolarWinds Orion, a widely deployed network management platform, had been compromised and used to distribute trojanised, digitally signed updates containing a backdoor known publicly as SUNBURST. Around 18,000 organisations downloaded the affected update, though the attackers selectively pursued a much smaller set of high-value targets.\n\nThe backdoor lay dormant for a period after installation, then communicated with attacker-controlled infrastructure using a protocol designed to blend with legitimate Orion traffic. Where targets were pursued, the attackers escalated into cloud identity systems, forged authentication tokens and accessed email and exfiltrated data over an extended period. Dwell time in some environments was measured in months. Response required assuming that identity infrastructure itself was compromised.",
+      "mitigations": [
+        {
+          "action": "Disconnect or power down affected management platform instances",
+          "category": "contain",
+          "effectiveness": 0.8,
+          "notes": "Mandated by emergency directive for US federal agencies."
+        },
+        {
+          "action": "Treat identity infrastructure as compromised and rotate signing and token keys",
+          "category": "eradicate",
+          "effectiveness": 0.95,
+          "notes": "Forged tokens meant password resets alone were insufficient."
+        },
+        {
+          "action": "Force a domain-wide credential reset, including krbtgt twice",
+          "category": "eradicate",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Rebuild affected hosts from a known-good image",
+          "category": "recover",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Baseline outbound traffic from management servers and alert on new destinations",
+          "category": "detect",
+          "effectiveness": 0.9,
+          "notes": "The backdoor imitated legitimate Orion traffic; only baselining would have caught it."
+        },
+        {
+          "action": "Restrict management platforms from arbitrary outbound internet access",
+          "category": "harden",
+          "effectiveness": 0.95
+        }
+      ]
+    },
+    {
+      "title": "Maersk — NotPetya destructive attack (2017)",
+      "occurred_at": "2017-06-27",
+      "source_name": "A.P. Moller-Maersk public statements and post-incident reporting",
+      "source_url": "https://www.maersk.com/news/articles/2017/06/29/maersk-statement",
+      "why_it_matters": "Not ransomware — a wiper wearing ransomware's clothes. Recovery hinged on one domain controller that happened to be offline during a power cut in Ghana.",
+      "text": "On 27 June 2017 the shipping and logistics group A.P. Moller-Maersk was caught in the NotPetya attack. The malware was distributed through a compromised update to M.E.Doc, a Ukrainian tax accounting package, and spread rapidly inside networks using credential theft and an SMB exploit. Although it displayed a ransom note, NotPetya was destructive by design: encrypted systems could not be recovered by paying.\n\nMaersk lost approximately 4,000 servers, 45,000 workstations and 2,500 applications. Terminal operations worldwide were disrupted and container bookings were handled manually. Active Directory could not initially be restored because every domain controller had been destroyed; recovery became possible only because a domain controller in Ghana had been offline during a local power outage and retained an intact copy. The environment was rebuilt in roughly ten days at an estimated cost of around USD 300 million.",
+      "mitigations": [
+        {
+          "action": "Rebuild affected hosts from image; shadow copies cannot be trusted",
+          "category": "recover",
+          "effectiveness": 0.9,
+          "notes": "Destructive malware left no decryption path; rebuild was the only option."
+        },
+        {
+          "action": "Restore Active Directory from an offline copy held outside the blast radius",
+          "category": "recover",
+          "effectiveness": 1.0,
+          "notes": "Recovery depended on a single surviving domain controller; this must be designed, not left to chance."
+        },
+        {
+          "action": "Keep at least one domain controller offline or air-gapped as a recovery anchor",
+          "category": "harden",
+          "effectiveness": 1.0
+        },
+        {
+          "action": "Segment the network to prevent flat lateral movement between regions",
+          "category": "harden",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Maintain manual business continuity procedures for critical operations",
+          "category": "recover",
+          "effectiveness": 0.85,
+          "notes": "Bookings continued manually while systems were rebuilt."
+        },
+        {
+          "action": "Patch SMB and disable legacy protocol versions across the estate",
+          "category": "harden",
+          "effectiveness": 0.9
+        }
+      ]
+    },
+    {
+      "title": "Uber — MFA fatigue and hardcoded credentials (2022)",
+      "occurred_at": "2022-09-15",
+      "source_name": "Uber security update and public incident reporting",
+      "source_url": "https://www.uber.com/newsroom/security-update/",
+      "why_it_matters": "MFA was in place and still failed — the attacker simply asked the user to approve, repeatedly. Then a hardcoded admin password in a script turned a foothold into full access.",
+      "text": "In September 2022 Uber, a US technology company, disclosed a security incident in which an attacker obtained a contractor's corporate password, reportedly purchased from a credential marketplace after malware infected the contractor's personal device. Multi-factor authentication initially blocked access, so the attacker repeatedly triggered push notifications and then contacted the contractor over a messaging app claiming to be IT support, persuading them to approve one.\n\nOnce inside, the attacker enumerated the internal network and found a PowerShell script on a network share containing hardcoded administrator credentials for a privileged access management system. That gave broad access to internal tooling. Uber reported no evidence of access to production systems storing customer data, and attributed the activity to a group associated with Lapsus$.",
+      "mitigations": [
+        {
+          "action": "Disable the compromised account and revoke all active sessions and tokens",
+          "category": "contain",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Switch from push-based MFA to number matching or FIDO2 keys",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "Root cause. Push approval is defeated by persistence plus social engineering."
+        },
+        {
+          "action": "Remove hardcoded credentials from scripts and move them to a secrets manager",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "The escalation path depended entirely on a plaintext password in a script."
+        },
+        {
+          "action": "Enable secret scanning with push protection on all repositories and shares",
+          "category": "detect",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Alert on repeated denied MFA prompts for a single account",
+          "category": "detect",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Train staff that IT will never ask them to approve an unexpected MFA prompt",
+          "category": "harden",
+          "effectiveness": 0.8
+        }
+      ]
+    },
+    {
+      "title": "Equifax — unpatched Apache Struts exploitation (2017)",
+      "occurred_at": "2017-05-13",
+      "source_name": "US Government Accountability Office report and congressional findings",
+      "source_url": "https://www.gao.gov/products/gao-18-559",
+      "why_it_matters": "A known CVE left unpatched for two months, and an expired certificate that blinded traffic inspection for 76 days. Two ordinary failures, 147 million records.",
+      "text": "In 2017 an attacker exploited CVE-2017-5638, a remote code execution vulnerability in Apache Struts, on an internet-facing consumer dispute portal operated by the US credit bureau Equifax. A patch had been available for approximately two months and an internal notice to patch had been issued, but the affected system was missed because the asset inventory was incomplete.\n\nThe attacker deployed web shells, discovered unencrypted credentials stored on the system, and used them to query dozens of internal databases. Data was exfiltrated in small encrypted batches over an extended period. Network traffic inspection failed to detect the exfiltration because a certificate used by the inspection device had expired ten months earlier, leaving outbound traffic uninspected for approximately 76 days. Personal information of roughly 147 million people was exposed.",
+      "mitigations": [
+        {
+          "action": "Patch the exploited service and inspect for web shells left behind",
+          "category": "eradicate",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Maintain a complete asset inventory mapping every internet-facing service to an owner",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "Root cause. The patch notice was issued; the asset was not on the list."
+        },
+        {
+          "action": "Monitor expiry of certificates used by security inspection devices",
+          "category": "detect",
+          "effectiveness": 1.0,
+          "notes": "An expired certificate silently disabled detection for 76 days."
+        },
+        {
+          "action": "Remove plaintext credentials from application servers and move them to a secrets manager",
+          "category": "harden",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Alert on abnormal outbound data volume per user or per host",
+          "category": "detect",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Enforce patch SLAs for internet-facing services with escalation on breach",
+          "category": "harden",
+          "effectiveness": 0.95
+        }
+      ]
+    },
+    {
+      "title": "Target — third-party vendor access to POS (2013)",
+      "occurred_at": "2013-11-27",
+      "source_name": "US Senate Committee report on the Target data breach",
+      "source_url": "https://www.commerce.senate.gov/2014/3/committee-report-target-breach",
+      "why_it_matters": "The way in was an HVAC contractor's billing account. The canonical third-party access case, and the reason vendor accounts are segmented today.",
+      "text": "In late 2013 attackers obtained network credentials belonging to a heating and ventilation contractor that had remote access to a US retailer's systems for billing and project management. The credentials were reportedly stolen through a phishing campaign against the contractor. Because the vendor's access was not segmented away from the wider corporate network, the attackers were able to move laterally from that entry point.\n\nThey deployed memory-scraping malware to point of sale terminals, which captured payment card data from memory as cards were swiped, before card data was encrypted. Data was staged internally and then exfiltrated. Approximately 40 million payment card records and personal information for a further 70 million customers were compromised. Security tooling generated alerts during the intrusion that were not acted upon.",
+      "mitigations": [
+        {
+          "action": "Disable the compromised vendor account and revoke all active sessions and tokens",
+          "category": "contain",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Segment third-party vendor access away from the corporate and payment networks",
+          "category": "harden",
+          "effectiveness": 1.0,
+          "notes": "Root cause. A billing vendor should never have reached the POS network."
+        },
+        {
+          "action": "Rebuild affected point of sale terminals from a known-good image",
+          "category": "eradicate",
+          "effectiveness": 0.9
+        },
+        {
+          "action": "Require vendors to use dedicated, monitored, time-bound access accounts",
+          "category": "harden",
+          "effectiveness": 0.95
+        },
+        {
+          "action": "Define an escalation path that guarantees security alerts are triaged and closed",
+          "category": "detect",
+          "effectiveness": 1.0,
+          "notes": "Alerts fired during the intrusion and were not acted on. Detection without response is not detection."
+        },
+        {
+          "action": "Deploy point-to-point encryption so card data is never in cleartext in terminal memory",
+          "category": "harden",
+          "effectiveness": 0.95
+        }
+      ]
+    }
+  ]
+}
