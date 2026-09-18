@@ -1,0 +1,20 @@
+# The demo's appearance is pinned here rather than inherited from whichever
+# machine it runs on. Streamlit follows the operating system's light/dark
+# setting by default, so the same laptop can render the same demo two different
+# ways depending on the time of day — and a palette checked for contrast
+# against a dark surface is not checked for a light one.
+#
+# These are the dark surfaces and the accent the charts were validated against.
+[theme]
+base = "dark"
+primaryColor = "#3987e5"
+backgroundColor = "#0d0d0d"
+secondaryBackgroundColor = "#1a1a19"
+textColor = "#ffffff"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
