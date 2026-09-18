@@ -14,7 +14,10 @@ textColor = "#ffffff"
 font = "sans serif"
 
 [server]
-headless = true
+# Deliberately NOT headless. `make demo` is a person opening a demo, and headless
+# suppresses the browser launch — the command then looks like it did nothing,
+# because the only sign it worked is a URL in a terminal nobody is reading.
+headless = false
 
 [browser]
 gatherUsageStats = false
