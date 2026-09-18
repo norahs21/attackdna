@@ -38,17 +38,17 @@ from app.services.knowledge_base import TACTIC_LABELS
 
 ARABIC_RE = re.compile(r"[؀-ۿ]")
 
-# Relevance floor for the retrieval-only path.
+# The relevance floor for the retrieval-only path lives in `vector_memory`,
+# because what counts as "close enough" depends entirely on which backend
+# produced the score — MiniLM and TF-IDF put relevant matches in ranges that do
+# not overlap at all. Asking for it per call also means a machine that gains or
+# loses ChromaDB gets the right floor without a code change.
 #
-# MiniLM cosine similarity has a high floor on same-domain text: on this corpus
-# a genuinely relevant incident scores 0.75-0.80 while an unrelated one still
-# scores 0.66-0.70. Without a cut-off the offline path answers "have we seen a
-# satellite uplink attack?" with four ransomware incidents and calls that a hit.
-#
-# In LLM mode no floor is applied — the model reads the incidents and says when
-# they do not answer the question, which is better judgement than a threshold.
-# The floor exists precisely because the offline path has no such judgement.
-RELEVANCE_FLOOR = 0.73
+# Without any floor the offline path answers "have we seen a satellite uplink
+# attack?" with four ransomware incidents and calls that a hit. In LLM mode no
+# floor is applied — the model reads the incidents and says when they do not
+# answer the question, which is better judgement than a threshold. The floor
+# exists precisely because the offline path has no such judgement.
 
 # The embedding model is English-only, so an Arabic question retrieves poorly
 # against an English corpus. When a model is available we translate the question
@@ -254,8 +254,9 @@ def ask(session: Session, question: str, top_k: int = 6,
 
     # --- Retrieval-only path: no key, no network, or nothing retrieved ---
     if not use_llm or not llm_client.is_available() or not retrieved:
-        # Without a model to judge relevance, apply the floor (see RELEVANCE_FLOOR).
-        relevant = [e for e in retrieved if e["similarity"] >= RELEVANCE_FLOOR]
+        # Without a model to judge relevance, apply the backend's floor.
+        floor = vector_memory.relevance_floor()
+        relevant = [e for e in retrieved if e["similarity"] >= floor]
         return {
             **base,
             "answer": _fallback_answer(question, relevant),
