@@ -56,19 +56,35 @@ STYLE = f"""
 <style>
   .block-container {{ padding-top: 2rem; padding-bottom: 4rem; max-width: 1180px; }}
 
-  /* --- Hero --- */
+  /* --- Masthead ---
+     A wordmark and a rule, not a logo and a pictogram. The name is set in
+     tracked capitals because that is what reads as an instrument rather than
+     an app, and it is the only place the accent appears at full strength. */
   .dna-hero {{
-    border: 1px solid {BORDER}; border-radius: 16px; padding: 1.5rem 1.7rem;
-    background:
-      radial-gradient(120% 140% at 0% 0%, rgba(57,135,229,.14), transparent 58%),
-      {SURFACE};
-    margin-bottom: 1.6rem;
+    border-top: 2px solid {ACCENT};
+    border-bottom: 1px solid {BORDER};
+    padding: 1.4rem 0 1.15rem;
+    margin-bottom: 1.8rem;
   }}
   .dna-hero h1 {{
-    margin: 0 0 .25rem 0; font-size: 2.35rem; letter-spacing: -.025em; line-height: 1.1;
+    margin: 0 0 .4rem 0; font-size: 2.1rem; font-weight: 600;
+    letter-spacing: .16em; line-height: 1.1;
   }}
-  .dna-hero p {{ color: {INK_SECONDARY}; font-size: 1.02rem; margin: 0; }}
-  .dna-hero .ar {{ color: {INK_MUTED}; font-size: .92rem; margin-top: .35rem; }}
+  .dna-hero p {{ color: {INK_SECONDARY}; font-size: 1rem; margin: 0; max-width: 62ch; }}
+  .dna-hero .ar {{ color: {INK_MUTED}; font-size: .9rem; margin-top: .3rem; }}
+
+  /* --- Sidebar section heading --- */
+  .side-head {{
+    font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    color: {INK_MUTED}; padding-bottom: .4rem; margin-bottom: .6rem;
+    border-bottom: 1px solid {BORDER};
+  }}
+
+  /* --- Legend row: a colour swatch that means what the charts mean --- */
+  .legend {{ display: flex; align-items: center; gap: .5rem; font-size: .8rem;
+             color: {INK_SECONDARY}; margin: .18rem 0; }}
+  .legend .sw {{ width: 10px; height: 10px; border-radius: 2px; flex: none; }}
+  .legend strong {{ color: {INK}; font-weight: 650; }}
 
   /* --- Stage heading: a numbered chip, so the journey is countable --- */
   .stage {{ display: flex; align-items: baseline; gap: .6rem; margin: .2rem 0 .1rem; }}
@@ -96,11 +112,11 @@ STYLE = f"""
   }}
   .verdict .sub {{ color: {INK_MUTED}; font-size: .82rem; margin-bottom: 1rem; }}
   .verdict .row {{
-    display: flex; gap: .7rem; align-items: flex-start; padding: .5rem 0;
+    display: flex; gap: .8rem; align-items: stretch; padding: .55rem 0;
     border-top: 1px solid {BORDER}; font-size: .94rem; line-height: 1.5;
   }}
   .verdict .row:first-of-type {{ border-top: none; }}
-  .verdict .row .ico {{ font-size: 1.05rem; line-height: 1.4; width: 1.4rem; flex: none; }}
+  .verdict .row .rule {{ width: 3px; border-radius: 2px; flex: none; }}
   .verdict .row .k {{ color: {INK_MUTED}; font-size: .74rem; letter-spacing: .1em;
                       text-transform: uppercase; display: block; }}
   .verdict .row .v {{ color: {INK}; }}
@@ -161,6 +177,21 @@ def stage(number: str, english: str, arabic: str) -> str:
     return (f'<div class="stage"><span class="n">{number}</span>'
             f'<span class="en">{english}</span>'
             f'<span class="ar">{arabic}</span></div>')
+
+
+def side_head(title: str) -> str:
+    """A sidebar section heading — a rule and tracked capitals, no pictogram."""
+    return f'<div class="side-head">{title}</div>'
+
+
+def legend_row(colour: str, count: int, label: str) -> str:
+    """One provenance count, keyed by the same colour the charts use.
+
+    The written label carries the meaning; the swatch only ties the row to the
+    chart it corresponds to, so nothing here depends on telling hues apart.
+    """
+    return (f'<div class="legend"><span class="sw" style="background:{colour}"></span>'
+            f'<span><strong>{count}</strong> {label}</span></div>')
 
 
 def severity_pill(severity: str) -> str:

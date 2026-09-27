@@ -63,6 +63,41 @@ def test_outcome_outranks_entry_vector_in_classification():
     assert dna["initial_vector"] == "phishing"
 
 
+@pytest.mark.parametrize("report,expected", [
+    # An exploited edge appliance is how a large share of real intrusions now
+    # begin, and none of these reports would say "web application".
+    ("The attacker exploited a vulnerability in an internet-facing VPN appliance, "
+     "CVE-2024-21762, to gain access without credentials.", "web_exploitation"),
+    ("Session tokens were stolen from an unpatched appliance at the remote access "
+     "gateway, bypassing multi-factor authentication.", "web_exploitation"),
+    # A password that reached the attacker before the attack began.
+    ("Initial access was through a legacy VPN account without multi-factor "
+     "authentication whose password had appeared in a credential dump.",
+     "credential_attack"),
+    ("The attacker obtained a contractor's password, purchased from a credential "
+     "marketplace, then repeatedly pushed approval prompts.", "credential_attack"),
+    # A signed update carrying a backdoor.
+    ("The build environment was compromised and used to distribute trojanised, "
+     "digitally signed updates containing a backdoor.", "supply_chain"),
+])
+def test_the_entry_vector_is_named_for_the_shapes_real_reports_take(report, expected):
+    """"Unknown" was a third of the corpus, including an incident whose own
+    title named the vector, because the vocabulary only covered web apps."""
+    assert extract_dna(report, use_llm=False)["initial_vector"] == expected
+
+
+def test_an_entry_vector_that_is_genuinely_unknown_stays_unknown():
+    """The fix must widen coverage without inventing a vector that is not there.
+
+    A flood with no intrusion has no entry vector, and guessing one would be
+    worse than reporting none.
+    """
+    report = ("A telecom operator experienced a distributed denial of service attack. "
+              "A traffic flood targeted the subscriber portal causing an outage for "
+              "five hours. No intrusion, malware or data exfiltration was identified.")
+    assert extract_dna(report, use_llm=False)["initial_vector"] == "unknown"
+
+
 def test_dna_contains_every_expected_field():
     dna = extract_dna(RANSOMWARE_REPORT, use_llm=False)
     for field in ("attack_type", "initial_vector", "sector", "severity", "signature",
