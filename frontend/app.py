@@ -80,7 +80,7 @@ import theme  # noqa: E402
 
 API_URL = os.getenv("ATTACKDNA_API_URL", "").rstrip("/")
 
-st.set_page_config(page_title="ATTACKDNA", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="ATTACKDNA", page_icon="■", layout="wide")
 st.markdown(theme.STYLE, unsafe_allow_html=True)
 
 
@@ -195,7 +195,7 @@ def highlight_redactions(text: str) -> str:
 bootstrap()
 
 with st.sidebar:
-    st.markdown("### 🧭 Mode")
+    st.markdown(theme.side_head("Mode"), unsafe_allow_html=True)
     mode = st.radio(
         "Mode", ["Analyze an incident", "Ask the memory", "Memory dashboard"],
         label_visibility="collapsed",
@@ -204,7 +204,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown("### ⚙️ Configuration")
+    st.markdown(theme.side_head("Configuration"), unsafe_allow_html=True)
     use_llm = st.toggle("Use LLM enrichment", value=llm_client.is_available(),
                         disabled=not llm_client.is_available())
     if llm_client.is_available():
@@ -232,7 +232,7 @@ with st.sidebar:
                           help="Show presenter notes on what to point at in each scenario.")
 
     st.divider()
-    st.markdown("### 🧠 Memory")
+    st.markdown(theme.side_head("Memory"), unsafe_allow_html=True)
     memory = vector_memory.memory_stats()
     st.metric("Incidents in memory", memory["incidents_in_memory"])
 
@@ -240,11 +240,15 @@ with st.sidebar:
     # on screen permanently rather than buried in a data file.
     counts = corpus_provenance()
     if counts.get("public"):
-        st.caption(f"🟢 **{counts['public']}** real, publicly documented breaches")
+        st.markdown(theme.legend_row(theme.SERIES[2], counts["public"],
+                                     "real, publicly documented breaches"),
+                    unsafe_allow_html=True)
     if counts.get("synthetic"):
-        st.caption(f"🟠 **{counts['synthetic']}** synthetic incidents")
+        st.markdown(theme.legend_row(theme.SERIES[1], counts["synthetic"],
+                                     "synthetic incidents"), unsafe_allow_html=True)
     if counts.get("internal"):
-        st.caption(f"🔵 **{counts['internal']}** your own incidents")
+        st.markdown(theme.legend_row(theme.SERIES[0], counts["internal"],
+                                     "your own incidents"), unsafe_allow_html=True)
     st.caption(f"Backend: `{memory['backend']}`")
 
     with st.expander("Knowledge bases"):
@@ -268,7 +272,7 @@ with st.sidebar:
 # Header
 # --------------------------------------------------------------------------
 st.markdown(
-    '<div class="dna-hero"><h1>🧬 ATTACKDNA</h1>'
+    '<div class="dna-hero"><h1>ATTACKDNA</h1>'
     '<p>An AI-powered cyber memory that turns past incidents into reusable '
     'attack intelligence.</p>'
     '<p class="ar">ذاكرة سيبرانية تحوّل الحوادث السابقة إلى ذكاء قابل لإعادة الاستخدام</p>'
@@ -281,7 +285,7 @@ st.markdown(
 # Memory dashboard
 # --------------------------------------------------------------------------
 if mode == "Memory dashboard":
-    st.markdown(theme.stage("◆", "Memory dashboard", "لوحة الذاكرة"),
+    st.markdown(theme.stage("—", "Memory dashboard", "لوحة الذاكرة"),
                 unsafe_allow_html=True)
     st.subheader("What this memory holds")
     st.markdown("Aggregate view of the corpus — the answer to *“what does this "
@@ -294,7 +298,7 @@ if mode == "Memory dashboard":
 # Ask the memory — retrieval-augmented Q&A over the corpus
 # --------------------------------------------------------------------------
 if mode == "Ask the memory":
-    st.markdown(theme.stage("◆", "Ask the memory", "اسأل الذاكرة"), unsafe_allow_html=True)
+    st.markdown(theme.stage("—", "Ask the memory", "اسأل الذاكرة"), unsafe_allow_html=True)
     st.subheader("Question the incidents you already have")
     st.markdown(
         "Answers are built **only** from incidents in memory. Every citation is "
@@ -344,7 +348,7 @@ if mode == "Ask the memory":
         st.markdown("#### Sources")
         st.caption("The incidents this answer was built from. Cited ones are marked.")
         for source in answer["sources"]:
-            cited = "✅ cited" if source["incident_id"] in answer["citations"] else "retrieved"
+            cited = "cited" if source["incident_id"] in answer["citations"] else "retrieved"
             with st.expander(f"{source['similarity']:.0%} — {source['title']} · {cited}"):
                 st.markdown(theme.provenance_pill(source.get("provenance")),
                             unsafe_allow_html=True)
@@ -443,8 +447,12 @@ def verdict_card() -> str:
     vector = (dna.get("initial_vector") or "unknown").replace("_", " ")
     headline = f"{attack} via {vector}"
 
+    # Each row carries a status colour rather than a pictogram: the rule beside
+    # it is the same accent the charts use, so the card reads as part of the
+    # same system instead of as decoration. The written label carries the
+    # meaning, so the colour never has to.
     rows = [(
-        "🛡️",
+        theme.STATUS["good"] if privacy["verified_clean"] else theme.STATUS["critical"],
         "Privacy",
         f"<strong>{privacy['total_redactions']}</strong> identifying value(s) removed · "
         + ("<em>independently verified clean</em>" if privacy["verified_clean"]
@@ -456,12 +464,12 @@ def verdict_card() -> str:
         origin = "real documented breach" if best.get("provenance") == "public" \
             else "past incident"
         rows.append((
-            "🧠", "Closest thing memory has seen",
+            theme.ACCENT, "Closest thing memory has seen",
             f"<strong>{best['similarity']:.0%}</strong> — {best['title']} "
             f"<em>({origin})</em>",
         ))
     else:
-        rows.append(("🧠", "Closest thing memory has seen",
+        rows.append((theme.INK_MUTED, "Closest thing memory has seen",
                      "<em>Nothing close enough — this pattern is new here.</em>"))
 
     recommended = mitigations.get("recommended") or []
@@ -471,12 +479,12 @@ def verdict_card() -> str:
                  f"{first['times_used']} past incident(s)</em>"
                  if first.get("avg_effectiveness") is not None else
                  " <em>· baseline control, no recorded outcome yet</em>")
-        rows.append(("💊", "Do this first", f"{first['action']}{track}"))
+        rows.append((theme.SERIES[2], "Do this first", f"{first['action']}{track}"))
 
     row_html = "".join(
-        f'<div class="row"><span class="ico">{icon}</span>'
+        f'<div class="row"><span class="rule" style="background:{colour}"></span>'
         f'<span><span class="k">{key}</span><span class="v">{value}</span></span></div>'
-        for icon, key, value in rows
+        for colour, key, value in rows
     )
     return (
         f'<div class="verdict">'
@@ -491,13 +499,13 @@ if result.get("incident_id"):
     st.success(f"Committed to memory as `{result['incident_id']}`. "
                "Future incidents can now learn from this one.")
 
-st.markdown(theme.stage("✦", "Verdict", "الخلاصة"), unsafe_allow_html=True)
+st.markdown(theme.stage("—", "Verdict", "الخلاصة"), unsafe_allow_html=True)
 st.markdown(verdict_card(), unsafe_allow_html=True)
 
 download_left, download_right = st.columns([1, 3])
 with download_left:
     st.download_button(
-        "⬇ Download report",
+        "Download report",
         data=report_builder.build(result),
         file_name=report_builder.filename(dna),
         mime="text/markdown",
@@ -750,7 +758,7 @@ for group in mitigations["by_phase"]:
         if action["sources"]:
             names = ", ".join(
                 f"{s['title']} ({s['similarity']:.0%})"
-                + (" ⬤" if s.get("provenance") == "public" else "")
+                + (" (public breach)" if s.get("provenance") == "public" else "")
                 for s in action["sources"][:3]
             )
             st.caption(f"Source: {names}")

@@ -1,0 +1,65 @@
+INCIDENT REPORT — INTERNAL / RESTRICTED
+Organisation: Al-Waha Regional Health Group
+Reference: IR-2026-0417
+Reported by: Layla Al-Otaibi, SOC Team Lead (layla.alotaibi@alwaha-health.example)
+Escalated to: soc-oncall@alwaha-health.example, +966 55 123 4567
+
+SUMMARY
+On 14 April 2026 at 02:41 local time, the SOC at Al-Waha Regional Health Group
+detected ransomware encrypting files across the radiology and patient-records
+file servers. Two hospitals and four outpatient clinics were affected. Clinical
+systems were unavailable for 31 hours and appointments were diverted to paper
+workflows.
+
+INITIAL ACCESS
+The attacker authenticated to the remote access gateway (netscaler-edge01.alwaha-health.example,
+10.44.12.8) without triggering multi-factor authentication. Forensics attributed this
+to session token theft through the unpatched Citrix NetScaler appliance, exploiting
+CVE-2023-4966. The appliance had been scheduled for patching in March but the change
+window was deferred.
+
+EXECUTION AND PERSISTENCE
+Within forty minutes the attacker ran base64-encoded PowerShell on the jump host
+(jmp-ops-02.alwaha-health.example, 10.44.20.15). A scheduled task named
+"HealthSyncUpdate" was created on three servers to re-launch the loader after reboot.
+The service account svc_backup, whose password had not been rotated since 2021, was
+used for subsequent activity.
+
+CREDENTIAL ACCESS AND LATERAL MOVEMENT
+LSASS memory was dumped on the jump host. The harvested domain administrator
+credentials were then used to move laterally over SMB to eighteen hosts in the
+10.44.0.0/16 range, including the backup server bkp-prod-01.alwaha-health.example.
+
+DEFENCE EVASION
+The endpoint detection agent was stopped on nine servers using the vendor's own
+uninstall utility with the credentials obtained above. Windows event logs were
+cleared on the file servers.
+
+EXFILTRATION
+Approximately 340 GB of data, including patient identifiers and staff payroll
+records, was uploaded to an external cloud storage service over HTTPS before
+encryption began. Outbound traffic was observed to 185.199.47.203 on port 443.
+
+IMPACT
+Volume shadow copies were deleted on all affected servers and files were encrypted
+with the extension .awh. A ransom note named RESTORE-FILES-AWH.txt demanded
+payment of 900,000 USD in cryptocurrency, with a threat to publish the stolen
+patient data within seven days. The attacker contacted the CFO directly at
+f.alharbi@alwaha-health.example.
+
+RESPONSE ACTIONS TAKEN
+1. Isolated the affected VLANs and disconnected the two affected hospitals from the
+   core network within 90 minutes of detection. Effective — stopped further encryption.
+2. Disabled the svc_backup account and forced a domain-wide credential reset.
+   Effective.
+3. Patched the NetScaler appliance and rotated all session tokens. Effective — root cause.
+4. Restored the radiology file server from immutable offline backups taken 11 April.
+   Partially effective — 36 hours of records required manual re-entry.
+5. Enabled tamper protection on all endpoint agents to prevent uninstallation.
+   Effective — root cause fix.
+6. Deployed detection for scheduled-task creation by non-administrative accounts.
+   Effective.
+
+NOTES
+No ransom was paid. The incident was reported to the national regulator on
+15 April 2026. Patient notification letters were issued by the legal team.
