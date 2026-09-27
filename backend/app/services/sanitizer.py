@@ -36,6 +36,11 @@ PRESERVE_PATTERNS: List[Tuple[str, Pattern[str]]] = [
 # Redaction patterns, applied in this exact order. Order matters: a URL must
 # be caught before the bare-domain rule, an email before the username rule.
 # --------------------------------------------------------------------------
+# One component of a personal name. The apostrophe and hyphen forms need a
+# first segment that may be a single letter — O'Brien, D'Souza — which
+# [A-Z][a-z]+ cannot match, so those names were only half-redacted.
+_NAME_PART = r"(?:[A-Z][a-z]*(?:[-'][A-Z][a-z]+)+|[A-Z][a-z]+)"
+
 REDACTION_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     # Credentials & secrets first — highest blast radius if leaked.
     ("SECRET", re.compile(
@@ -66,20 +71,47 @@ REDACTION_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     ("ACCOUNT", re.compile(r"\b[A-Za-z0-9\-]{2,30}\\[A-Za-z0-9._\-]{2,30}\b")),  # DOMAIN\user
     # Asset names such as WKSTN-FIN-042, SRV-DC01, LAP-HR-7.
     ("HOSTNAME", re.compile(r"\b[A-Z]{2,}(?:-[A-Z0-9]{1,10}){1,3}\b")),
+    # Fully-qualified names, including the host label in front of them, so
+    # "fileserver-01.corp.example" is removed whole rather than leaving the
+    # host recognisable. The suffix list covers internal and reserved zones on
+    # purpose: an incident report's most identifying names are the ones that
+    # never appear in public DNS — .local, .corp and .internal are where an
+    # Active Directory estate lives, and matching only public TLDs left every
+    # internal FQDN in a report untouched.
     ("DOMAIN", re.compile(
         r"\b(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.|\[\.\]))+"
-        r"(?:com|net|org|sa|gov|edu|io|co|ru|cn|info|biz|xyz|top|onion)\b", re.I
+        r"(?:com|net|org|gov|edu|mil|int|info|biz|xyz|top|onion|io|co|me|tv|app|dev|cloud|"
+        r"health|bank|shop|online|site|live|"
+        r"sa|ae|qa|kw|bh|om|eg|jo|lb|ma|tn|tr|"
+        r"uk|de|fr|nl|se|no|fi|dk|es|it|pl|ch|at|be|ie|pt|gr|cz|ro|"
+        r"ru|cn|jp|kr|in|pk|id|my|sg|au|nz|ca|mx|br|ar|za|ng|ke|"
+        r"local|internal|corp|lan|intranet|home|arpa|example|test|invalid|localdomain)\b",
+        re.I
     )),
-    # Person names introduced by a title or role keyword. NAME_PART allows
-    # hyphenated and apostrophed forms so "Ahmed Al-Rashid" and "O'Brien" are
-    # removed whole rather than leaving a recognisable fragment behind.
+    # Person names introduced by a title or role keyword, built from NAME_PART
+    # so a hyphenated or apostrophed name is removed whole. Leaving half of one
+    # behind is worse than leaving it alone: "[PERSON_REDACTED] O'Brien" still
+    # names the person, while looking like the layer did its job.
+    #
+    # The separator after the keyword has to tolerate punctuation. Incident
+    # reports are written as forms — "Reported by: Layla Al-Otaibi" — and a
+    # pattern that only allowed whitespace walked straight past the single most
+    # common way a person is named in one.
     ("PERSON", re.compile(
-        r"\b(?:Mr|Mrs|Ms|Dr|Eng|Engineer|Analyst|Manager|Director|Officer|CISO|CTO|CEO)\.?\s+"
-        r"((?:[A-Z][a-z]+(?:[-'][A-Z][a-z]+)*)(?:\s+[A-Z][a-z]+(?:[-'][A-Z][a-z]+)*){0,2})"
+        r"\b(?:Mr|Mrs|Ms|Dr|Eng|Engineer|Analyst|Manager|Director|Officer|CISO|CTO|CEO)"
+        r"\.?[:,]?\s+"
+        rf"({_NAME_PART}(?:\s+{_NAME_PART}){{0,2}})"
     )),
+    # Only the role keyword is case-insensitive. A re.I flag on the whole
+    # pattern would also fold the name part, where [A-Z][a-z]+ is doing the
+    # work of "this is a proper noun" — under re.I it matches any word at all,
+    # so "the attacker ran encoded PowerShell" loses "ran", and with it the
+    # evidence the ATT&CK mapper reads.
     ("PERSON", re.compile(
-        r"\b(?:employee|user|staff member|victim|attacker|contractor|reported by|assigned to)\s+"
-        r"((?:[A-Z][a-z]+(?:[-'][A-Z][a-z]+)*)(?:\s+[A-Z][a-z]+(?:[-'][A-Z][a-z]+)*){0,2})\b"
+        r"\b(?i:employee|user|staff member|victim|attacker|contractor|reported by|"
+        r"escalated to|assigned to|investigated by|approved by|contacted|notified)"
+        r"[:,]?\s+"
+        rf"({_NAME_PART}(?:\s+{_NAME_PART}){{0,2}})\b"
     )),
     # Organisation names introduced by a legal suffix.
     ("ORG", re.compile(
@@ -214,7 +246,13 @@ def verify_clean(sanitized_text: str) -> List[str]:
     claim "nothing identifying left the building" is demonstrated, not asserted.
     """
     leaks: List[str] = []
-    high_risk = {"EMAIL", "IP", "SECRET", "IBAN", "CREDIT_CARD", "NATIONAL_ID", "MAC"}
+    # DOMAIN belongs here: a host or domain name is the victim's identity as
+    # surely as a mailbox is, and it is the class this project exists to
+    # remove. Leaving it out meant the check could report "clean" over text
+    # that still named the organisation's servers — the one failure the green
+    # badge is supposed to make impossible.
+    high_risk = {"EMAIL", "IP", "SECRET", "IBAN", "CREDIT_CARD", "NATIONAL_ID", "MAC",
+                 "DOMAIN"}
     protected = {m.group(0) for _, p in PRESERVE_PATTERNS for m in p.finditer(sanitized_text)}
 
     for label, pattern in REDACTION_PATTERNS:
