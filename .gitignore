@@ -27,3 +27,10 @@ data/raw/
 Thumbs.db
 .idea/
 .vscode/
+
+# Presentation notes stay local. This repository is public, so anything
+# written to rehearse against a panel — a script, prepared answers, a
+# checklist — would be readable by that panel.
+docs/PITCH_AR.md
+docs/PRESENTATION_GUIDE_AR.md
+docs/*_PRESENTATION_*.md
