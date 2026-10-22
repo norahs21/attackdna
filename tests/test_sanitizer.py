@@ -109,3 +109,63 @@ def test_audit_rows_mask_original_values():
     row = result.audit_rows()[0]
     assert "john.doe@company.sa" != row["original_preview"]
     assert "*" in row["original_preview"]
+
+
+# --- Leaks found by running a realistic incident report through the layer ---
+# Each of these survived sanitization while verify_clean reported the text
+# clean, which is the one failure the green badge exists to make impossible.
+
+def test_internal_fqdns_are_removed_including_the_host_label():
+    """The most identifying names in a report never appear in public DNS."""
+    report = ("The attacker reached the remote access gateway "
+              "netscaler-edge01.alwaha-health.example and pivoted to "
+              "jmp-ops-02.corp.local and the backup server bkp-prod-01.internal.")
+    result = sanitize(report)
+
+    for fragment in ("netscaler-edge01", "jmp-ops-02", "bkp-prod-01",
+                     "alwaha-health", "corp.local", ".internal"):
+        assert fragment not in result.sanitized_text, f"{fragment} survived"
+
+
+@pytest.mark.parametrize("report,name", [
+    ("Reported by: Layla Al-Otaibi, SOC Team Lead", "Al-Otaibi"),
+    ("Escalated to: Faisal Alharbi", "Alharbi"),
+    ("Investigated by Sara O'Brien", "O'Brien"),
+    ("The contractor Ahmed Al-Rashid retained access", "Al-Rashid"),
+])
+def test_a_person_named_in_a_form_field_is_removed(report, name):
+    """Incident reports are written as forms, and a colon is not whitespace."""
+    assert name not in sanitize(report).sanitized_text
+
+
+def test_the_verification_pass_covers_host_and_domain_names():
+    """A server name is the victim's identity as surely as a mailbox is."""
+    leaked = "Contact the team about fileserver-01.corp.local before Monday."
+    assert any(leak.startswith("DOMAIN") for leak in verify_clean(leaked))
+
+
+def test_widening_person_detection_does_not_eat_ordinary_words():
+    """The regression this fix first introduced, held down by a test.
+
+    Making the role keyword case-insensitive with a whole-pattern flag also
+    folds the name group, where [A-Z][a-z]+ is what makes it a proper noun —
+    so "the attacker ran encoded PowerShell" lost the words the ATT&CK mapper
+    reads as evidence.
+    """
+    report = ("The attacker ran encoded PowerShell, the user opened the attachment, "
+              "and the employee reported it to the service desk.")
+    sanitized = sanitize(report).sanitized_text
+
+    for word in ("ran", "encoded", "PowerShell", "opened", "attachment", "reported"):
+        assert word in sanitized, f"{word} was redacted as a person's name"
+
+
+def test_product_names_are_intelligence_not_identity():
+    """What the attacker exploited is shareable; whose server it was is not."""
+    report = ("The unpatched Citrix NetScaler appliance at gw-01.acme.local was "
+              "exploited via CVE-2023-4966.")
+    sanitized = sanitize(report).sanitized_text
+
+    assert "Citrix NetScaler" in sanitized
+    assert "CVE-2023-4966" in sanitized
+    assert "gw-01" not in sanitized and "acme.local" not in sanitized

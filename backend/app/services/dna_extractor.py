@@ -47,15 +47,33 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                     ("records were compromised", 5), ("payment card record", 5),
                     ("were exposed", 4), ("published stolen data", 5),
                     ("leak site", 3), ("stole around", 3)],
+    # Exploitation of an internet-facing system. The original vocabulary here
+    # covered web applications only, which left the entry vector of a third of
+    # the corpus — including an incident titled "via unpatched VPN appliance" —
+    # recorded as "unknown". Edge appliances (VPN concentrators, gateways, file
+    # transfer servers) are how a large share of real intrusions now begin, and
+    # a report describing one rarely says "web application".
     "web_exploitation": [("sql injection", 5), ("web shell", 5), ("public-facing application", 4),
                          ("remote code execution", 4), ("rce", 3), ("unpatched server", 3),
-                         ("web application", 2)],
+                         ("web application", 2), ("vpn appliance", 5), ("unpatched appliance", 5),
+                         ("file transfer appliance", 5), ("remote access gateway", 4),
+                         ("internet-facing", 4), ("edge device", 4), ("perimeter device", 4),
+                         ("exploited a vulnerability", 4), ("exploited a zero-day", 5)],
     "credential_attack": [("password spraying", 5), ("brute force", 4), ("credential stuffing", 5),
-                          ("mfa fatigue", 5), ("stolen credentials", 3), ("account takeover", 4)],
+                          ("mfa fatigue", 5), ("stolen credentials", 3), ("account takeover", 4),
+                          # A password that reached the attacker before the attack
+                          # began is a credential vector, however it got there.
+                          ("credential dump", 4), ("credential marketplace", 4),
+                          ("leaked password", 4), ("mfa bombing", 5),
+                          ("purchased from a credential", 4)],
     "insider_threat": [("insider", 5), ("disgruntled employee", 5), ("departing employee", 4),
                        ("privilege abuse", 3), ("unauthorized access by staff", 4)],
     "supply_chain": [("supply chain", 5), ("third-party vendor", 4), ("compromised update", 5),
-                     ("managed service provider", 4), ("msp", 3)],
+                     ("managed service provider", 4), ("msp", 3),
+                     # A signed update carrying a backdoor is the defining shape
+                     # of this vector, and reports describe it in these words.
+                     ("trojanised update", 5), ("trojanized update", 5),
+                     ("build environment", 4), ("signed update", 4)],
     "denial_of_service": [("ddos", 5), ("denial of service", 5), ("traffic flood", 4),
                           ("service unavailable", 2)],
     "malware_infection": [("trojan", 4), ("infostealer", 5), ("backdoor", 3), ("rootkit", 4),
