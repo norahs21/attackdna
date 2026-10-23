@@ -392,3 +392,10 @@ stage?"*:
   rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the
   victim has already disclosed, the name is public record, and keeping it is what
   makes the memory auditable.
+
+---
+
+## Team
+
+- **Aryam Al-Qahtani** — [@aryam-Q](https://github.com/aryam-Q)
+- **Norah Almishdaq** — [@norahs21](https://github.com/norahs21)
