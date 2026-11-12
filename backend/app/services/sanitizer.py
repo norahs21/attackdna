@@ -114,9 +114,16 @@ REDACTION_PATTERNS: List[Tuple[str, Pattern[str]]] = [
         rf"({_NAME_PART}(?:\s+{_NAME_PART}){{0,2}})\b"
     )),
     # Organisation names introduced by a legal suffix.
+    # The suffix list decides which organisations are recognisable at all, and
+    # it started with commercial forms only — so "Aseer Medical Centre" was not
+    # an organisation as far as this layer was concerned. Hospitals, clinics,
+    # ministries, authorities and universities are exactly the bodies whose
+    # incidents carry the most sensitive data, and none of them is an "Ltd".
     ("ORG", re.compile(
         r"\b([A-Z][A-Za-z0-9&\.\-]*(?:\s+[A-Z][A-Za-z0-9&\.\-]*){0,3})\s+"
-        r"(?:Inc|LLC|Ltd|Limited|Corp|Corporation|Company|Co\.|GmbH|PLC|LLP|Bank|Group|Holdings)\b"
+        r"(?:Inc|LLC|Ltd|Limited|Corp|Corporation|Company|Co\.|GmbH|PLC|LLP|Bank|Group|Holdings"
+        r"|Centre|Center|Hospital|Clinic|Authority|Ministry|University|College"
+        r"|Institute|Agency|Foundation|Association|Council|Commission|Trust)\b"
     )),
 ]
 
@@ -134,6 +141,31 @@ HOSTNAME_ALLOWLIST = {
     "SLA", "RTO", "RPO", "IT", "OT", "ICS", "SCADA", "IOT", "SMS", "OTP",
     "CSV", "JSON", "XML", "SQL", "CPU", "RAM", "USB", "LAN", "WAN", "NAC",
 }
+
+
+# Phrases that end in an organisation suffix but name a function, not a body.
+# Widening the suffix list to reach hospitals and ministries also reached
+# "Security Operations Centre", and a report that calls its own SOC
+# "[ORG_REDACTED] Centre" has been made less readable for no privacy gain.
+ORG_ALLOWLIST = {
+    "security operations centre", "security operations center",
+    "network operations centre", "network operations center",
+    "operations centre", "operations center",
+    "data centre", "data center", "command centre", "command center",
+    "call centre", "call center", "contact centre", "contact center",
+    "service centre", "service center", "incident response centre",
+}
+
+
+def _is_allowlisted_org(value: str) -> bool:
+    """True for a generic function that merely ends in an org-like word.
+
+    A leading article is dropped first: the name pattern captures up to four
+    capitalised words, so "The Security Operations Centre" arrives here with
+    the "The" attached and would otherwise miss the list.
+    """
+    cleaned = re.sub(r"^(?:the|a|an|our|its|their)\s+", "", value.strip(), flags=re.I)
+    return cleaned.lower() in ORG_ALLOWLIST
 
 
 @dataclass
@@ -205,6 +237,8 @@ def sanitize(text: str) -> SanitizationResult:
             # keeping the introducing keyword ("employee", "Dr.") readable.
             original = match.group(1) if match.groups() else match.group(0)
             if _label == "HOSTNAME" and _is_allowlisted_hostname(original):
+                return match.group(0)
+            if _label == "ORG" and _is_allowlisted_org(match.group(0)):
                 return match.group(0)
 
             key = (_label, original)

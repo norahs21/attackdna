@@ -169,3 +169,67 @@ def test_product_names_are_intelligence_not_identity():
     assert "Citrix NetScaler" in sanitized
     assert "CVE-2023-4966" in sanitized
     assert "gw-01" not in sanitized and "acme.local" not in sanitized
+
+
+# --- Institutions are organisations too -----------------------------------
+# A ground-truth audit of the evaluation set — checking that each identifier
+# planted by hand had disappeared, rather than asking the layer's own detector
+# — found "Aseer Medical Centre" surviving while verify_clean reported clean.
+# The suffix list recognised commercial forms only.
+
+@pytest.mark.parametrize("report,name", [
+    ("Aseer Medical Centre reported an incident", "Aseer"),
+    ("Riyadh General Hospital disclosed a breach", "Riyadh"),
+    ("Najd University notified its regulator", "Najd"),
+    ("The Eastern Health Authority was informed", "Eastern"),
+    ("Qasr Financial Group detected encryption", "Qasr"),
+])
+def test_an_institution_is_redacted_like_a_company(report, name):
+    assert name not in sanitize(report).sanitized_text
+
+
+@pytest.mark.parametrize("phrase", [
+    "The Security Operations Centre escalated it",
+    "Our Network Operations Center paged the team",
+    "their Data Centre lost power",
+    "the incident response centre was staffed",
+])
+def test_a_function_that_ends_in_an_org_word_is_not_an_org(phrase):
+    """Reaching hospitals must not cost the report its own vocabulary.
+
+    A report that calls its own SOC "[ORG_REDACTED] Centre" has been made
+    less readable for no privacy gain.
+    """
+    assert "ORG_REDACTED" not in sanitize(phrase).sanitized_text
+
+
+def test_every_identifier_planted_in_the_evaluation_set_is_removed():
+    """The privacy claim, measured against ground truth rather than self-report.
+
+    `verify_clean` asks the layer's own detector whether anything it looks for
+    remains, which cannot find a class the detector does not cover — it passed
+    this set while an organisation name survived. These identifiers were read
+    off the texts by hand, so the check is independent of the patterns.
+    """
+    import json
+    from pathlib import Path
+
+    planted = {
+        "eval_01": ["Qasr", "a.mansour@qasrfg.com.sa", "qasrfg.com.sa", "62.204.41.180"],
+        "eval_02": ["Aseer", "45.12.213.99"],
+        "eval_03": ["Tuwaiq", "103.44.190.12"],
+        "eval_04": ["176.10.104.240"],
+        "eval_05": ["91.132.14.55"],
+        "eval_06": [],
+        "eval_07": ["m.tamimi@vendor-example.io", "vendor-example.io", "LAP-ENG-118"],
+        "eval_08": ["194.36.190.22"],
+    }
+    path = Path(__file__).resolve().parent.parent / "data" / "seed" / "evaluation_set.json"
+    cases = {c["id"]: c for c in json.loads(path.read_text(encoding="utf-8"))["cases"]}
+
+    survived = []
+    for case_id, identifiers in planted.items():
+        clean = sanitize(cases[case_id]["text"]).sanitized_text.lower()
+        survived += [f"{case_id}: {i}" for i in identifiers if i.lower() in clean]
+
+    assert not survived, f"identifiers survived sanitization: {survived}"
