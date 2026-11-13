@@ -1,0 +1,658 @@
+{
+  "_readme": "Held-out test set: lead summaries of real, publicly documented incidents, taken verbatim from English Wikipedia. Nobody on the project wrote these texts, and no rule or vocabulary was tuned on them: the labels were fixed first, then the system was run. Each 'expected' field lists every answer an analyst would accept; null means the summary does not support a single answer in this taxonomy, and the field is not scored. 'must_not_survive' are the victims, people and places named in the text, marked by hand; 'must_survive' are attack terms the privacy layer has to leave readable.",
+  "_licence": "Text (c) Wikipedia contributors, CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0/ . Each case cites its article.",
+  "cases": [
+    {
+      "id": "real_01",
+      "source_title": "WannaCry ransomware attack",
+      "source_url": "https://en.wikipedia.org/wiki/WannaCry_ransomware_attack",
+      "text": "The WannaCry ransomware attack was a worldwide cyberattack in May 2017 by the WannaCry ransomware cryptoworm, which targeted computers running the Microsoft Windows operating system by encrypting data and demanding ransom payments in the form of bitcoin cryptocurrency. It was propagated using EternalBlue, an exploit developed by the United States National Security Agency (NSA) for Microsoft Windows systems. EternalBlue was stolen and leaked by a group called the Shadow Brokers (TSB) a month before the attack. While Microsoft had released patches previously to close the exploit, much of WannaCry's spread was from organizations that had not applied these patches, or were using older Windows systems that were past their end of life. These patches were critical to organizations' cyber security but many were not implemented due to general ignorance of their importance.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "web_exploitation",
+          "unknown"
+        ],
+        "sector": null
+      },
+      "must_not_survive": [],
+      "must_survive": [
+        "WannaCry",
+        "EternalBlue",
+        "Windows"
+      ]
+    },
+    {
+      "id": "real_02",
+      "source_title": "2014 Sony Pictures hack",
+      "source_url": "https://en.wikipedia.org/wiki/2014_Sony_Pictures_hack",
+      "text": "On November 24, 2014, the hacker group \"Guardians of Peace\" leaked confidential data from the film studio Sony Pictures Entertainment (SPE). The data included employee emails, personal and family information, executive salaries, copies of then-unreleased films, future film plans, screenplays, and other information. The perpetrators then employed a variant of the Shamoon wiper malware to erase Sony's computer infrastructure.",
+      "expected": {
+        "attack_type": [
+          "data_breach",
+          "malware_infection"
+        ],
+        "initial_vector": null,
+        "sector": null
+      },
+      "must_not_survive": [
+        "Sony"
+      ],
+      "must_survive": [
+        "Shamoon"
+      ]
+    },
+    {
+      "id": "real_03",
+      "source_title": "2020 Twitter account hijacking",
+      "source_url": "https://en.wikipedia.org/wiki/2020_Twitter_account_hijacking",
+      "text": "On July 15, 2020, between 20:00 and 22:00 UTC, 130 high-profile Twitter accounts were compromised by outside parties to promote a bitcoin scam. Hackers used social engineering against Twitter employees to gain access to administrative tools, allowing them to post the tweets directly. The scam tweets asked individuals to send bitcoin currency to a specific cryptocurrency wallet, with the promise that money sent would be doubled and returned – within minutes, one account received over 320 deposits with a value of over US$110,000 before the scam messages were removed by Twitter.",
+      "expected": {
+        "attack_type": [
+          "phishing",
+          "credential_attack"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "Twitter"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_04",
+      "source_title": "2015 Ukraine power grid hack",
+      "source_url": "https://en.wikipedia.org/wiki/2015_Ukraine_power_grid_hack",
+      "text": "On December 23, 2015, the power grid in two western oblasts of Ukraine was hacked, which resulted in power outages for roughly 230,000 consumers in Ukraine for 1-6 hours. The attack took place during the ongoing Russo-Ukrainian War (2014–present) and is attributed to a Russian advanced persistent threat group known as \"Sandworm\". It is the first publicly acknowledged successful cyberattack on a power grid.",
+      "expected": {
+        "attack_type": null,
+        "initial_vector": null,
+        "sector": [
+          "energy"
+        ]
+      },
+      "must_not_survive": [
+        "Ukraine"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_05",
+      "source_title": "Bangladesh Bank robbery",
+      "source_url": "https://en.wikipedia.org/wiki/Bangladesh_Bank_robbery",
+      "text": "The Bangladesh Bank robbery, also known colloquially as the Bangladesh Bank cyber heist, was a theft that took place in February 2016. Thirty-five fraudulent instructions were issued by security hackers via the SWIFT network to illegally transfer close to US$1 billion from the Federal Reserve Bank of New York account belonging to Bangladesh Bank, the central bank of Bangladesh. Five of the thirty-five fraudulent instructions were successful in transferring US$101 million, with US$81 million traced to the Philippines and US$20 million to Sri Lanka. The Federal Reserve Bank of New York blocked the remaining thirty transactions, amounting to US$850 million, due to suspicions raised by a misspelled instruction. As of 2025, only US$15 million out of US$81 million transferred to the Philippines has been recovered with little progress in recovering the remaining US$66 million, and all the money transferred to Sri Lanka has since been recovered. Most of the money transferred to the Philippines went to four personal accounts, held by single individuals, and not to companies or corporations.",
+      "expected": {
+        "attack_type": null,
+        "initial_vector": null,
+        "sector": [
+          "finance"
+        ]
+      },
+      "must_not_survive": [
+        "Bangladesh",
+        "Philippines",
+        "Sri Lanka"
+      ],
+      "must_survive": [
+        "SWIFT"
+      ]
+    },
+    {
+      "id": "real_06",
+      "source_title": "2018 SingHealth data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2018_SingHealth_data_breach",
+      "text": "The 2018 SingHealth data breach was a data breach incident initiated by unidentified state actors, which happened between 27 June and 4 July 2018. During that period, personal particulars of 1.5 million SingHealth patients and records of outpatient dispensed medicines belonging to 160,000 patients were stolen. Names, National Registration Identity Card (NRIC) numbers, addresses, dates of birth, race, and gender of patients who visited specialist outpatient clinics and polyclinics between 1 May 2015 and 4 July 2018 were maliciously accessed and copied. Information relating to patient diagnosis, test results and doctors' notes were unaffected. Information on Prime Minister Lee Hsien Loong was specifically targeted.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "healthcare"
+        ]
+      },
+      "must_not_survive": [
+        "SingHealth",
+        "Lee Hsien Loong"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_07",
+      "source_title": "2021 Microsoft Exchange Server data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2021_Microsoft_Exchange_Server_data_breach",
+      "text": "A global wave of cyberattacks and data breaches began in January 2021 after four zero-day exploits were discovered in on-premises Microsoft Exchange Servers, giving attackers full access to user emails and passwords on affected servers, administrator privileges on the server, and access to connected devices on the same network. Attackers typically install a backdoor that allows the attacker full access to impacted servers even if the server is later updated to no longer be vulnerable to the original exploits. As of 9 March 2021, it was estimated that 250,000 servers fell victim to the attacks, including servers belonging to around 30,000 organizations in the United States, 7,000 servers in the United Kingdom, as well as the European Banking Authority, the Norwegian Parliament, and Chile's Commission for the Financial Market (CMF).",
+      "expected": {
+        "attack_type": [
+          "web_exploitation",
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": null
+      },
+      "must_not_survive": [],
+      "must_survive": [
+        "Exchange"
+      ]
+    },
+    {
+      "id": "real_08",
+      "source_title": "JBS S.A. ransomware attack",
+      "source_url": "https://en.wikipedia.org/wiki/JBS_S.A._ransomware_attack",
+      "text": "On May 30, 2021, JBS S.A., a Brazil-based meat processing company, suffered a cyberattack, disabling its beef and pork slaughterhouses. The attack impacted facilities in the United States, Canada, and Australia.",
+      "expected": {
+        "attack_type": null,
+        "initial_vector": null,
+        "sector": [
+          "manufacturing"
+        ]
+      },
+      "must_not_survive": [
+        "JBS",
+        "Brazil"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_09",
+      "source_title": "2019 Baltimore ransomware attack",
+      "source_url": "https://en.wikipedia.org/wiki/2019_Baltimore_ransomware_attack",
+      "text": "During the Baltimore ransomware attack of May 2019, the American city of Baltimore, Maryland had its servers largely compromised by a variant of ransomware called RobbinHood. Baltimore became the second U.S. city to fall victim to this new variant of ransomware after Greenville, North Carolina and was the second major US city with a population of over 500,000 people to be hacked by ransomware in two years, after Atlanta was attacked the previous year.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government"
+        ]
+      },
+      "must_not_survive": [
+        "Baltimore",
+        "Greenville",
+        "Atlanta"
+      ],
+      "must_survive": [
+        "RobbinHood"
+      ]
+    },
+    {
+      "id": "real_10",
+      "source_title": "2015 Office of Personnel Management data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2015_Office_of_Personnel_Management_data_breach",
+      "text": "The Office of Personnel Management data breach was a 2015 data breach targeting Standard Form 86 (SF-86) U.S. government security clearance records retained by the United States Office of Personnel Management (OPM). One of the largest breaches of government data in U.S. history, the attack was carried out by an advanced persistent threat based in China, widely believed to be the Jiangsu State Security Department, a subsidiary of the Government of China's Ministry of State Security spy agency. The two different hackers who gained access to the system went by the names \"Tony Stark,\" and \"Steve Rogers,\", using these names on the email address handles they used to gain access.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government"
+        ]
+      },
+      "must_not_survive": [
+        "Personnel Management",
+        "OPM",
+        "Jiangsu"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_11",
+      "source_title": "2012 LinkedIn hack",
+      "source_url": "https://en.wikipedia.org/wiki/2012_LinkedIn_hack",
+      "text": "The 2012 LinkedIn hack refers to the computer hacking of LinkedIn on June 5, 2012. Passwords for nearly 6.5 million user accounts were stolen. Yevgeniy Nikulin was convicted of the crime and sentenced to 88 months in prison.",
+      "expected": {
+        "attack_type": [
+          "data_breach",
+          "credential_attack"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "LinkedIn",
+        "Nikulin"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_12",
+      "source_title": "DDoS attacks on Dyn",
+      "source_url": "https://en.wikipedia.org/wiki/DDoS_attacks_on_Dyn",
+      "text": "On October 21, 2016, three consecutive distributed denial-of-service attacks were launched against the Domain Name System (DNS) provider Dyn. The attack caused major Internet platforms and services to be unavailable to large swathes of users in Europe and North America. The groups Anonymous and New World Hackers claimed responsibility for the attack, but scant evidence was provided.",
+      "expected": {
+        "attack_type": [
+          "denial_of_service"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology",
+          "telecom"
+        ]
+      },
+      "must_not_survive": [
+        "Dyn"
+      ],
+      "must_survive": [
+        "DNS"
+      ]
+    },
+    {
+      "id": "real_13",
+      "source_title": "2007 cyberattacks on Estonia",
+      "source_url": "https://en.wikipedia.org/wiki/2007_cyberattacks_on_Estonia",
+      "text": "Beginning on 27 April 2007, a series of cyberattacks targeted websites of Estonian organizations, including Estonian parliament, banks, ministries, newspapers and broadcasters, amid the country's disagreement with Russia about the relocation of the Bronze Soldier of Tallinn, an elaborate Soviet-era grave marker, as well as war graves in Tallinn.\nMost of the attacks that had any influence on the general public were distributed denial of service type attacks ranging from single individuals using various methods like ping floods to expensive rentals of botnets usually used for spam distribution. Spamming of bigger news portals commentaries and defacements including that of the Estonian Reform Party website also occurred. Research has also shown that large conflicts took place to edit the English-language version of the Bronze Soldier's Wikipedia page. This series of attacks has sometimes been called \"Web War 1\".",
+      "expected": {
+        "attack_type": [
+          "denial_of_service"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government",
+          "finance"
+        ]
+      },
+      "must_not_survive": [
+        "Estonia",
+        "Tallinn"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_14",
+      "source_title": "Ashley Madison data breach",
+      "source_url": "https://en.wikipedia.org/wiki/Ashley_Madison_data_breach",
+      "text": "In July 2015, an unknown person or group calling itself \"The Impact Team\" announced that they had stolen user data of Ashley Madison, a commercial website billed as enabling extramarital affairs. The hackers copied personal information about the site's user base and threatened to release names and personal identifying information if Ashley Madison would not immediately shut down. To underscore the validity of the threat, personal information of more than 2,500 users was released. Ashley Madison denied that its records were insecure and continued to operate.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": null
+      },
+      "must_not_survive": [
+        "Ashley Madison"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_15",
+      "source_title": "2022 Costa Rican ransomware attack",
+      "source_url": "https://en.wikipedia.org/wiki/2022_Costa_Rican_ransomware_attack",
+      "text": "Beginning on the night (UTC-6:00) of April 17, 2022, a ransomware attack began against nearly 30 institutions of the government of Costa Rica, including its Ministry of Finance, the Ministry of Science, Innovation, Technology and Telecommunications (MICITT), the National Meteorological Institute, state internet service provider RACSA, the Costa Rican Social Security Fund, the Ministry of Labor and Social Security, the Fund for Social Development and Family Allowances, and the Administrative Board of the Municipal Electricity Service of Cartago.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government"
+        ]
+      },
+      "must_not_survive": [
+        "Costa Rica",
+        "Cartago",
+        "RACSA"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_16",
+      "source_title": "British Library cyberattack",
+      "source_url": "https://en.wikipedia.org/wiki/British_Library_cyberattack",
+      "text": "In October 2023, Rhysida, a hacker group, attacked the online information systems of the British Library. They demanded a ransom of 20 bitcoin, at the time around £596,000, to restore services and return the stolen data. When the British Library did not acquiesce to the demands, Rhysida publicly released approximately 600GB of leaked material online. Services at the library were severely disrupted for months. It has been described as \"one of the worst cyber incidents in British history\".",
+      "expected": {
+        "attack_type": [
+          "ransomware",
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government",
+          "education"
+        ]
+      },
+      "must_not_survive": [
+        "British Library"
+      ],
+      "must_survive": [
+        "Rhysida"
+      ]
+    },
+    {
+      "id": "real_17",
+      "source_title": "2008 malware infection of the United States Department of Defense",
+      "source_url": "https://en.wikipedia.org/wiki/2008_malware_infection_of_the_United_States_Department_of_Defense",
+      "text": "In 2008, the United States Department of Defense was infected with malware. Described at the time as the \"worst breach of U.S. military computers in history\", the defense against the attack was named \"Operation Buckshot Yankee\". It led to the creation of the United States Cyber Command.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government"
+        ]
+      },
+      "must_not_survive": [],
+      "must_survive": []
+    },
+    {
+      "id": "real_18",
+      "source_title": "Operation Payback",
+      "source_url": "https://en.wikipedia.org/wiki/Operation_Payback",
+      "text": "Operation Payback was a coordinated, decentralized group of attacks on high-profile opponents of Internet piracy by Internet activists using the \"Anonymous\" moniker. Operation Payback started as retaliation to distributed denial of service (DDoS) attacks on torrent sites; piracy proponents then decided to launch DDoS attacks on piracy opponents. The initial reaction snowballed into a wave of attacks on major pro-copyright and anti-piracy organizations, law firms, and individuals. The Motion Picture Association of America, the Pirate Party UK and United States Pirate Party criticised the attacks.",
+      "expected": {
+        "attack_type": [
+          "denial_of_service"
+        ],
+        "initial_vector": null,
+        "sector": null
+      },
+      "must_not_survive": [
+        "Motion Picture"
+      ],
+      "must_survive": [
+        "DDoS"
+      ]
+    },
+    {
+      "id": "real_19",
+      "source_title": "2016 Indian bank data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2016_Indian_bank_data_breach",
+      "text": "The 2016 Indian bank data breach was reported in October 2016. It was estimated that 3.2 million debit cards were compromised. Major Indian banks, among them SBI, HDFC Bank, ICICI, YES Bank and Axis Bank, were among the worst hit. The breach went undetected for months and was first detected after several banks reported fraudulent use of their customers’ cards in China and the United States, while these customers were in India.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "finance"
+        ]
+      },
+      "must_not_survive": [
+        "SBI",
+        "HDFC",
+        "ICICI",
+        "Axis"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_20",
+      "source_title": "Stuxnet",
+      "source_url": "https://en.wikipedia.org/wiki/Stuxnet",
+      "text": "Stuxnet is a malicious computer worm first uncovered on 17 June 2010 and thought to have been in development since at least 2005. Stuxnet targets supervisory control and data acquisition (SCADA) systems and is believed to be responsible for causing substantial damage to the Iran nuclear program after it was first installed on a computer at the Natanz Nuclear Facility in 2009. Although neither the United States nor Israel has openly admitted responsibility, multiple independent news organizations claim Stuxnet to be a cyberweapon built jointly by the two countries in a collaborative effort known as Operation Olympic Games. The program, started during the Bush administration, was rapidly expanded within the first months of Barack Obama's presidency.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "energy",
+          "manufacturing"
+        ]
+      },
+      "must_not_survive": [
+        "Natanz",
+        "Iran"
+      ],
+      "must_survive": [
+        "Stuxnet",
+        "SCADA"
+      ]
+    },
+    {
+      "id": "real_21",
+      "source_title": "2016 Democratic National Committee email leak",
+      "source_url": "https://en.wikipedia.org/wiki/2016_Democratic_National_Committee_email_leak",
+      "text": "The 2016 Democratic National Committee email leak is a collection of Democratic National Committee (DNC) emails stolen by one or more hackers operating under the pseudonym \"Guccifer 2.0\" who are alleged to be Russian intelligence agency hackers, according to indictments carried out by the Mueller investigation. These emails were subsequently leaked by DCLeaks in June and July 2016 and by WikiLeaks on July 22, 2016, just before the 2016 Democratic National Convention. This collection included 19,252 emails and 8,034 attachments from the DNC, the governing body of the United States Democratic Party. The leak includes emails from seven key DNC staff members dating from January 2015 to May 2016. On November 6, 2016, WikiLeaks released a second batch of DNC emails, adding 8,263 emails to its collection. The emails and documents showed that the Democratic Party's national committee favored Hillary Clinton over her rival Bernie Sanders in the primaries. These releases caused significant harm to the Clinton campaign, and have been cited as a potential contributing factor to her loss in the general election against Donald Trump.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": null
+      },
+      "must_not_survive": [
+        "Democratic National Committee",
+        "DNC",
+        "Guccifer"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_22",
+      "source_title": "23andMe data leak",
+      "source_url": "https://en.wikipedia.org/wiki/23andMe_data_leak",
+      "text": "The 23andMe data leak was a data breach at personal genomics company 23andMe reported in October 2023. The cyberattack gathered profile and ethnicity information from millions of users. The affected customers were reported to be not only primarily Ashkenazi Jews but also including hundreds of thousands of ethnically Chinese users. The hacker(s) stole information customers had chosen to share with their DNA matches, which could include their name, profile photo, birth year, location, family surnames, grandparents' birthplaces, ethnicity estimates, mitochondrial DNA haplogroup, Y-chromosome DNA haplogroup, link to external family tree, and any text content a customer had optionally included in their \"About\" section. On October 6, 2023, the company confirmed that the hacker(s) had illicitly accessed data on approximately 6.9 million users.",
+      "expected": {
+        "attack_type": [
+          "data_breach",
+          "credential_attack"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "healthcare",
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "23andMe"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_23",
+      "source_title": "Yahoo data breaches",
+      "source_url": "https://en.wikipedia.org/wiki/Yahoo_data_breaches",
+      "text": "In 2013 and 2014, Yahoo, an American web services company, experienced two of the largest data breaches in history—yet despite being aware, the company did not disclose them publicly until September 2016.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "Yahoo"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_24",
+      "source_title": "2014 JPMorgan Chase data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2014_JPMorgan_Chase_data_breach",
+      "text": "The 2014 JPMorgan Chase data breach was a cyberattack against American bank JPMorgan Chase that is believed to have compromised data associated with over 83 million accounts—76 million households and 7 million small businesses. The data breach is considered one of the most serious intrusions into an American corporation's information system and one of the largest data breaches in history.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "finance"
+        ]
+      },
+      "must_not_survive": [
+        "JPMorgan",
+        "Chase"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_25",
+      "source_title": "British Airways data breach",
+      "source_url": "https://en.wikipedia.org/wiki/British_Airways_data_breach",
+      "text": "In 2018, the UK flag carrier British Airways suffered a cyberattack in which the personal and financial details of hundreds of thousands of customers who made bookings on BA's website and mobile application were stolen. Subsequent investigations by the United Kingdom Information Commissioner's Office (ICO) found that the attacker was in a position to access personal data relating to about 429,612 individuals, including roughly 244,000 customers whose names, addresses, payment card numbers, expiry dates and card verification values (CVVs) were exposed.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": null
+      },
+      "must_not_survive": [
+        "British Airways"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_26",
+      "source_title": "2011 PlayStation Network outage",
+      "source_url": "https://en.wikipedia.org/wiki/2011_PlayStation_Network_outage",
+      "text": "The 2011 PlayStation Network outage was the result of an \"external intrusion\" on Sony's PlayStation Network and Qriocity services, in which personal details from approximately 77 million accounts were compromised and prevented users of PlayStation 3 and PlayStation Portable consoles from accessing the service. The attack occurred between April 17 and April 19, 2011, forcing Sony to deactivate the PlayStation Network servers on April 20. The outage lasted 24 days.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology",
+          "retail"
+        ]
+      },
+      "must_not_survive": [
+        "Sony",
+        "PlayStation",
+        "Qriocity"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_27",
+      "source_title": "2021 Epik data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2021_Epik_data_breach",
+      "text": "The Epik data breach occurred in September and October 2021, targeting the American domain registrar and web hosting company Epik. The breach exposed a wide range of information including personal information of customers, domain history and purchase records, credit card information, internal company emails, and records from the company's WHOIS privacy service. More than 15 million unique email addresses were exposed, belonging to customers and to non-customers whose information had been scraped. The attackers responsible for the breach identified themselves as members of the hacktivist collective Anonymous. The attackers released an initial 180 gigabyte dataset on September 13, 2021, though the data appeared to have been exfiltrated in late February of the same year. A second release, this time containing bootable disk images, was made on September 29. A third release on October 4 reportedly contained more bootable disk images and documents belonging to the Texas Republican Party, a customer of Epik's.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "Epik"
+      ],
+      "must_survive": [
+        "WHOIS"
+      ]
+    },
+    {
+      "id": "real_28",
+      "source_title": "Viasat hack",
+      "source_url": "https://en.wikipedia.org/wiki/Viasat_hack",
+      "text": "The Viasat hack was a cyberattack against the satellite internet system of American communications company Viasat which affected their KA-SAT network. The hack happened on the day of Russian invasion of Ukraine. This was a hack in three stages and two events; gaining entry into a facility, uploading a malware to a satellite, and then having that satellite beam that signal back down to Earth, targeted at internet modems throughout Ukraine. Collateral spillover did leak outside of the borders of Ukraine, impacting internet modems in Germany, Scandinavia, the United Kingdom, and elsewhere throughout Europe.",
+      "expected": {
+        "attack_type": [
+          "malware_infection",
+          "denial_of_service"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "telecom"
+        ]
+      },
+      "must_not_survive": [
+        "Viasat",
+        "Ukraine",
+        "Germany"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_29",
+      "source_title": "Shanghai police database leak",
+      "source_url": "https://en.wikipedia.org/wiki/Shanghai_police_database_leak",
+      "text": "The Shanghai police database leak refers to the unauthorized disclosure of sensitive personal information and police case data from the Shanghai National Police Database, also known as the SHGA Database, in early July 2022. The leaked data, totaling over 23 terabytes, includes details of more than one billion Chinese residents, encompassing names, addresses, birthplaces, resident ID card numbers, phone numbers, photos, mobile phone numbers, and information on criminal cases. The data was made available for sale on the internet by an unidentified hacker, who demanded a price of 10 bitcoins.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "government"
+        ]
+      },
+      "must_not_survive": [
+        "Shanghai",
+        "SHGA"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_30",
+      "source_title": "2015 TalkTalk data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2015_TalkTalk_data_breach",
+      "text": "In October 2015, British telecommunications provider TalkTalk suffered a cyberattack against its websites in which attackers exploited SQL injection vulnerabilities in legacy pages inherited from its acquisition of Tiscali. TalkTalk initially described the incident as a \"significant and sustained cyber-attack\" and reported receiving a ransom demand from individuals claiming responsibility.",
+      "expected": {
+        "attack_type": [
+          "data_breach",
+          "web_exploitation"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "telecom"
+        ]
+      },
+      "must_not_survive": [
+        "TalkTalk",
+        "Tiscali"
+      ],
+      "must_survive": [
+        "SQL injection"
+      ]
+    },
+    {
+      "id": "real_31",
+      "source_title": "2022 LastPass data breach",
+      "source_url": "https://en.wikipedia.org/wiki/2022_LastPass_data_breach",
+      "text": "Two related security incidents were disclosed by the password manager LastPass in 2022. In the first incident, an attacker accessed parts of LastPass's development environment and exfiltrated source code repositories and technical documentation, including an encrypted copy of the key used to protect backups of customer data stored in Amazon S3.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": null,
+        "sector": [
+          "technology"
+        ]
+      },
+      "must_not_survive": [
+        "LastPass"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "real_32",
+      "source_title": "2023 Kyivstar cyberattack",
+      "source_url": "https://en.wikipedia.org/wiki/2023_Kyivstar_cyberattack",
+      "text": "Kyivstar, Ukraine's largest telecommunications provider, was the target of a cyberattack on December 12, 2023. The attack caused widespread disruption to mobile and internet services across Ukraine and is considered one of the most impactful cyberattacks on civilian infrastructure during the ongoing Russo-Ukrainian War.",
+      "expected": {
+        "attack_type": null,
+        "initial_vector": null,
+        "sector": [
+          "telecom"
+        ]
+      },
+      "must_not_survive": [
+        "Kyivstar",
+        "Ukraine"
+      ],
+      "must_survive": []
+    }
+  ]
+}
