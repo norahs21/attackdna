@@ -107,6 +107,41 @@ a { color: var(--accent) !important; }
 [data-testid="stFileUploaderDropzone"] * { color: var(--ink2) !important; }
 [data-testid="stFileUploaderFile"] * { color: var(--ink) !important; }
 
+/* controls that take their colours from Streamlit's own theme, so they follow
+   the night palette unless told otherwise */
+[data-testid="stSelectbox"] [role="group"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+[data-testid="stNumberInputContainer"], [data-testid="stNumberInputContainer"] input,
+[data-testid="stNumberInput"] button {
+  background-color: var(--surface2) !important; color: var(--ink) !important;
+  border-color: var(--border) !important; }
+[data-testid="stSelectbox"] [role="group"] *, [data-testid="stSelectbox"] input {
+  color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; }
+[data-testid="stNumberInput"] button svg, [data-testid="stSelectbox"] svg { color: var(--ink2) !important; fill: currentColor; }
+[data-baseweb="popover"] [role="listbox"], [data-baseweb="popover"] ul,
+[data-baseweb="popover"] li, [data-baseweb="popover"] [role="option"] {
+  background-color: var(--surface) !important; color: var(--ink) !important; }
+[data-baseweb="popover"] li:hover, [data-baseweb="popover"] [aria-selected="true"] {
+  background-color: var(--surface2) !important; }
+[data-testid="stSelectboxVirtualDropdown"] { background-color: var(--surface) !important;
+  color: var(--ink) !important; border: 1px solid var(--border); border-radius: 10px; }
+[data-testid="stSelectboxVirtualDropdown"] * { color: var(--ink) !important; }
+[data-testid="stSelectboxVirtualDropdown"] [role="option"] > div { background-color: transparent !important; }
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover > div,
+[data-testid="stSelectboxVirtualDropdown"] [aria-selected="true"] > div { background-color: var(--surface2) !important; }
+[data-testid="stFileChip"] { background: var(--surface2) !important; border: 1px solid var(--border);
+  border-radius: 10px; }
+[data-testid="stFileChip"] * { color: var(--ink) !important; background-color: transparent !important; }
+[data-testid="stFileChip"] svg { fill: var(--ink2) !important; }
+[data-baseweb="textarea"]:focus-within, [data-baseweb="input"]:focus-within,
+[data-baseweb="base-input"]:focus-within { border-color: var(--accent) !important; }
+[data-testid="stExpander"] summary:hover, [data-testid="stExpander"] details[open] > summary {
+  background-color: var(--surface2) !important; }
+[data-testid="stTooltipIcon"] svg, [data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stExpandedSidebarCollapseButton"] svg, [data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stMainMenu"] svg { color: var(--ink2) !important; }
+
 /* buttons */
 .stButton > button, .stDownloadButton > button, [data-testid="stFileUploaderDropzone"] button {
   background: var(--surface) !important; color: var(--ink) !important;
@@ -134,6 +169,8 @@ a { color: var(--accent) !important; }
 [data-testid="stMetricLabel"] * { color: var(--muted) !important; }
 
 /* ---------- Navigation rail ---------- */
+.brand-logo { padding: .1rem 0 1.1rem; }
+.brand-logo img { width: 100%; max-width: 210px; display: block; }
 .brand { display: flex; align-items: center; gap: .6rem; padding: .2rem 0 1.1rem; }
 .brand .mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
   display: grid; place-items: center; color: var(--on-accent) !important; font-weight: 800; font-size: .8rem; }
@@ -293,7 +330,8 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 def style(mode: str) -> str:
     """The full stylesheet for one mode."""
-    return (f"<style>.stApp, [data-testid='stSidebar'], [data-baseweb='popover'] {{{_variables(mode)}}}"
+    return (f"<style>.stApp, [data-testid='stSidebar'], [data-baseweb='popover'], "
+            f"[data-testid='stSelectboxVirtualDropdown'] {{{_variables(mode)}}}"
             f"{_CSS}</style>")
 
 
@@ -319,9 +357,10 @@ def mini_stats(items: Sequence[tuple]) -> str:
     return f'<div class="mini">{cells}</div>'
 
 
-def page_head(title: str, subtitle: str, tags: Sequence[str] = ()) -> str:
+def page_head(title: str, subtitle: str = "", tags: Sequence[str] = ()) -> str:
     tag_html = "".join(f'<span class="tag">{t}</span>' for t in tags)
-    return (f'<div class="pagehead"><div><h1>{esc(title)}</h1><p>{esc(subtitle)}</p></div>'
+    sub = f"<p>{esc(subtitle)}</p>" if subtitle else ""
+    return (f'<div class="pagehead"><div><h1>{esc(title)}</h1>{sub}</div>'
             f'<div class="meta">{tag_html}</div></div>')
 
 

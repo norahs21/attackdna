@@ -46,6 +46,13 @@ LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
 # A placeholder key must never be treated as usable.
 LLM_ENABLED = bool(LLM_API_KEY) and LLM_API_KEY not in {"your_key_here", "changeme"}
 
+# --- This deployment's organisation ---
+# Which organisation this installation belongs to. In a deployed platform it
+# comes from the login; here it is set once in backend/.env. It is used only to
+# recognise this organisation's own incidents in shared memory, and is stored
+# as a keyed pseudonym, never in readable form. Empty = no "yours" marking.
+ORGANISATION = os.getenv("ATTACKDNA_ORGANISATION", "").strip()
+
 # --- Knowledge bases (produced by scripts/process_*.py) ---
 DATA_DIR = PROJECT_ROOT / "data"
 TECHNIQUES_PATH = DATA_DIR / "processed" / "techniques.json"

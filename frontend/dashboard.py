@@ -15,7 +15,6 @@ What it shows, top to bottom:
     Context            entry vectors, sectors, severity
     Incidents          the most recent fingerprints, with provenance
     What worked        actions ranked by reported effectiveness
-    Compare            two incidents side by side, overlap computed
 
 Charting decisions, so they are not re-litigated by eye later:
 
@@ -145,8 +144,6 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
 
     provenance = {row["label"]: row["count"] for row in overview["by_provenance"]}
     shared = provenance.get("shared", 0)
-    recall = (evaluation or {}).get("cross_org_recall", {})
-    p_at_1 = recall.get("precision_at_1", {}).get("value")
 
     st.markdown(theme.kpis([
         {"label": "Incidents in memory", "value": overview["incidents"],
@@ -158,8 +155,8 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
          "note": "each with its outcome"},
         {"label": "Identifiers removed", "value": f"{overview['total_redactions']:,}",
          "note": "none stored, none embedded"},
-        {"label": "Cross-org Precision@1", "value": f"{p_at_1:.0%}" if p_at_1 is not None else "—",
-         "note": f"Recall@5 {recall['recall_at_5']['value']:.0%}" if recall else "run make eval-crossorg"},
+        {"label": "Shared by members", "value": shared,
+         "note": "fingerprints, no names or reports"},
     ]), unsafe_allow_html=True)
 
     # --- Row 1: timeline + composition -----------------------------------
@@ -245,40 +242,5 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
                           "Incidents": r["times_used"]} for r in overview["proven_actions"]],
                         numeric={"Avg. effectiveness", "Incidents"})), unsafe_allow_html=True)
 
-    compare(incidents)
     st.caption(f"Memory backend: {memory_stats['backend']} · "
                f"{memory_stats['incidents_in_memory']} incidents indexed")
-
-
-def compare(incidents: List[Dict]) -> None:
-    """Two incidents side by side, with the overlap computed rather than eyeballed."""
-    with st.expander("Compare two incidents"):
-        if len(incidents) < 2:
-            st.caption("At least two incidents are needed to compare.")
-            return
-        titles = {incident["title"] or incident["id"]: incident for incident in incidents}
-        names = list(titles)
-        left_col, right_col = st.columns(2)
-        left_name = left_col.selectbox("First incident", names, index=0)
-        right_name = right_col.selectbox("Second incident", names, index=1)
-        left, right = titles[left_name], titles[right_name]
-        if left["id"] == right["id"]:
-            st.caption("Pick two different incidents.")
-            return
-        shared_techniques = sorted(set(left["technique_ids"]) & set(right["technique_ids"]))
-        shared_tactics = sorted(set(left["tactics"]) & set(right["tactics"]))
-        rows = [("Attack type", left["attack_type"], right["attack_type"]),
-                ("Initial vector", left["initial_vector"], right["initial_vector"]),
-                ("Sector", left["sector"], right["sector"]),
-                ("Severity", left["severity"], right["severity"]),
-                ("Techniques", len(left["technique_ids"]), len(right["technique_ids"]))]
-        st.markdown(theme.table([{"": label, "First": a, "Second": b} for label, a, b in rows],
-                                strong={""}), unsafe_allow_html=True)
-        if shared_techniques:
-            st.markdown(f"**{len(shared_techniques)} shared technique(s):** "
-                        + ", ".join(shared_techniques))
-        else:
-            st.caption("No shared techniques: these two attacks behave differently.")
-        if shared_tactics:
-            st.markdown(f"**{len(shared_tactics)} shared tactic(s):** "
-                        + ", ".join(t.replace("-", " ") for t in shared_tactics))
