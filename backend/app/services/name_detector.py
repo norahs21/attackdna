@@ -35,7 +35,9 @@ from app.services import lexicon
 
 # A word, keeping the hyphen and apostrophe inside "Al-Qahtani" and "O'Brien".
 _L = "A-Za-z\u00C0-\u024F"
-TOKEN_RE = re.compile(rf"[{_L}][{_L}0-9]*(?:['’\-][{_L}0-9]+)*")
+# The second form is a name that opens with a digit: "23andMe", "3CX".
+TOKEN_RE = re.compile(
+    rf"[{_L}][{_L}0-9]*(?:['’\-][{_L}0-9]+)*|(?<![\w.\-])\d+[{_L}]{{3,}}[{_L}0-9]*")
 
 # Text the detector must not look inside: tokens the sanitizer has already
 # written, and the fingerprint it is protecting.
@@ -43,7 +45,9 @@ PROTECTED_RE = re.compile(
     r"\x00[^\x00]*\x00|\x01[^\x01]*\x01|\[[A-Z_]+_(?:REDACTED|WITHHELD)(?:_\d+)?\]"
 )
 
-_ROMAN_RE = re.compile(r"[IVXLC]{1,6}")
+# A well-formed numeral up to 89. "[IVXLC]+" also matched ICICI, which is a
+# bank — found by the held-out test on real incident summaries.
+_ROMAN_RE = re.compile(r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})")
 _OPENERS = " \t\"'“”‘’([{«"
 _SENTENCE_BREAKS = "\n\r.!?:;—–•*|/"
 
@@ -77,6 +81,9 @@ class _Token:
 
     @property
     def capitalised(self) -> bool:
+        if self.text[0].isdigit():
+            # "23andMe": a brand, where "10gbe" would be a unit.
+            return any(c.isupper() for c in self.text)
         return self.text[0].isupper()
 
     @property
@@ -190,6 +197,8 @@ def _classify(text: str, token: _Token) -> Optional[str]:
         return "PERSON"
     if lexicon.is_public(token.text):
         return None
+    if token.text[0].isdigit():
+        return "NAME"
 
     ordinary = lexicon.is_ordinary(token.text)
     if token.initial:
@@ -288,6 +297,10 @@ def _subjects(text: str, tokens: List[_Token]) -> None:
 
         for member in run:
             if member.lower in lexicon.STRUCTURE_WORDS or member.text.upper() in lexicon.SECURITY_ACRONYMS:
+                continue
+            # "Colonial Pipeline": the sector word says what kind of company
+            # it is and stays, exactly as "Bank" does after a bank's name.
+            if len(run) > 1 and lexicon.is_sector_word(member.text):
                 continue
             member.redact = member.redact or "ORG"
 

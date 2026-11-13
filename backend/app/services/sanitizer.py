@@ -87,6 +87,12 @@ _ORG_HEAD = (
     r"|Embassy|Chamber|Society|Organisation|Organization|Association|Foundation|Office)"
 )
 
+# What may follow a machine name. A dot that continues into more name
+# ("web01.corp") means the domain rule owns it; a dot that ends the sentence
+# does not — and treating the two alike left "... and then to backup02."
+# unredacted, which the held-out privacy audit caught.
+_NOT_INSIDE_A_NAME = r"(?![\w\-@]|\.[A-Za-z0-9])"
+
 REDACTION_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     # Credentials & secrets first — highest blast radius if leaked.
     ("SECRET", re.compile(
@@ -145,8 +151,9 @@ REDACTION_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     # dc01. A guard decides (see _looks_like_host) because "sha-256" and
     # "rundll32" have the same shape and are vocabulary, not machines.
     ("HOSTNAME", re.compile(
-        r"(?<![\w.\-@/\\])[A-Za-z][A-Za-z0-9]{1,14}(?:-[A-Za-z0-9]{1,14}){1,4}(?![\w.\-@])")),
-    ("HOSTNAME", re.compile(r"(?<![\w.\-@/\\])[A-Za-z]{2,10}\d{2,4}[a-z]?(?![\w.\-@])")),
+        rf"(?<![\w.\-@/\\])[A-Za-z][A-Za-z0-9]{{1,14}}(?:-[A-Za-z0-9]{{1,14}}){{1,4}}{_NOT_INSIDE_A_NAME}")),
+    ("HOSTNAME", re.compile(
+        rf"(?<![\w.\-@/\\])[A-Za-z]{{2,10}}\d{{2,4}}[a-z]?{_NOT_INSIDE_A_NAME}")),
     # Service accounts: svc_backup, adm-ops.
     ("ACCOUNT", re.compile(
         r"(?<![\w.\-@/\\])(?i:svc|srv|adm|admin|sa|sys|bkp|ops)[_.][A-Za-z0-9][A-Za-z0-9_.\-]{1,24}(?![\w@])")),
@@ -445,9 +452,19 @@ def sanitize(text: str) -> SanitizationResult:
         value = working[start:end]
         if rank[label] >= rank.get(best.get(value, "NAME"), 0):
             best[value] = label
+    # A short mention is the same entity as the full one: "Colonial" after
+    # "Colonial Pipeline" gets the token the full name got.
+    full_names = [value for value in best if " " in value]
+    alias: Dict[str, str] = {}
+    for value in best:
+        if " " in value:
+            continue
+        owners = [name for name in full_names if value in name.split()]
+        if len(owners) == 1:
+            alias[value] = owners[0]
     # Applied back to front so earlier spans keep their positions.
     for start, end, _label in reversed(spans):
-        value = working[start:end]
+        value = alias.get(working[start:end], working[start:end])
         working = working[:start] + claim(best[value], value) + working[end:]
 
     # ---- Phase 3: name the tokens ----

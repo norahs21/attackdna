@@ -58,7 +58,7 @@ NAC XSS CSRF SSRF IDOR LFI RFI XXE RCE BEC RAT POS MSP MSSP CI CD GPU HR CFO
 CEO CISO CTO CIO COO PHI PCI DSS HIPAA NCA ECC SAMA SWIFT ATM GMT UTC AST AM PM
 ID IDS OK FAQ SFTP TFTP SMTP IMAP POP3 SNMP ICMP VNC NFS WMI WINRM NTLM LSASS
 NTDS SAM UAC COM DCOM RPC KDC TGT SPN OU LNK ISO CHM HTA MSI VBS JS JAR ZIP RAR
-OS VM VPS CDN DGA P2P IRC TCP UDP IP MAC NAT ACL VLAN DMZ AWS GCP S3 EC2 ESXI
+OS VM VPS CDN DGA P2P IRC TCP UDP IP MAC NAT ACL VLAN DMZ AWS GCP S3 EC2 ESXI 3DES 2FA
 BIOS UEFI MBR IIS OWA ADFS JWT SIM DDOS DOS MITM AITM OSINT TI CTI DFIR IR BCP
 DRP KPI ROI SaaS PaaS IaaS PLC HMI RTU SIS BMS ERP CRM EHR EMR PACS POC QA UAT
 """.upper())
@@ -112,6 +112,8 @@ cloudflare akamai fastly zscaler proofpoint mimecast barracuda sophos
 kaspersky symantec mcafee trellix bitdefender eset malwarebytes tenable
 qualys rapid7 nessus wireshark nmap sysmon sysinternals procdump adfind
 virustotal shodan tor onion bitcoin monero ethereum
+eternalblue bluekeep proxylogon proxyshell zerologon printnightmare heartbleed
+shellshock citrixbleed follina spectre meltdown
 """)
 
 # Ordinary nouns that IT prose capitalises: "the Registry", "a Domain
