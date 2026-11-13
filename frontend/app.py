@@ -18,9 +18,12 @@ is a decision the team makes with the whole analysis in front of them.
 Four pages:
 
     Analyze a report      the journey above
-    Ask shared memory     a question answered only from what memory holds
-    Shared memory         what the corpus knows, in aggregate
+    Dashboard             what shared memory holds, in aggregate
+    Ask the memory        a question answered only from what memory holds
     Evidence              the cross-organisation experiment and its numbers
+
+The interface is English only and has a day and a night appearance; the switch
+sits at the bottom of the navigation rail.
 
 The app calls the pipeline in-process by default, so the demo needs a single
 command and cannot fail because a second server did not start. Set
@@ -96,17 +99,16 @@ API_URL = os.getenv("ATTACKDNA_API_URL", "").rstrip("/")
 CROSSORG_RESULTS = DATA_DIR / "evaluation" / "crossorg_results.json"
 CROSSORG_PAIRS = DATA_DIR / "seed" / "crossorg_pairs.json"
 
-PAGES = ["Analyze a report", "Ask shared memory", "Shared memory", "Evidence"]
-PAGE_ARABIC = {
-    "Analyze a report": "تحليل تقرير حادث",
-    "Ask shared memory": "اسأل الذاكرة المشتركة",
-    "Shared memory": "الذاكرة المشتركة",
-    "Evidence": "النتائج والتجارب",
-}
+PAGES = ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]
 PHASES = ["detect", "contain", "eradicate", "recover", "harden"]
 
 st.set_page_config(page_title="ATTACKDNA", page_icon="■", layout="wide")
-st.markdown(theme.STYLE, unsafe_allow_html=True)
+state = st.session_state
+
+# Day or night. Read before anything is drawn so the whole page, sidebar
+# included, is styled for the mode the viewer chose.
+mode = "dark" if state.get("dark_mode", True) else "light"
+st.markdown(theme.style(mode), unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------
@@ -187,7 +189,7 @@ def corpus_overview() -> dict:
 
 
 def corpus_incidents() -> list:
-    """The minimum each incident needs to be compared against another."""
+    """What the dashboard needs per incident: never the text, only the fingerprint."""
     from app.db.database import IncidentDB
 
     session = SessionLocal()
@@ -195,6 +197,9 @@ def corpus_incidents() -> list:
         return [{
             "id": incident.id,
             "title": incident.title,
+            "provenance": incident.provenance or "internal",
+            "year": incident.occurred_at.year if incident.occurred_at else None,
+            "created": incident.created_at.isoformat() if incident.created_at else "",
             "attack_type": incident.attack_type or "unknown",
             "initial_vector": incident.initial_vector or "unknown",
             "sector": incident.sector or "unknown",
@@ -266,11 +271,14 @@ def digest(text: str, organisation: str) -> str:
     return hashlib.sha256(f"{organisation}\x00{text}".encode("utf-8")).hexdigest()
 
 
+def html(markup: str) -> None:
+    st.markdown(markup, unsafe_allow_html=True)
+
+
 # --------------------------------------------------------------------------
-# Sidebar
+# Navigation rail
 # --------------------------------------------------------------------------
 bootstrap()
-state = st.session_state
 
 # A sample sets the organisation on the run after its button is pressed, before
 # the organisation widget is drawn: changing a widget's value after it exists
@@ -278,18 +286,15 @@ state = st.session_state
 if "organisation_pending" in state:
     state["organisation"] = state.pop("organisation_pending")
 
+memory = vector_memory.memory_stats()
+counts = corpus_provenance()
+
 with st.sidebar:
-    st.markdown(theme.side_head("Navigate"), unsafe_allow_html=True)
-    page = st.radio(
-        "Page", PAGES, label_visibility="collapsed",
-        format_func=lambda name: f"{name}  ·  {PAGE_ARABIC[name]}",
-        help="Analyze runs your report through the privacy layer and shared memory. "
-             "Ask questions the incidents already shared. Shared memory shows what it holds. "
-             "Evidence shows the measured results.",
-    )
+    html(theme.brand())
+    page = st.radio("Page", PAGES, label_visibility="collapsed")
 
     st.divider()
-    st.markdown(theme.side_head("Your organisation"), unsafe_allow_html=True)
+    html(theme.side_head("Your organisation"))
     organisation = st.text_input(
         "Organisation", key="organisation", label_visibility="collapsed",
         placeholder="e.g. Organisation A",
@@ -297,27 +302,16 @@ with st.sidebar:
              "memory. It is stored as a keyed pseudonym that cannot be read back, and "
              "no other organisation ever sees it.",
     )
-    st.caption("Kept as a keyed pseudonym. Other organisations never see it. "
-               "اسم المؤسسة لا يُخزَّن ولا يظهر لأي جهة أخرى.")
+    st.caption("Kept as a keyed pseudonym. Other organisations never see it.")
 
     st.divider()
-    st.markdown(theme.side_head("Shared memory"), unsafe_allow_html=True)
-    memory = vector_memory.memory_stats()
-    st.metric("Incidents in memory", memory["incidents_in_memory"])
-    counts = corpus_provenance()
-    if counts.get("shared"):
-        st.markdown(theme.legend_row(theme.SERIES[0], counts["shared"],
-                                     "shared by member organisations"), unsafe_allow_html=True)
-    if counts.get("public"):
-        st.markdown(theme.legend_row(theme.SERIES[2], counts["public"],
-                                     "real, publicly documented breaches"),
-                    unsafe_allow_html=True)
-    if counts.get("synthetic"):
-        st.markdown(theme.legend_row(theme.SERIES[1], counts["synthetic"],
-                                     "synthetic incidents"), unsafe_allow_html=True)
-    if counts.get("internal"):
-        st.markdown(theme.legend_row(theme.INK_MUTED, counts["internal"],
-                                     "internal incidents"), unsafe_allow_html=True)
+    html(theme.side_head("Shared memory"))
+    html(theme.mini_stats([
+        ("Incidents", memory["incidents_in_memory"]),
+        ("Shared", counts.get("shared", 0)),
+        ("Real", counts.get("public", 0)),
+        ("Synthetic", counts.get("synthetic", 0)),
+    ]))
 
     with st.expander("Settings"):
         use_llm = st.toggle("Use LLM enrichment", value=llm_client.is_available(),
@@ -363,32 +357,25 @@ with st.sidebar:
                 state.pop("analysis", None)
                 st.rerun()
 
+    st.divider()
+    st.toggle("Dark mode", key="dark_mode", value=True,
+              help="Switch between the day and night appearance.")
+
+
+def backend_tag() -> str:
+    return theme.status_tag(f"{memory['incidents_in_memory']} incidents · {memory['backend']}")
 
 
 # --------------------------------------------------------------------------
-# Header
+# Dashboard
 # --------------------------------------------------------------------------
-st.markdown(
-    '<div class="dna-hero"><h1>ATTACKDNA</h1>'
-    '<p>One organisation\'s incident becomes every member\'s defence, without '
-    'revealing who was attacked.</p>'
-    '<p class="ar">حادثة مؤسسة واحدة تصبح معرفة دفاعية لبقية المؤسسات، '
-    'دون كشف هوية الضحية أو مشاركة تقريرها.</p>'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-
-# --------------------------------------------------------------------------
-# Shared memory dashboard
-# --------------------------------------------------------------------------
-if page == "Shared memory":
-    st.markdown(theme.stage("—", "Shared memory", "الذاكرة المشتركة"),
-                unsafe_allow_html=True)
-    st.subheader("What shared memory holds")
-    st.markdown("Aggregate view of every fingerprint in memory: the answer to *“what does "
-                "this system actually know?”* before it is asked to advise on anything.")
-    dashboard.render(corpus_overview(), vector_memory.memory_stats(), corpus_incidents())
+if page == "Dashboard":
+    html(theme.page_head("Memory dashboard",
+                         "What shared memory holds: every fingerprint, where it came from, "
+                         "the behaviour it covers and what worked against it.",
+                         [backend_tag()]))
+    dashboard.render(corpus_overview(), memory, corpus_incidents(), mode,
+                     evaluation=_read_json(CROSSORG_RESULTS))
     st.stop()
 
 
@@ -396,14 +383,11 @@ if page == "Shared memory":
 # Evidence — the cross-organisation experiment
 # --------------------------------------------------------------------------
 def render_evidence() -> None:
-    st.markdown(theme.stage("—", "Evidence", "النتائج"), unsafe_allow_html=True)
-    st.subheader("Does one organisation's incident help another, without exposing it?")
-    st.markdown(
-        "Organisation A contributes 20 incidents to shared memory. Organisation B later "
-        "reports the same 20 attack patterns **in its own words**. The experiment measures "
-        "whether B recalls A's incident, whether anything naming A reaches B, and whether "
-        "removing A's identity costs any retrieval quality."
-    )
+    html(theme.page_head(
+        "Evidence",
+        "Does one organisation's incident help another, without exposing it? Organisation A "
+        "contributes 20 incidents; organisation B later reports the same 20 attack patterns "
+        "in its own words."))
 
     results = _read_json(CROSSORG_RESULTS)
     if not results:
@@ -422,103 +406,106 @@ def render_evidence() -> None:
         low, high = entry["ci95"]
         return f"{entry['successes']}/{entry['total']} · 95% CI {low:.0%}–{high:.0%}"
 
-    tiles = st.columns(4)
-    tiles[0].markdown(theme.tile("Identifiers removed", pct(privacy["identifiers_removed"]),
-                                 ci(privacy["identifiers_removed"])), unsafe_allow_html=True)
-    tiles[1].markdown(theme.tile("Behaviour retained", pct(behaviour["techniques_retained"]),
-                                 "ATT&CK techniques kept after sanitization"),
-                      unsafe_allow_html=True)
-    tiles[2].markdown(theme.tile("Cross-org Precision@1", pct(recall["precision_at_1"]),
-                                 f"Recall@5 {pct(recall['recall_at_5'])} · MRR "
-                                 f"{recall['mrr']:.2f}"), unsafe_allow_html=True)
-    tiles[3].markdown(theme.tile("Exposed to B", str(recall["queries_exposing_A"]),
-                                 f"of {recall['queries']} screens named A"),
-                      unsafe_allow_html=True)
-    st.caption(f"Run {results['generated_at']} · code `{results.get('code_revision') or '—'}` · "
-               f"{results['mode']} · memory backend `{recall['memory']['backend']}` · "
+    html(theme.kpis([
+        {"label": "Identifiers removed", "value": pct(privacy["identifiers_removed"]),
+         "note": ci(privacy["identifiers_removed"])},
+        {"label": "Behaviour retained", "value": pct(behaviour["techniques_retained"]),
+         "note": "ATT&CK techniques kept after sanitization"},
+        {"label": "Cross-org Precision@1", "value": pct(recall["precision_at_1"]),
+         "note": f"Recall@5 {pct(recall['recall_at_5'])} · MRR {recall['mrr']:.2f}"},
+        {"label": "Screens exposing A", "value": recall["queries_exposing_A"],
+         "note": f"of {recall['queries']} queries"},
+        {"label": "Response reused", "value": pct(recall["mitigation_reuse"]),
+         "note": "A's actions recommended to B"},
+    ]))
+    st.caption(f"Run {results['generated_at']} · code {results.get('code_revision') or '—'} · "
+               f"{results['mode']} · memory backend {recall['memory']['backend']} · "
                f"{recall['memory']['corpus_incidents']} corpus incidents as distractors")
 
-    st.markdown("#### 1 · Privacy protection")
-    st.markdown(
-        f"- **{privacy['identifiers_planted']}** identifiers were marked by hand across "
-        f"**{privacy['reports']}** reports (people, organisations, emails, IPs, hosts, phones).\n"
-        f"- **{privacy['identifiers_removed']['successes']}** were removed "
-        f"({ci(privacy['identifiers_removed'])}), checked by searching the output for each one, "
-        "not by asking the privacy layer what it found.\n"
-        f"- **{privacy['residual_identifiers']}** remained in "
-        f"{privacy['reports_with_residual']} report(s) after this independent check.\n"
-        f"- Over-redaction: **{privacy['over_redaction']['successes']}** of "
-        f"{privacy['over_redaction']['total']} attack terms were lost "
-        f"({pct(privacy['over_redaction'])})."
-    )
-    if privacy["residual_detail"]:
-        with st.expander("Which identifiers survived"):
-            st.caption("Reported as found. These are the next fixes for the privacy layer.")
-            for report_id, values in privacy["residual_detail"].items():
-                st.markdown(f"- `{report_id}`: {', '.join(values)}")
+    left, right = st.columns(2)
+    with left:
+        residual = "".join(f"<li><code>{theme.esc(k)}</code>: {theme.esc(', '.join(v))}</li>"
+                           for k, v in privacy["residual_detail"].items())
+        html(theme.card("1 · Privacy protection",
+                        "Identifiers marked by hand, checked by searching the output", f"""
+            <ul>
+              <li><strong>{privacy['identifiers_planted']}</strong> identifiers in
+                  <strong>{privacy['reports']}</strong> reports</li>
+              <li><strong>{privacy['identifiers_removed']['successes']}</strong> removed
+                  ({ci(privacy['identifiers_removed'])})</li>
+              <li><strong>{privacy['residual_identifiers']}</strong> remained in
+                  {privacy['reports_with_residual']} report(s)</li>
+              <li>Over-redaction: <strong>{privacy['over_redaction']['successes']}</strong> of
+                  {privacy['over_redaction']['total']} attack terms lost</li>
+            </ul>
+            {f'<div class="sub">Survived (the next fixes):</div><ul>{residual}</ul>' if residual else ''}
+        """))
+    with right:
+        raw, clean = behaviour["accuracy_raw"], behaviour["accuracy_sanitized"]
+        html(theme.card("2 · Behaviour preservation",
+                        "Attack DNA from the sanitized report vs the raw report",
+                        theme.table([
+                            {"Measure": "Attack type unchanged",
+                             "Result": pct(behaviour["attack_type_unchanged"])},
+                            {"Measure": "Entry vector unchanged",
+                             "Result": pct(behaviour["initial_vector_unchanged"])},
+                            {"Measure": "ATT&CK techniques retained",
+                             "Result": pct(behaviour["techniques_retained"])},
+                            {"Measure": "Attack type vs labels (raw → sanitized)",
+                             "Result": f"{pct(raw['attack_type'])} → {pct(clean['attack_type'])}"},
+                            {"Measure": "Technique recall vs labels (raw → sanitized)",
+                             "Result": f"{raw['techniques']['recall']:.0%} → "
+                                       f"{clean['techniques']['recall']:.0%}"},
+                        ], numeric={"Result"})))
 
-    st.markdown("#### 2 · Behaviour preservation")
-    st.markdown(
-        "Attack DNA from the sanitized report compared with Attack DNA from the raw report:\n\n"
-        f"- Attack type unchanged: **{pct(behaviour['attack_type_unchanged'])}** · entry vector "
-        f"unchanged: **{pct(behaviour['initial_vector_unchanged'])}**\n"
-        f"- ATT&CK techniques retained: **{pct(behaviour['techniques_retained'])}** "
-        f"({ci(behaviour['techniques_retained'])})\n"
-        f"- Accuracy against the labels: attack type "
-        f"{pct(behaviour['accuracy_raw']['attack_type'])} raw vs "
-        f"{pct(behaviour['accuracy_sanitized']['attack_type'])} sanitized; technique recall "
-        f"{behaviour['accuracy_raw']['techniques']['recall']:.0%} vs "
-        f"{behaviour['accuracy_sanitized']['techniques']['recall']:.0%}"
-    )
+    bare = results.get("no_distractors")
+    html(theme.card("3 · Cross-organisation recall",
+                    "B's report is the query; A's contributed incident is the answer",
+                    theme.table([
+                        {"Measure": "Precision@1: B's top match is A's incident",
+                         "Result": f"{pct(recall['precision_at_1'])} ({ci(recall['precision_at_1'])})"},
+                        {"Measure": "Recall@5: A's incident in B's top five",
+                         "Result": pct(recall["recall_at_5"])},
+                        {"Measure": "Mean reciprocal rank", "Result": f"{recall['mrr']:.2f}"},
+                        {"Measure": "Precision@5 (same attack type)",
+                         "Result": f"{recall['precision_at_5']:.0%}"},
+                        {"Measure": "Top match has the same attack type",
+                         "Result": pct(recall["top1_same_attack_type"])},
+                        {"Measure": "A's response recommended to B, with source",
+                         "Result": pct(recall["mitigation_reuse"])},
+                        {"Measure": "Shared records still naming A",
+                         "Result": f"{recall['stored_records_exposing_A']} of "
+                                   f"{recall['memory']['contributed_by_A']}"},
+                        {"Measure": "Another organisation's incident shown as 'yours'",
+                         "Result": str(recall["foreign_incident_marked_as_own"])},
+                    ] + ([{"Measure": "Without corpus distractors: Precision@1 · MRR",
+                           "Result": f"{pct(bare['precision_at_1'])} · {bare['mrr']:.2f}"}]
+                         if bare else []), numeric={"Result"})))
 
-    st.markdown("#### 3 · Cross-organisation recall")
-    st.markdown(
-        f"- **Precision@1 {pct(recall['precision_at_1'])}** ({ci(recall['precision_at_1'])}): "
-        "B's top match was A's incident.\n"
-        f"- **Recall@5 {pct(recall['recall_at_5'])}**: A's incident was in B's top five.\n"
-        f"- **MRR {recall['mrr']:.2f}** · Precision@5 (same attack type) "
-        f"{recall['precision_at_5']:.0%} · top match of the same attack type "
-        f"{pct(recall['top1_same_attack_type'])}\n"
-        f"- A's recorded response recommended to B: **{pct(recall['mitigation_reuse'])}** of "
-        "queries, always with its source.\n"
-        f"- Screens that named A: **{recall['queries_exposing_A']}** of {recall['queries']} · "
-        f"shared records still naming A: **{recall['stored_records_exposing_A']}** of "
-        f"{recall['memory']['contributed_by_A']}\n"
-        f"- Another organisation's incident shown as “yours”: "
-        f"**{recall['foreign_incident_marked_as_own']}** · A's own incident recognised as "
-        f"“yours”: **{pct(results['own_incident_recognised'])}**"
-    )
-    if results.get("no_distractors"):
-        bare = results["no_distractors"]
-        st.caption(f"Without the corpus distractors (memory = A's 20 only): Precision@1 "
-                   f"{pct(bare['precision_at_1'])} · Recall@5 {pct(bare['recall_at_5'])} · "
-                   f"MRR {bare['mrr']:.2f}")
     with st.expander("Every query"):
-        st.dataframe(
-            [{"Pair": q["pair"], "Pattern": q["pattern"],
-              "Rank of A": q["rank"] or "—",
-              "B's top match": q["top1"],
-              "A's response recalled": "yes" if q["a_mitigations_recalled"] else "no",
-              "Exposed": ", ".join(q["exposed_identifiers"]) or "none"}
-             for q in recall["per_query"]],
-            width="stretch", hide_index=True,
-        )
+        html(theme.table([
+            {"Pair": q["pair"], "Pattern": q["pattern"], "Rank of A": q["rank"] or "—",
+             "B's top match": q["top1"],
+             "Response reused": theme.pill("yes", "good") if q["a_mitigations_recalled"]
+             else theme.pill("no", "neutral"),
+             "Exposed": ", ".join(q["exposed_identifiers"]) or "none"}
+            for q in recall["per_query"]], html_columns={"Response reused"},
+            numeric={"Rank of A"}))
 
-    st.markdown("#### 4 · What privacy costs")
-    st.dataframe([
-        {"Shared memory": "With the privacy layer",
-         "Precision@1": pct(recall["precision_at_1"]), "MRR": f"{recall['mrr']:.2f}",
-         "Shared records naming A": f"{recall['stored_records_exposing_A']} of "
-                                    f"{recall['memory']['contributed_by_A']}"},
-        {"Shared memory": "Without it (raw reports shared)",
-         "Precision@1": pct(off["precision_at_1"]), "MRR": f"{off['mrr']:.2f}",
-         "Shared records naming A": f"{off['stored_records_exposing_A']} of "
-                                    f"{off['memory']['contributed_by_A']}"},
-    ], width="stretch", hide_index=True)
+    html(theme.card("4 · What privacy costs", "The same experiment with the privacy layer off",
+                    theme.table([
+                        {"Shared memory": "With the privacy layer",
+                         "Precision@1": pct(recall["precision_at_1"]), "MRR": f"{recall['mrr']:.2f}",
+                         "Records naming A": f"{recall['stored_records_exposing_A']} of "
+                                             f"{recall['memory']['contributed_by_A']}"},
+                        {"Shared memory": "Without it (raw reports shared)",
+                         "Precision@1": pct(off["precision_at_1"]), "MRR": f"{off['mrr']:.2f}",
+                         "Records naming A": f"{off['stored_records_exposing_A']} of "
+                                             f"{off['memory']['contributed_by_A']}"},
+                    ], strong={"Shared memory"})))
 
-    st.markdown("#### Limits")
-    for caveat in results.get("caveats", []):
-        st.markdown(f"- {caveat}")
+    limits = "".join(f"<li>{theme.esc(c)}</li>" for c in results.get("caveats", []))
+    html(theme.card("Limits", "Read every number with these in mind", f"<ul>{limits}</ul>"))
     st.caption("Held-out results for attack classification and ATT&CK mapping on real "
                "incident summaries are produced by `make eval` and `make eval-mapper`.")
 
@@ -529,16 +516,13 @@ if page == "Evidence":
 
 
 # --------------------------------------------------------------------------
-# Ask shared memory — retrieval-augmented Q&A over the corpus
+# Ask the memory — retrieval-augmented Q&A over the corpus
 # --------------------------------------------------------------------------
-if page == "Ask shared memory":
-    st.markdown(theme.stage("—", "Ask shared memory", "اسأل الذاكرة"), unsafe_allow_html=True)
-    st.subheader("Question the incidents members have already shared")
-    st.markdown(
-        "Answers are built **only** from incidents in memory. Every citation is "
-        "checked against what was actually retrieved, so a source the model "
-        "invents never reaches you."
-    )
+if page == "Ask the memory":
+    html(theme.page_head("Ask the memory",
+                         "Questions answered only from incidents members have already shared. "
+                         "Every citation is checked against what was actually retrieved.",
+                         [backend_tag()]))
 
     suggestions = rag_qa.suggested_questions()
     picked = st.selectbox("Example questions", ["— write my own —"] + suggestions, index=1)
@@ -552,8 +536,8 @@ if page == "Ask shared memory":
     asked = st.button("Ask", type="primary", width="stretch")
 
     if not asked or not question.strip():
-        st.info(f"**{vector_memory.memory_stats()['incidents_in_memory']} incidents** are in "
-                "memory. Pick an example above or write your own question, then press **Ask**.")
+        st.info(f"**{memory['incidents_in_memory']} incidents** are in memory. Pick an "
+                "example above or write your own question, then press **Ask**.")
         st.stop()
 
     with st.spinner("Searching memory..."):
@@ -581,8 +565,7 @@ if page == "Ask shared memory":
         for source in answer["sources"]:
             cited = "cited" if source["incident_id"] in answer["citations"] else "retrieved"
             with st.expander(f"{source['similarity']:.0%} — {source['title']} · {cited}"):
-                st.markdown(theme.provenance_pill(source.get("provenance")),
-                            unsafe_allow_html=True)
+                html(theme.provenance_pill(source.get("provenance")))
                 st.markdown(
                     f"**Type:** {source['attack_type']} · **Sector:** {source['sector']} · "
                     f"**Severity:** {source['severity']} · "
@@ -609,11 +592,14 @@ if page == "Ask shared memory":
 # ① Attach the report
 # --------------------------------------------------------------------------
 analysis = state.get("analysis")
+html(theme.page_head(
+    "Analyze an incident report",
+    "One organisation's incident becomes every member's defence, without revealing "
+    "who was attacked.", [backend_tag()]))
 # Drawn last, once this run knows how far the team got, but shown first.
 journey_slot = st.empty()
 
-st.markdown(theme.stage("1", "Attach your incident report", "إرفاق تقرير الحادث"),
-            unsafe_allow_html=True)
+html(theme.stage("1", "Attach your incident report"))
 st.markdown("Attach the report exactly as your team wrote it. Names, IP addresses, emails "
             "and your organisation's details can stay in: **removing them is the system's "
             "first job**, and the original is never stored.")
@@ -667,6 +653,7 @@ if run:
     state["_raw_for_api"] = report_text if API_URL else None
     analysis = state["analysis"]
 
+
 def _show_journey() -> None:
     if not analysis:
         journey_slot.markdown(theme.journey(current=1), unsafe_allow_html=True)
@@ -693,50 +680,35 @@ shareable = privacy["verified_clean"]
 # ② Identity removed — the first result, because everything depends on it
 # --------------------------------------------------------------------------
 st.divider()
-st.markdown(theme.stage("2", "Identity removed", "إزالة المعلومات الحساسة"),
-            unsafe_allow_html=True)
+html(theme.stage("2", "Identity removed"))
 
 removed = privacy["total_redactions"]
 if shareable:
     title = ("Sensitive information removed successfully" if removed
              else "No sensitive information found")
-    title_ar = ("تمت إزالة المعلومات الحساسة بنجاح" if removed
-                else "لم يُعثر على معلومات حساسة في التقرير")
     detail = (f"<strong>{removed}</strong> identifying value(s) were removed from "
-              f"<em>{analysis['source']}</em> before any analysis ran. A second pass found "
-              "nothing further. From here on, the system only ever sees the sanitized text.")
-    st.markdown(
-        f'<div class="shield"><div class="title">{title}</div>'
-        f'<div class="title-ar">{title_ar}</div>'
-        f'<div class="detail">{detail}</div>'
-        f'{theme.chips(privacy["redactions_by_type"]) if removed else ""}</div>',
-        unsafe_allow_html=True,
-    )
+              f"<em>{theme.esc(analysis['source'])}</em> before any analysis ran. A second pass "
+              "found nothing further. From here on, the system only ever sees the sanitized text.")
+    html(f'<div class="shield"><div class="title">{title}</div>'
+         f'<div class="detail">{detail}</div>'
+         f'{theme.chips(privacy["redactions_by_type"]) if removed else ""}</div>')
 else:
-    st.markdown(
-        '<div class="shield fail"><div class="title">Privacy check failed: this report '
-        'stays private</div><div class="title-ar">فشل فحص الخصوصية: لن تتم مشاركة التقرير'
-        '</div><div class="detail">After sanitization the second pass still found '
-        f'<strong>{len(privacy["residual_findings"])}</strong> identifying value(s). The text was '
-        'not sent to any AI model, and it cannot be shared. Edit the report and analyze '
-        'it again.</div></div>',
-        unsafe_allow_html=True,
-    )
+    html('<div class="shield fail"><div class="title">Privacy check failed: this report '
+         'stays private</div><div class="detail">After sanitization the second pass still found '
+         f'<strong>{len(privacy["residual_findings"])}</strong> identifying value(s). The text was '
+         'not sent to any AI model, and it cannot be shared. Edit the report and analyze '
+         'it again.</div></div>')
     st.error("Residual findings: " + "; ".join(privacy["residual_findings"]))
 
 left, right = st.columns([3, 2])
 with left:
     with st.expander("View the sanitized report: this is all the system ever sees"):
-        st.markdown(f'<div class="sig-box">{highlight_redactions(privacy["sanitized_text"])}'
-                    '</div>', unsafe_allow_html=True)
+        html(f'<div class="sig-box">{highlight_redactions(privacy["sanitized_text"])}</div>')
 with right:
     with st.expander(f"What was removed: {removed} value(s)"):
         if privacy["audit"]:
-            st.dataframe(
-                [{"Token": row["token"], "Type": row["type"], "Original": row["original_preview"]}
-                 for row in privacy["audit"]],
-                width="stretch", hide_index=True,
-            )
+            html(theme.table([{"Token": row["token"], "Type": row["type"],
+                               "Original": row["original_preview"]} for row in privacy["audit"]]))
             st.caption("Originals are masked here and are never embedded, stored or sent "
                        "to any model.")
         else:
@@ -754,7 +726,6 @@ if result["meta"].get("llm_blocked_by_privacy_gate"):
 def verdict_card() -> str:
     attack = dna["attack_type"].replace("_", " ").title()
     vector = (dna.get("initial_vector") or "unknown").replace("_", " ")
-    headline = f"{attack} via {vector}"
     rows = []
 
     if similar:
@@ -767,11 +738,11 @@ def verdict_card() -> str:
             origin = "real documented breach"
         else:
             origin = "past incident"
-        rows.append((theme.ACCENT, "Closest incident in shared memory",
-                     f"<strong>{best['similarity']:.0%}</strong> — {best['title']} "
+        rows.append(("var(--accent)", "Closest incident in shared memory",
+                     f"<strong>{best['similarity']:.0%}</strong> — {theme.esc(best['title'])} "
                      f"<em>({origin})</em>"))
     else:
-        rows.append((theme.INK_MUTED, "Closest incident in shared memory",
+        rows.append(("var(--muted)", "Closest incident in shared memory",
                      "<em>Nothing close enough: this pattern is new to shared memory.</em>"))
 
     recommended = mitigations.get("recommended") or []
@@ -781,26 +752,21 @@ def verdict_card() -> str:
                  f"{first['times_used']} past incident(s)</em>"
                  if first.get("avg_effectiveness") is not None else
                  " <em>· baseline control, no recorded outcome yet</em>")
-        rows.append((theme.SERIES[2], "Do this first", f"{first['action']}{track}"))
+        rows.append(("var(--good)", "Do this first", f"{theme.esc(first['action'])}{track}"))
 
     row_html = "".join(
         f'<div class="row"><span class="rule" style="background:{colour}"></span>'
         f'<span><span class="k">{key}</span><span class="v">{value}</span></span></div>'
         for colour, key, value in rows
     )
-    return (
-        f'<div class="verdict">'
-        f'<div class="headline">{headline}</div>'
-        f'<div class="sub">{dna["sector"].title()} sector · '
-        f'{len(dna["techniques"])} ATT&CK techniques · severity '
-        f'{dna["severity"]}</div>{row_html}</div>'
-    )
+    return (f'<div class="verdict"><div class="headline">{attack} via {vector}</div>'
+            f'<div class="sub">{dna["sector"].title()} sector · {len(dna["techniques"])} ATT&CK '
+            f'techniques · severity {dna["severity"]}</div>{row_html}</div>')
 
 
 st.divider()
-st.markdown(theme.stage("3", "Attack DNA and shared memory", "البصمة والحوادث المشابهة"),
-            unsafe_allow_html=True)
-st.markdown(verdict_card(), unsafe_allow_html=True)
+html(theme.stage("3", "Attack DNA and shared memory"))
+html(verdict_card())
 
 download_left, download_right = st.columns([1, 3])
 with download_left:
@@ -817,16 +783,17 @@ tab_dna, tab_memory, tab_response, tab_exercise = st.tabs(
      "Tabletop exercise"])
 
 with tab_dna:
-    st.markdown(theme.facts([
-        ("Attack type", dna["attack_type"].replace("_", " ").title()),
-        ("Initial vector", (dna.get("initial_vector") or "unknown").replace("_", " ").title()),
-        ("Sector", dna["sector"].title()),
+    html(theme.facts([
+        ("Attack type", theme.esc(dna["attack_type"].replace("_", " ").title())),
+        ("Initial vector", theme.esc((dna.get("initial_vector") or "unknown")
+                                     .replace("_", " ").title())),
+        ("Sector", theme.esc(dna["sector"].title())),
         ("ATT&CK techniques", str(len(dna["techniques"]))),
         ("Severity", theme.severity_pill(dna["severity"])),
-    ]), unsafe_allow_html=True)
+    ]))
 
     st.markdown("**DNA signature**: the part that would be shared")
-    st.markdown(f'<div class="sig-box">{dna["signature"]}</div>', unsafe_allow_html=True)
+    html(f'<div class="sig-box">{theme.esc(dna["signature"])}</div>')
     st.caption(f"Extraction mode: {dna.get('extraction_mode', 'rule-based')} · {dna['summary']}")
 
     kill_chain = " → ".join(TACTIC_LABELS.get(t, t.title()) for t in dna["tactics"]) or "—"
@@ -835,16 +802,13 @@ with tab_dna:
     st.markdown(f"**Impact** · {impacts}")
 
     st.markdown("**MITRE ATT&CK mapping, with the evidence for each technique**")
-    st.dataframe(
-        [{
-            "Technique": t["id"],
-            "Name": t["name"],
-            "Tactic": TACTIC_LABELS.get(t["tactics"][0], "—") if t["tactics"] else "—",
-            "Confidence": t["confidence"],
-            "Evidence": ", ".join(t["evidence"][:3]) or "—",
-        } for t in dna["techniques"]],
-        width="stretch", hide_index=True,
-    )
+    html(theme.table([{
+        "Technique": t["id"],
+        "Name": t["name"],
+        "Tactic": TACTIC_LABELS.get(t["tactics"][0], "—") if t["tactics"] else "—",
+        "Confidence": t["confidence"],
+        "Evidence": ", ".join(t["evidence"][:3]) or "—",
+    } for t in dna["techniques"]], strong={"Technique"}, numeric={"Confidence"}))
 
     known_exploited = [c for c in dna["cve_details"] if c["known_exploited"]]
     if known_exploited:
@@ -883,13 +847,13 @@ with tab_dna:
             if has_attribution:
                 st.markdown("**Behavioural resemblance to documented threat activity**")
                 st.caption(attribution["caveat"])
-                rows = ([{"Kind": "Group", "Name": f"{g['id']} {g['name']}",
-                          "Overlap": f"{g['coverage']:.0%}", "Confidence": g["confidence"]}
-                         for g in attribution["groups"]]
-                        + [{"Kind": "Software", "Name": f"{s['id']} {s['name']}",
-                            "Overlap": f"{s['coverage']:.0%}", "Confidence": s["confidence"]}
-                           for s in attribution["software"]])
-                st.dataframe(rows, width="stretch", hide_index=True)
+                html(theme.table(
+                    [{"Kind": "Group", "Name": f"{g['id']} {g['name']}",
+                      "Overlap": f"{g['coverage']:.0%}", "Confidence": g["confidence"]}
+                     for g in attribution["groups"]]
+                    + [{"Kind": "Software", "Name": f"{s['id']} {s['name']}",
+                        "Overlap": f"{s['coverage']:.0%}", "Confidence": s["confidence"]}
+                       for s in attribution["software"]]))
 
     validation = dna.get("validation", {})
     if validation and not validation.get("valid", True):
@@ -904,11 +868,10 @@ with tab_memory:
                    "from other organisations show their fingerprint and response only, never "
                    "their name, their people or their report.")
         for index, match in enumerate(similar):
-            header = (f"{match['similarity']:.0%} — {match['title']} · {match['severity']}")
+            header = f"{match['similarity']:.0%} — {match['title']} · {match['severity']}"
             with st.expander(header, expanded=index == 0):
-                st.markdown(theme.provenance_pill(match.get("provenance"),
-                                                  yours=match.get("from_your_organisation")),
-                            unsafe_allow_html=True)
+                html(theme.provenance_pill(match.get("provenance"),
+                                           yours=match.get("from_your_organisation")))
                 if match.get("source_url"):
                     st.caption(f"Source: [{match.get('source_name')}]({match['source_url']})")
                 if match.get("why_it_matters"):
@@ -923,20 +886,17 @@ with tab_memory:
 
                 if match["mitigations"]:
                     st.markdown("**What they did about it**")
-                    st.dataframe(
+                    html(theme.table(
                         [{"Phase": m["category"], "Action": m["action"],
-                          "Effectiveness": m["effectiveness"], "Notes": m["notes"] or ""}
-                         for m in match["mitigations"]],
-                        width="stretch", hide_index=True,
-                    )
+                          "Effectiveness": f"{m['effectiveness']:.0%}"
+                          if m["effectiveness"] is not None else "—"}
+                         for m in match["mitigations"]], numeric={"Effectiveness"}))
 
-                score_cols = st.columns(3)
-                score_cols[0].metric("Combined", f"{match['similarity']:.0%}")
-                score_cols[1].metric("Semantic", f"{match['semantic_similarity']:.0%}",
-                                     help="Embedding similarity of the Attack DNA")
-                score_cols[2].metric("Structural", f"{match['structural_similarity']:.0%}",
-                                     help="Shared techniques, tactics, attack type, "
-                                          "sector and CVEs")
+                html(theme.facts([
+                    ("Combined", f"{match['similarity']:.0%}"),
+                    ("Semantic", f"{match['semantic_similarity']:.0%}"),
+                    ("Structural", f"{match['structural_similarity']:.0%}"),
+                ]))
 
 with tab_response:
     st.caption(
@@ -947,16 +907,13 @@ with tab_response:
     for group in mitigations["by_phase"]:
         st.markdown(f"#### {group['label']}")
         for action in group["actions"]:
-            origin_class = "pill-recalled" if action["origin"] == "recalled" else "pill-baseline"
+            recalled = action["origin"] == "recalled"
             origin_label = (f"recalled · used in {action['times_used']} past incident(s)"
-                            if action["origin"] == "recalled" else "baseline control")
+                            if recalled else "baseline control")
             effectiveness = (f" · avg effectiveness {action['avg_effectiveness']:.0%}"
                              if action.get("avg_effectiveness") is not None else "")
-            st.markdown(
-                f'<span class="pill {origin_class}">{origin_label}{effectiveness}</span> '
-                f'{action["action"]}',
-                unsafe_allow_html=True,
-            )
+            html(f'{theme.pill(origin_label + effectiveness, "accent" if recalled else "neutral")} '
+                 f'{theme.esc(action["action"])}')
             if action["sources"]:
                 def _who(source) -> str:
                     if source.get("provenance") == "shared":
@@ -973,11 +930,9 @@ with tab_response:
         with st.expander(f"Official MITRE ATT&CK mitigations — {len(framework)}"):
             st.caption("Framework controls for the techniques observed, ranked by how much of "
                        "this attack chain each one covers.")
-            st.dataframe(
-                [{"ID": m["id"], "Mitigation": m["name"], "Covers": m["coverage_count"],
-                  "Techniques": ", ".join(m["covers_techniques"])} for m in framework],
-                width="stretch", hide_index=True,
-            )
+            html(theme.table([{"ID": m["id"], "Mitigation": m["name"], "Covers": m["coverage_count"],
+                               "Techniques": ", ".join(m["covers_techniques"])} for m in framework],
+                             strong={"ID"}, numeric={"Covers"}))
 
 with tab_exercise:
     if not simulation:
@@ -1015,8 +970,7 @@ with tab_exercise:
 # ④ Share with other organisations, or keep private
 # --------------------------------------------------------------------------
 st.divider()
-st.markdown(theme.stage("4", "Share with other organisations (optional)",
-                        "المشاركة مع المؤسسات الأخرى (اختياري)"), unsafe_allow_html=True)
+html(theme.stage("4", "Share with other organisations (optional)"))
 
 if analysis.get("decision") == "shared":
     receipt = analysis["receipt"] or {}
@@ -1026,7 +980,7 @@ if analysis.get("decision") == "shared":
     st.success(
         "**Added to shared memory as an anonymous fingerprint.** Other organisations facing "
         "this pattern will now recall it, with your response, and see neither your name nor "
-        "your report.\n\nتمت إضافة البصمة إلى الذاكرة المشتركة دون هوية المؤسسة."
+        "your report."
     )
     st.caption(f"Recorded as “{receipt.get('title', '')}” · "
                f"{receipt.get('shared', {}).get('mitigations', 0)} response action(s) shared · "
@@ -1034,8 +988,7 @@ if analysis.get("decision") == "shared":
     st.stop()
 
 if analysis.get("decision") == "private":
-    st.info("**Kept private.** Nothing from this analysis was stored. "
-            "تم الاحتفاظ بالتحليل بشكل خاص ولم يُخزَّن أي شيء.")
+    st.info("**Kept private.** Nothing from this analysis was stored.")
     if st.button("Reconsider sharing"):
         analysis["decision"] = None
         st.rerun()
@@ -1045,38 +998,35 @@ st.markdown("Nothing has been stored yet. If your security team approves, the fi
             "of this incident joins shared memory, so the next organisation hit by the same "
             "pattern recalls it and sees what worked for you.")
 techniques_preview = ", ".join(t["id"] for t in dna["techniques"][:6]) or "none"
-st.markdown(
-    '<div class="consent">'
-    '<div class="col share"><h4>Shared · يُشارك</h4><ul>'
-    f'<li>Attack type and entry vector: {dna["attack_type"].replace("_", " ")}, '
-    f'{(dna.get("initial_vector") or "unknown").replace("_", " ")}</li>'
-    f'<li>ATT&amp;CK techniques and tactics: {techniques_preview}</li>'
-    '<li>Sector, severity, CVEs and impacts</li>'
-    '<li>The sanitized summary, with redaction tokens in place of identifiers</li>'
-    '<li>The response actions you add below, sanitized as well</li></ul></div>'
-    '<div class="col keep"><h4>Never leaves · لا يغادر المؤسسة</h4><ul>'
-    '<li>The original report and file</li>'
-    '<li>Your organisation\'s name (stored only as a pseudonym that cannot be read back)</li>'
-    f'<li>The {removed} identifying value(s) removed in step 2</li>'
-    '<li>The incident date: shared records carry only the month they were shared</li>'
-    '</ul></div></div>',
-    unsafe_allow_html=True,
-)
+html('<div class="consent">'
+     '<div class="col share"><h4>Shared</h4><ul>'
+     f'<li>Attack type and entry vector: {dna["attack_type"].replace("_", " ")}, '
+     f'{(dna.get("initial_vector") or "unknown").replace("_", " ")}</li>'
+     f'<li>ATT&amp;CK techniques and tactics: {techniques_preview}</li>'
+     '<li>Sector, severity, CVEs and impacts</li>'
+     '<li>The sanitized summary, with redaction tokens in place of identifiers</li>'
+     '<li>The response actions you add below, sanitized as well</li></ul></div>'
+     '<div class="col keep"><h4>Never leaves your organisation</h4><ul>'
+     '<li>The original report and file</li>'
+     '<li>Your organisation\'s name (stored only as a pseudonym that cannot be read back)</li>'
+     f'<li>The {removed} identifying value(s) removed in step 2</li>'
+     '<li>The incident date: shared records carry only the month they were shared</li>'
+     '</ul></div></div>')
 
 with st.expander("Add what your team did (recommended): it is what helps the next "
                  "organisation most"):
-    st.caption("One row per action. Free text is sanitized again before it is stored.")
-    edited = st.data_editor(
-        [{"Action": "", "Phase": "contain", "Effectiveness %": None} for _ in range(3)],
-        num_rows="dynamic", width="stretch", hide_index=True, key="team_actions",
-        column_config={
-            "Action": st.column_config.TextColumn("Action", width="large"),
-            "Phase": st.column_config.SelectboxColumn("Phase", options=PHASES),
-            "Effectiveness %": st.column_config.NumberColumn(
-                "Effectiveness %", min_value=0, max_value=100, step=5,
-                help="How well it worked, in your team's judgement"),
-        },
-    )
+    st.caption("One action per row. Free text is sanitized again before it is stored.")
+    team_rows = []
+    for index in range(3):
+        action_col, phase_col, score_col = st.columns([5, 2, 2])
+        team_rows.append({
+            "action": action_col.text_input(f"Action {index + 1}", key=f"team_action_{index}",
+                                            placeholder="e.g. Isolated the affected hosts"),
+            "category": phase_col.selectbox("Phase", PHASES, index=1, key=f"team_phase_{index}"),
+            "effectiveness": score_col.number_input("Worked (%)", min_value=0, max_value=100,
+                                                    value=None, step=5,
+                                                    key=f"team_score_{index}"),
+        })
 
 approved = st.checkbox(
     "Our security team approves sharing this anonymised fingerprint with member organisations",
@@ -1100,17 +1050,11 @@ if keep_private:
     st.rerun()
 
 if share:
-    team_actions = []
-    for row in edited or []:
-        action = (row.get("Action") or "").strip()
-        if len(action) < 3:
-            continue
-        effectiveness = row.get("Effectiveness %")
-        team_actions.append({
-            "action": action, "category": row.get("Phase") or "contain",
-            "effectiveness": (float(effectiveness) / 100
-                              if effectiveness not in (None, "") else None),
-        })
+    team_actions = [
+        {"action": row["action"].strip(), "category": row["category"],
+         "effectiveness": row["effectiveness"] / 100 if row["effectiveness"] is not None else None}
+        for row in team_rows if len((row["action"] or "").strip()) >= 3
+    ]
     try:
         receipt = run_contribution(result, state.get("_raw_for_api") or "", organisation,
                                    team_actions, use_llm)

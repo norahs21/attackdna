@@ -24,6 +24,14 @@ matched and what worked, and never learns who was attacked.
 | 3. Attack DNA & matches | — | The verdict, the ATT&CK mapping with evidence, similar incidents from shared memory (other organisations' incidents marked *identity withheld*) and the recommended response, each action citing its source |
 | 4. Share (optional) | Ticks the approval box and, optionally, adds what it did | Exactly what would be shared and what never leaves, side by side; then **Contribute** or **Keep private** |
 
+The interface has four pages (**Analyze a report**, **Dashboard**, **Ask the
+memory**, **Evidence**), is English only, and has a day and a night appearance
+(the switch sits at the bottom of the navigation rail). The Dashboard shows what
+shared memory holds: key figures, incidents over time, where the memory comes
+from (member contributions, real breaches, synthetic), the attack mix, the most
+seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage,
+the latest fingerprints and the actions with the best recorded outcomes.
+
 Nothing is stored until step 4. The organisation's name is kept only as a keyed
 pseudonym (`services/contributors.py`), used to tell a team "this match is your
 own incident" and never returned by the API. Shared records carry the month they
@@ -474,7 +482,7 @@ data/
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
   seed/crossorg_pairs.json     20 attack patterns reported by two organisations
   evaluation/                  latest cross-organisation results (read by the UI)
-tests/                         348 tests
+tests/                         350 tests
 ```
 
 ---
@@ -482,7 +490,7 @@ tests/                         348 tests
 ## Testing
 
 ```bash
-make test          # 348 tests
+make test          # 350 tests
 make eval          # development sets, held-out test, privacy audit
 make eval-mapper   # technique mapping on MITRE-labelled sentences
 make eval-crossorg # cross-organisation recall, privacy and behaviour

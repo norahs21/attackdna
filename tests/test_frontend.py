@@ -103,22 +103,23 @@ def test_the_app_starts_in_an_interpreter_that_has_imported_nothing():
 
 
 def test_every_mode_renders(corpus):
-    for mode in ["Analyze a report", "Ask shared memory", "Shared memory", "Evidence"]:
+    for mode in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
         app = _run(mode)
         assert not app.exception, f"{mode} raised {app.exception}"
 
 
 def test_the_dashboard_reports_what_memory_holds(corpus):
-    app = _run("Shared memory")
+    app = _run("Dashboard")
 
     assert not app.exception
     screen = _screen_text(app)
     assert "Incidents in memory" in screen
-    assert "ATT&CK techniques seen" in screen
+    assert "ATT&CK techniques" in screen
+    assert "Fingerprints in memory" in screen
 
 
 def test_an_empty_memory_dashboard_says_so_instead_of_crashing(clean_memory):
-    app = _run("Shared memory")
+    app = _run("Dashboard")
 
     assert not app.exception
     assert any("Memory is empty" in str(w.value) for w in app.warning)
@@ -141,7 +142,6 @@ def test_privacy_is_the_first_result_then_the_verdict_then_sharing(corpus):
     assert not app.exception
     screen = _screen_text(app)
     removed = screen.index("Sensitive information removed successfully")
-    assert "تمت إزالة المعلومات الحساسة بنجاح" in screen
     assert removed < screen.index("Attack DNA and shared memory")
     assert screen.index("Attack DNA and shared memory") < screen.index(
         "Share with other organisations")
@@ -233,7 +233,7 @@ def test_the_evidence_page_shows_the_cross_organisation_results(corpus):
 
 
 def test_asking_the_memory_puts_the_sources_under_the_answer(corpus):
-    app = _run("Ask shared memory")
+    app = _run("Ask the memory")
     app.text_input[0].set_value("What worked against ransomware in finance?").run()
     next(b for b in app.button if b.label == "Ask").click().run()
 
@@ -243,3 +243,19 @@ def test_asking_the_memory_puts_the_sources_under_the_answer(corpus):
     # The retrieval statistics are a footnote, never a wall between the answer
     # and the evidence it was built from.
     assert screen.index("Sources") < screen.index("incident(s) retrieved")
+
+
+def test_the_interface_is_english_only(corpus):
+    import re
+
+    for page in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
+        app = _run(page)
+        assert not re.search("[\u0600-\u06FF]", _screen_text(app)), f"Arabic on {page}"
+
+
+def test_day_and_night_both_render(corpus):
+    app = _run("Dashboard")
+    assert not app.exception
+    app.sidebar.toggle(key="dark_mode").set_value(False).run()
+    assert not app.exception
+    assert "--bg: #eceef1" in _screen_text(app)
