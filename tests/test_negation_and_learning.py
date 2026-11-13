@@ -170,3 +170,57 @@ def test_the_development_set_does_not_overlap_the_held_out_one():
     with open(SEED / "evaluation_heldout.json", "r", encoding="utf-8") as handle:
         held_out = {case["text"] for case in json.load(handle)["cases"]}
     assert not development & held_out
+
+
+# --------------------------------------------------------------------------
+# Example embeddings survive a newer ATT&CK release
+# --------------------------------------------------------------------------
+def test_stored_vectors_are_reused_and_only_new_examples_are_embedded():
+    """`make data` fetches a newer ATT&CK with a few new examples; the stored
+    vectors must still apply to every unchanged one, and only the new ones be
+    embedded. A count check used to discard them all and silently fall back."""
+    import numpy as np
+
+    from app.services import example_mapper
+
+    old = [("T1059", "S0001", "Tool", "The actor ran PowerShell."),
+           ("T1003", "S0002", "Kit", "It dumped credentials from LSASS.")]
+    stored = np.asarray([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+    keys = [example_mapper.example_key(e) for e in old]
+    new = old + [("T1486", "S0003", "Locker", "Files were encrypted.")]
+    calls = []
+
+    def embed(sentences):
+        calls.append(list(sentences))
+        return [[0.0, 0.0, 2.0] for _ in sentences]
+
+    vectors, missing = example_mapper.align_vectors(new, keys, stored, embed=embed)
+
+    assert missing == 1
+    assert calls == [["Files were encrypted."]], "only the new example is embedded"
+    assert vectors.shape == (3, 3)
+    assert np.allclose(vectors[0], [1, 0, 0]) and np.allclose(vectors[2], [0, 0, 1])
+
+
+def test_without_a_model_new_examples_turn_the_semantic_half_off_not_wrong():
+    import numpy as np
+
+    from app.services import example_mapper
+
+    old = [("T1059", "S0001", "Tool", "The actor ran PowerShell.")]
+    keys = [example_mapper.example_key(e) for e in old]
+    vectors, missing = example_mapper.align_vectors(
+        old + [("T1486", "S0003", "Locker", "Files were encrypted.")], keys,
+        np.ones((1, 3), dtype=np.float32), embed=None)
+
+    assert vectors is None and missing == 1
+
+
+def test_the_committed_embeddings_carry_a_fingerprint_per_example():
+    import numpy as np
+
+    from app.services import example_mapper
+
+    stored = np.load(example_mapper.EMBEDDINGS_PATH)
+    assert "keys" in stored.files
+    assert len(stored["keys"]) == len(stored["vectors"])

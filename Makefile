@@ -60,6 +60,8 @@ data:
 	$(PY) scripts/process_mitre.py
 	$(PY) scripts/process_cti.py
 	$(PY) scripts/process_examples.py
+	# Embeds only examples new in this ATT&CK release; skipped without ChromaDB.
+	-$(PY) scripts/embed_examples.py
 	$(PY) scripts/download_kev.py
 	$(PY) scripts/process_kev.py
 
@@ -69,7 +71,8 @@ eval:
 eval-mapper:
 	$(PY) scripts/evaluate_mapper.py
 
-# Committed already; needed again only if the procedure examples change.
+# Committed already, and `make data` adds the new examples itself. --full
+# re-embeds everything (about ten minutes).
 embeddings:
 	$(PY) scripts/embed_examples.py
 

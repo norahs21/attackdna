@@ -308,23 +308,94 @@ def embedding_function():
         return None
 
 
-@lru_cache(maxsize=1)
-def load_embeddings():
-    """The example vectors as unit-length float32, or None if missing or stale."""
+# A few hundred new examples are embedded on first use; more than this means
+# the stored file belongs to a different ATT&CK release and should be rebuilt.
+MAX_EMBED_ON_THE_FLY = 1000
+
+
+def example_key(example: Example) -> str:
+    """A stable fingerprint of one labelled example, used to match stored vectors."""
+    import hashlib
+
+    technique_id, source_id, _name, sentence = example
+    return hashlib.sha1(f"{technique_id}\x00{source_id}\x00{sentence}".encode("utf-8")).hexdigest()[:16]
+
+
+def align_vectors(examples: Sequence[Example], stored_keys, stored_vectors, embed=None):
+    """Vectors for `examples`, reusing stored ones by fingerprint.
+
+    ATT&CK is re-downloaded by `make data`, and each release adds, edits or
+    drops a handful of examples. Matching by fingerprint keeps every vector
+    that still applies; only the examples with none are embedded, so a newer
+    release costs seconds, not the ten minutes of a full rebuild. Returns
+    (vectors, missing_count); vectors is None when examples are missing and
+    cannot be embedded here.
+    """
+    import numpy as np
+
+    index = {str(key): row for row, key in enumerate(stored_keys)}
+    rows = [index.get(example_key(example)) for example in examples]
+    missing = [i for i, row in enumerate(rows) if row is None]
+    out = np.zeros((len(examples), stored_vectors.shape[1]), dtype=np.float32)
+    for i, row in enumerate(rows):
+        if row is not None:
+            out[i] = stored_vectors[row]
+    if missing:
+        if embed is None:
+            return None, len(missing)
+        sentences = [mask_subject(examples[i][3], examples[i][2]) for i in missing]
+        fresh = []
+        for start in range(0, len(sentences), 256):
+            fresh.extend(embed(sentences[start:start + 256]))
+        out[missing] = np.asarray(fresh, dtype=np.float32)
+    return out / np.linalg.norm(out, axis=1, keepdims=True), len(missing)
+
+
+def read_embeddings_file():
+    """(keys, vectors) from the stored file, or (None, None)."""
     import numpy as np
 
     if not EMBEDDINGS_PATH.exists():
-        return None
+        return None, None
+    stored = np.load(EMBEDDINGS_PATH)
+    vectors = stored["vectors"].astype(np.float32) / 127.0
+    if "keys" in stored.files:
+        return stored["keys"], vectors
+    # A file from before fingerprints: valid only for exactly the examples it
+    # was made from, which the count alone cannot prove beyond matching sizes.
+    if int(stored["count"]) == len(load_examples()):
+        return [example_key(e) for e in load_examples()], vectors
+    return None, None
+
+
+@lru_cache(maxsize=1)
+def load_embeddings():
+    """The example vectors as unit-length float32, aligned with load_examples()."""
     try:
-        stored = np.load(EMBEDDINGS_PATH)
-        if int(stored["count"]) != len(load_examples()):
-            logger.warning("Example embeddings are stale; run scripts/embed_examples.py")
-            return None
-        vectors = stored["vectors"].astype(np.float32) / 127.0
+        keys, vectors = read_embeddings_file()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Example embeddings unreadable (%s)", exc)
         return None
-    return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+    if keys is None:
+        if EMBEDDINGS_PATH.exists():
+            logger.warning("Example embeddings do not match the examples; "
+                           "run: make embeddings")
+        return None
+    examples = load_examples()
+    aligned, missing = align_vectors(examples, keys, vectors)
+    if aligned is not None:
+        return aligned
+    if missing > MAX_EMBED_ON_THE_FLY:
+        logger.warning("%d examples have no embedding; run: make embeddings", missing)
+        return None
+    embed = embedding_function()
+    if embed is None:
+        logger.warning("%d new examples need embedding but MiniLM is unavailable; "
+                       "install backend/requirements-vector.txt", missing)
+        return None
+    logger.info("Embedding %d examples new in this ATT&CK release", missing)
+    aligned, _ = align_vectors(examples, keys, vectors, embed=embed)
+    return aligned
 
 
 class SemanticIndex:
