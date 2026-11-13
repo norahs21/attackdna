@@ -44,20 +44,21 @@ sent to any LLM and cannot be shared.
 (`scripts/evaluate_crossorg.py`, data in `data/seed/crossorg_pairs.json`).
 Organisation A contributes 20 incidents; organisation B reports the same 20
 attack patterns in its own words. A's incidents sit among the 24-incident
-corpus, which acts as distractors. Offline mode, TF-IDF memory backend:
+corpus, which acts as distractors. Offline mode, no LLM, MiniLM memory and hybrid
+technique mapping:
 
 | Measurement | Result |
 |---|---|
 | Identifiers removed: 171 marked by hand in 40 reports | **167 / 171 = 98%** (95% CI 94–99%) |
 | Attack terms lost to over-redaction | 2 / 165 = 1% |
-| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **72 / 72 = 100%** |
-| B recalls A's incident first: Precision@1 | **12 / 20 = 60%** (95% CI 39–78%) |
-| …in its top five: Recall@5 · MRR | **19 / 20 = 95%** · 0.75 |
-| B's top match has the same attack type | 18 / 20 = 90% |
-| A's recorded response recommended to B, with its source | 18 / 20 = 90% |
+| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **81 / 81 = 100%** |
+| B recalls A's incident first: Precision@1 | **14 / 20 = 70%** (95% CI 48–85%) |
+| …in its top five: Recall@5 · MRR | **20 / 20 = 100%** · 0.81 |
+| B's top match has the same attack type | 19 / 20 = 95% |
+| A's recorded response recommended to B, with its source | 17 / 20 = 85% |
 | B's screens that showed anything naming A | **0 / 20** |
 | Shared records still naming A | 1 / 20 (two identifiers in one report) |
-| Same experiment without the privacy layer: Precision@1 · records naming A | 60% · **20 / 20** |
+| Same experiment without the privacy layer: Precision@1 · records naming A | 70% · **20 / 20** |
 
 Removing the victim's identity cost no retrieval quality on this set, and without
 the privacy layer every shared record named its victim. The four identifiers that
@@ -66,6 +67,10 @@ storage-bucket name) are reported as found rather than fixed after the fact. The
 40 reports are synthetic and were labelled by the project team, so independent
 annotation and real SOC reports are the next step. The Evidence page in the demo
 shows every number with its interval and every query.
+
+With the offline TF-IDF backend instead of MiniLM (no ChromaDB installed), the
+same experiment gives Precision@1 60%, Recall@5 95% and MRR 0.75; privacy and
+exposure figures are identical.
 
 ---
 
@@ -138,8 +143,8 @@ never seen them, their labels were fixed first, and it was run on them once.
 | Sector — same summaries | 11 / 25 = 44% (95% CI 27–63%) |
 | Identifiers removed — names marked by hand in those summaries | **53 / 55 = 96%** |
 | Identifiers removed — 40 new sentences, 10 categories | **51 / 53 = 96%** |
-| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **44%**, precision 62% |
-| …of which the learned mapper, when it answers | precision **87%** |
+| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **65%**, precision 62% (hybrid) |
+| …with TF-IDF only (no MiniLM) | recall 44%, precision 62% |
 
 | Development (36 cases, tuned on these) | Result |
 |---|---|
@@ -160,6 +165,11 @@ What these say, plainly:
   what an untouched test measured, so 96% is what is reported.
 - **Technique mapping has one label per sentence**, so a second technique the
   sentence really does describe counts as wrong. Precision is a lower bound.
+- **Hybrid mapping** fuses the TF-IDF vote with a MiniLM vote over the same
+  MITRE examples. Its rule and floor were chosen on a development split of the
+  training sources; the held-out sources were measured once afterwards. Recall
+  rose from 44% to 65% at about the same precision (62.2% to 61.5%). It needs
+  ChromaDB; without it the mapper falls back to TF-IDF.
 - **Before these changes**, on 28 reports the rules had never seen, the
   extractor named the attack type for 8 and found 17% of the techniques, and
   19 of 34 realistic sentences leaked an identifier.
