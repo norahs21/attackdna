@@ -142,6 +142,8 @@ class ExampleIndex:
                 "similarity": round(float(row[best[winner]]), 4),
                 "example": self.examples[best[winner]],
                 "ranked": sorted(votes, key=lambda tid: (-votes[tid], tid))[:3],
+                "votes": votes,
+                "best": {tid: self.examples[i] for tid, i in best.items()},
             })
         return results
 
@@ -174,11 +176,53 @@ def split_sentences(text: str) -> List[str]:
     return [sentence for sentence in sentences if len(sentence.split()) >= 4]
 
 
+# The hybrid rule. Both indices vote over their 10 nearest examples; the votes
+# for each technique are added, with equal weight, and the winner is accepted
+# when the sum reaches FUSED_FLOOR. Chosen on a development split carved from
+# the training sources only (scripts/evaluate_mapper.py holds out a different
+# fifth of the sources for the test): there, fusion raised the combined recall
+# from 43% to 65% at an unchanged precision (62% -> 63%). The floor is the
+# simplest point on that plateau that does not lower precision.
+FUSED_FLOOR = 3.0
+
+
+def fuse(tfidf: Optional[dict], semantic: Optional[dict],
+         floor: float = FUSED_FLOOR) -> Optional[dict]:
+    """One sentence's hybrid verdict, or None when the evidence is too thin."""
+    votes: Dict[str, float] = {}
+    for outcome in (tfidf, semantic):
+        if outcome:
+            for technique_id, vote in outcome["votes"].items():
+                votes[technique_id] = votes.get(technique_id, 0.0) + vote
+    if not votes:
+        return None
+    winner = max(votes, key=lambda tid: (votes[tid], tid))
+    if votes[winner] < floor:
+        return None
+    # The evidence shown is the closest MITRE example for the winner, from the
+    # semantic side when it voted for it (it matched on meaning).
+    for outcome in (semantic, tfidf):
+        if outcome and winner in outcome["best"]:
+            example = outcome["best"][winner]
+            break
+    return {"technique_id": winner, "vote": round(votes[winner], 4), "example": example,
+            "agreed": bool(tfidf and semantic and winner in tfidf["votes"]
+                           and winner in semantic["votes"])}
+
+
+def _evidence(example: Example, how: str) -> str:
+    _tid, source_id, _name, sentence = example
+    preview = sentence if len(sentence) <= 140 else sentence[:137].rstrip() + "..."
+    return f"{how} MITRE example ({source_id}): \"{preview}\""
+
+
 def suggest(text: str, vote_floor: float = VOTE_FLOOR) -> List[dict]:
     """Techniques the report's sentences resemble, strongest first.
 
-    Each suggestion carries the MITRE example it rests on. One technique is
-    returned once, with its best-supported sentence.
+    Hybrid when the semantic index is available (TF-IDF + MiniLM, fused);
+    TF-IDF alone otherwise, exactly as before. Each suggestion carries the
+    MITRE example it rests on, and one technique is returned once, with its
+    best-supported sentence.
     """
     if not enabled():
         return []
@@ -186,21 +230,47 @@ def suggest(text: str, vote_floor: float = VOTE_FLOOR) -> List[dict]:
     if index is None:
         return []
 
+    sentences = split_sentences(text)
+    tfidf_votes = index.vote(sentences)
+    semantic = _semantic_index()
     strongest: Dict[str, dict] = {}
-    for outcome in index.vote(split_sentences(text)):
-        if (outcome is None or outcome["vote"] < vote_floor
-                or outcome["similarity"] < SIMILARITY_FLOOR):
-            continue
-        technique_id, source_id, _name, sentence = outcome["example"]
-        current = strongest.get(technique_id)
-        if current is None or outcome["vote"] > current["vote"]:
-            preview = sentence if len(sentence) <= 140 else sentence[:137].rstrip() + "..."
-            strongest[technique_id] = {
-                "technique_id": technique_id,
-                "vote": outcome["vote"],
-                "similarity": outcome["similarity"],
-                "evidence": f"resembles MITRE example ({source_id}): \"{preview}\"",
-            }
+
+    if semantic is not None:
+        try:
+            semantic_votes = semantic.vote(sentences)
+        except Exception as exc:  # noqa: BLE001 - the model failing mid-run
+            logger.warning("Semantic mapping failed (%s); TF-IDF only", exc)
+            semantic = None
+
+    if semantic is not None:
+        for tfidf, meaning in zip(tfidf_votes, semantic_votes):
+            verdict = fuse(tfidf, meaning)
+            if verdict is None:
+                continue
+            current = strongest.get(verdict["technique_id"])
+            if current is None or verdict["vote"] > current["vote"]:
+                strongest[verdict["technique_id"]] = {
+                    "technique_id": verdict["technique_id"],
+                    "vote": verdict["vote"],
+                    "similarity": None,
+                    "method": "hybrid",
+                    "evidence": _evidence(verdict["example"], "resembles (by meaning and wording)"),
+                }
+    else:
+        for outcome in tfidf_votes:
+            if (outcome is None or outcome["vote"] < vote_floor
+                    or outcome["similarity"] < SIMILARITY_FLOOR):
+                continue
+            technique_id = outcome["technique_id"]
+            current = strongest.get(technique_id)
+            if current is None or outcome["vote"] > current["vote"]:
+                strongest[technique_id] = {
+                    "technique_id": technique_id,
+                    "vote": outcome["vote"],
+                    "similarity": outcome["similarity"],
+                    "method": "tfidf",
+                    "evidence": _evidence(outcome["example"], "resembles"),
+                }
     return sorted(strongest.values(), key=lambda s: (-s["vote"], s["technique_id"]))
 
 
@@ -291,6 +361,8 @@ class SemanticIndex:
                 "similarity": round(float(row[best[winner]]), 4),
                 "example": self.examples[best[winner]],
                 "ranked": sorted(votes, key=lambda tid: (-votes[tid], tid))[:3],
+                "votes": votes,
+                "best": {tid: self.examples[i] for tid, i in best.items()},
             })
         return results
 
@@ -310,6 +382,7 @@ def stats() -> dict:
     examples = load_examples()
     return {
         "enabled": enabled() and bool(examples),
+        "semantic": _semantic_index() is not None,
         "examples": len(examples),
         "techniques_covered": len({example[0] for example in examples}),
     }

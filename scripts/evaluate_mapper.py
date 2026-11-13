@@ -11,12 +11,20 @@ malware families is held out together, so the mapper is scored on actors it
 has seen nothing about — holding out random sentences instead would let it
 recognise "the same malware, described again".
 
-Three mappers are compared on the held-out sentences:
+The mappers compared on the held-out sentences:
 
-    rules      the alias table and technique names in mitre_mapper
-    learned    the nearest-example vote in example_mapper, fitted on the
-               other four fifths
-    combined   what the pipeline actually uses
+    rules            the alias table and technique names in mitre_mapper
+    learned          the TF-IDF nearest-example vote, fitted on the other
+                     four fifths
+    combined         rules + learned (the pipeline without the semantic index)
+    hybrid           TF-IDF and MiniLM votes fused (example_mapper.fuse)
+    combined hybrid  rules + hybrid: what the pipeline uses when the example
+                     embeddings and ChromaDB are present
+
+The hybrid's rule and floor were chosen on a development split carved from
+the four training fifths, never on the held-out fifth reported here. Its rows
+need data/processed/procedure_embeddings.npz (scripts/embed_examples.py) and
+ChromaDB; without them they are skipped.
 
 Each sentence has one label, so a second technique the sentence really does
 describe counts as wrong here. Precision is therefore a lower bound.
@@ -38,8 +46,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 # The learned mapper inside the pipeline is fitted on every example, including
-# the ones held out here, so it is switched off and a clean index is built.
+# the ones held out here, so it is switched off and clean indices are built.
 os.environ["ATTACKDNA_LEARNED_MAPPER"] = "0"
+os.environ["ATTACKDNA_SEMANTIC_MAPPER"] = "0"
 
 from app.services import example_mapper  # noqa: E402
 from app.services.mitre_mapper import map_to_attack  # noqa: E402
@@ -106,6 +115,22 @@ def main() -> None:
     results = [score("rules", rules, gold), score("learned", learned, gold),
                score("combined", combined, gold)]
 
+    # The held-out sentences' vectors are the stored ones: an embedding of a
+    # sentence does not depend on which other sentences were embedded.
+    vectors = example_mapper.load_embeddings()
+    if vectors is not None:
+        position = {id(e): i for i, e in enumerate(examples)}
+        train_rows = [position[id(e)] for e in train]
+        test_rows = [position[id(e)] for e in test]
+        semantic = example_mapper.SemanticIndex(train, vectors[train_rows], embed=None)
+        meaning = semantic.vote(sentences, vectors=vectors[test_rows])
+        verdicts = [example_mapper.fuse(t, m) for t, m in zip(votes, meaning)]
+        hybrid = [{family(v["technique_id"])} if v else set() for v in verdicts]
+        results += [score("hybrid", hybrid, gold),
+                    score("combined hybrid", [r | h for r, h in zip(rules, hybrid)], gold)]
+    else:
+        print("  (no example embeddings: hybrid rows skipped; run scripts/embed_examples.py)")
+
     print("=" * 74)
     print("TECHNIQUE MAPPING ON MITRE-LABELLED SENTENCES — held out by source")
     print("=" * 74)
@@ -113,15 +138,16 @@ def main() -> None:
     print(f"  fitted on {len(train):,} sentences; tested on {len(test):,} sentences "
           f"about {len(held_out)} sources never seen in fitting")
     print(f"  {len({e[0] for e in examples})} techniques to choose from\n")
-    print(f"  {'mapper':<10} {'recall':>8} {'precision':>10} {'F1':>7} {'answers':>9}")
+    print(f"  {'mapper':<16} {'recall':>8} {'precision':>10} {'F1':>7} {'answers':>9}")
     for r in results:
-        print(f"  {r['mapper']:<10} {r['recall']:>8.1%} {r['precision']:>10.1%} "
+        print(f"  {r['mapper']:<16} {r['recall']:>8.1%} {r['precision']:>10.1%} "
               f"{r['f1']:>7.1%} {r['coverage']:>9.1%}")
     print(f"\n  learned mapper with no confidence floor: right technique first "
           f"{top1 / len(test):.1%}, in the top three {top3 / len(test):.1%} "
           f"(exact sub-technique first: {exact / len(test):.1%})")
     print(f"  confidence floor in use: vote >= {example_mapper.VOTE_FLOOR}, "
-          f"similarity >= {example_mapper.SIMILARITY_FLOOR}\n")
+          f"similarity >= {example_mapper.SIMILARITY_FLOOR}; hybrid fused vote >= "
+          f"{example_mapper.FUSED_FLOOR}\n")
 
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as handle:
