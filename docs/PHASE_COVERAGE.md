@@ -42,7 +42,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 | Build Privacy Sanitization Pipeline | ✅ | `services/sanitizer.py` |
 | Detect Sensitive Corporate Identifiers | ✅ | orgs, hostnames, accounts, user paths, secrets |
 | Sanitize Incident Reports | ✅ | `sanitize()` |
-| Validate Sanitized Output | ✅ | `verify_clean()` — independent second pass |
+| Validate Sanitized Output | ✅ | `verify_clean()` self-check + hand-marked audit in `make eval` (held-out: 96%) |
 | Test Privacy Pipeline | ✅ | `tests/test_sanitizer.py` — 13 tests |
 
 ## Phase 4 — Attack DNA Extraction
@@ -51,12 +51,12 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 |---|---|---|
 | Define Attack DNA Schema | ✅ | `REQUIRED_FIELDS` in `dna_extractor.py` |
 | Build Attack DNA Extraction Pipeline | ✅ | `extract_dna()` |
-| Extract Attack Type | ✅ | 10 types + decisive markers · **100%** accuracy |
+| Extract Attack Type | ✅ | 10 types + decisive markers · held-out **86%** (24/28), development 86% |
 | Extract MITRE Tactics | ✅ | kill-chain ordered |
 | Extract MITRE Techniques | ✅ | **87% precision / 86% recall** |
 | Extract IoCs | ✅ | `services/ioc_extractor.py` — shareable vs. victim-linked |
 | Extract CVEs | ✅ | `services/kev_enricher.py` |
-| Extract Target Sector | ✅ | 10 sectors · **100%** accuracy |
+| Extract Target Sector | ✅ | 10 sectors · held-out **44%** (11/25), development 92% — the weak metric |
 | Extract Impact | ✅ | 6 impact classes · 81% recall |
 | Validate Attack DNA Output | ✅ | `validate_dna()` runs on every extraction |
 | Test Attack DNA Extraction | ✅ | `tests/test_dna_and_mapping.py` |
@@ -85,7 +85,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 | Implement Semantic Search | ✅ | `vector_memory.find_similar()` |
 | Retrieve Similar Historical Incidents | ✅ | `similarity.find_similar_incidents()` |
 | Rank Similar Incidents | ✅ | two-stage: semantic recall + structural re-rank |
-| Test Retrieval Accuracy | ✅ | `scripts/evaluate.py` — **precision@1 = 100%** |
+| Test Retrieval Accuracy | ✅ | `scripts/evaluate.py` — precision@1 = 8/8 on development set A |
 
 ## Phase 7 — Mitigation Retrieval
 
@@ -148,14 +148,14 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 |---|---|---|
 | Functional Testing | ✅ | 93 tests |
 | AI Output Testing | ✅ | `tests/test_dna_and_mapping.py` |
-| Attack DNA Accuracy Testing | ✅ | `make eval` — 100% type / sector / vector |
+| Attack DNA Accuracy Testing | ✅ | `make eval` — held-out type 86%; development type/vector/sector 86/92/92% |
 | MITRE Mapping Testing | ✅ | F1 = 84% on labelled cases |
-| Similarity Search Testing | ✅ | precision@1 = 100% |
+| Similarity Search Testing | ✅ | precision@1 = 8/8 (development set A) |
 | Mitigation Relevance Testing | ✅ | citation and ranking assertions |
 | Privacy Testing | ✅ | 13 tests + 0 residual leaks across all cases |
 | Edge Case Testing | ✅ | empty input, no techniques, unparseable text |
 | Error Handling Testing | ✅ | 404/400/422 paths, LLM failure fallback |
-| Performance Testing | ✅ | 5 s budget per scenario; mean 0.40 s |
+| Performance Testing | ✅ | 5 s budget per scenario; mean ≈ 0.3 s |
 
 ## Phase 12 — Demo Preparation
 

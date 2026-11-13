@@ -61,7 +61,7 @@ def build(result: dict, title: str = "Incident analysis",
         f"- **Sector:** {dna['sector']}",
         f"- **Severity:** {dna['severity']}",
         f"- **Identifying values removed:** {privacy['total_redactions']} "
-        f"({'verified clean' if privacy['verified_clean'] else 'VERIFICATION FAILED'})",
+        f"({'self-check passed' if privacy['verified_clean'] else 'SELF-CHECK FAILED'})",
     ]
     if similar:
         best = similar[0]

@@ -53,7 +53,7 @@ def test_the_report_leads_with_the_verdict(analysis):
 def test_the_redaction_count_is_stated(analysis):
     markdown = report.build(analysis)
     assert "Identifying values removed:" in markdown
-    assert "verified clean" in markdown
+    assert "self-check passed" in markdown
 
 
 def test_a_missing_section_does_not_break_the_document(clean_memory):

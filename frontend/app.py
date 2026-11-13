@@ -455,8 +455,8 @@ def verdict_card() -> str:
         theme.STATUS["good"] if privacy["verified_clean"] else theme.STATUS["critical"],
         "Privacy",
         f"<strong>{privacy['total_redactions']}</strong> identifying value(s) removed · "
-        + ("<em>independently verified clean</em>" if privacy["verified_clean"]
-           else "<strong>verification FAILED</strong>"),
+        + ("<em>self-check passed</em>" if privacy["verified_clean"]
+           else "<strong>self-check FAILED</strong>"),
     )]
 
     if similar:
@@ -514,7 +514,7 @@ with download_left:
 with download_right:
     st.caption("A self-contained Markdown report of everything below — the sanitized "
                "incident, its DNA, what memory recalled and the recommended response. "
-               "Nothing identifying is in it.")
+               "It carries the sanitized text and the Attack DNA, never the original.")
 
 st.caption("Everything below is the evidence behind that card, stage by stage.")
 
@@ -524,16 +524,21 @@ st.caption("Everything below is the evidence behind that card, stage by stage.")
 # --------------------------------------------------------------------------
 st.divider()
 st.markdown(theme.stage("②", "Privacy Shield", "الدرع"), unsafe_allow_html=True)
-st.subheader("Nothing identifying leaves the building")
+st.subheader("The victim's identity is removed before anything else runs")
 
 col_a, col_b, col_c = st.columns(3)
 col_a.metric("Values removed", privacy["total_redactions"])
 col_b.metric("Categories", len(privacy["redactions_by_type"]))
-col_c.metric("Verification", "PASS" if privacy["verified_clean"] else "FAIL")
+col_c.metric("Self-check", "PASS" if privacy["verified_clean"] else "FAIL")
 
 if privacy["verified_clean"]:
-    st.caption("A second, independent pass re-scanned the sanitized text for emails, "
-               "IP addresses, secrets and financial identifiers and found none.")
+    # Worded as what it is. The second pass uses the same detectors as the
+    # first, so it cannot vouch for a kind of identifier they do not know;
+    # what does not depend on it is the Attack DNA below, which is built from
+    # closed vocabularies and cannot carry the report's own words.
+    st.caption("A second pass re-ran every detector over the sanitized text and found "
+               "nothing further. This is a self-check, not a guarantee: names are removed "
+               "by rule, and the hand-marked audit in `make eval` measures how well.")
 else:
     st.error(f"Residual findings: {privacy['residual_findings']}")
 
