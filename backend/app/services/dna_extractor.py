@@ -92,7 +92,15 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                           ("guessed weak password", 4), ("weak password", 3),
                           ("default password", 3), ("password reuse", 4), ("reused password", 4),
                           ("username and password pairs", 5), ("no mfa", 2),
-                          ("dormant account", 3)],
+                          ("dormant account", 3),
+                          # Access through an account whose password the attacker
+                          # already had, on a remote-access server without MFA.
+                          ("compromised credentials", 4), ("credentials were compromised", 4),
+                          ("compromise of privileged account", 5),
+                          ("privileged account credentials", 4),
+                          ("not subject to multi-factor", 4), ("without multi-factor", 4),
+                          ("no multi-factor", 4), ("lack of mfa", 3),
+                          ("third-party access", 2), ("terminal server", 2)],
     "insider_threat": [("insider", 5), ("disgruntled employee", 5), ("departing employee", 4),
                        ("privilege abuse", 3), ("unauthorized access by staff", 4),
                        ("former employee", 5), ("ex-employee", 5), ("terminated employee", 5),
@@ -172,11 +180,16 @@ TECHNIQUE_TYPE_HINTS: Dict[str, tuple] = {
 # described the business — "the accounting division", "clinical workstations",
 # "the subscriber portal" — so that is what the classifier reads.
 SECTORS: Dict[str, List[str]] = {
-    "finance": ["bank", "banking", "financial", "fintech", "insurance", "payment", "sama",
-                "trading", "brokerage", "finance department", "finance team", "finance officer",
-                "accounting", "accounts payable", "treasury", "wire transfer", "client records",
-                "investment", "credit bureau", "card issuer", "credit card", "payments firm",
-                "lender", "stock exchange", "online banking", "insurer"],
+    # Only words for what a financial organisation *is*. Every organisation has
+    # a finance team, pays invoices, invests in its systems and counts the
+    # financial cost of an attack; those words said "finance" about a national
+    # library's incident review, so they no longer count.
+    "finance": ["bank", "banking", "fintech", "insurance", "sama", "brokerage",
+                "financial institution", "financial services", "financial firm",
+                "investment firm", "investment bank", "asset manager", "trading platform",
+                "credit bureau", "card issuer", "payments firm", "payment processor",
+                "payments company", "lender", "stock exchange", "online banking", "insurer",
+                "credit union", "bank account holders", "account holders"],
     "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi",
                    "clinical", "health regulator", "care provider",
                    "protected health information", "prescription", "healthcare claims",
@@ -212,6 +225,15 @@ SECTORS: Dict[str, List[str]] = {
                    "kubernetes", "cloud bill"],
     "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial",
                       "assembly line", "manufacturer", "production scheduling"],
+    # Libraries, museums, archives and heritage bodies: frequent ransomware
+    # targets with no sector of their own before (found with the British
+    # Library's 2024 incident review). No bare "library": a code library is
+    # software.
+    "culture": ["national library", "public library", "public libraries", "the library",
+                "library services", "library users", "reading room", "reading rooms",
+                "libraries", "museum", "museums", "heritage", "archives", "gallery",
+                "galleries", "exhibition", "exhibitions", "cultural", "collections",
+                "manuscripts"],
     "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse",
                   "container tracking", "cargo", "freight forwarder", "shipment", "customs",
                   "consignment"],

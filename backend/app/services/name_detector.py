@@ -28,6 +28,7 @@ unfamiliar person is not leaked.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -66,6 +67,10 @@ _VICTIM_LEAD_RE = re.compile(
 )
 
 
+_UNIT_WORDS = {"department", "departments", "team", "teams", "unit", "units",
+               "division", "function", "functions", "directorate", "staff"}
+
+
 @dataclass
 class _Token:
     start: int
@@ -74,6 +79,7 @@ class _Token:
     initial: bool = False       # opens a sentence, a bullet or a heading
     redact: Optional[str] = None  # label to redact under, if any
     in_public_name: bool = False  # part of "Cobalt Strike", "Exchange Server"
+    spread: bool = False          # evidence enough to remove every other mention
 
     @property
     def lower(self) -> str:
@@ -92,6 +98,11 @@ class _Token:
         return len(letters) >= 2 and all(c.isupper() for c in letters)
 
 
+def _is_bullet(char: str) -> bool:
+    """A list marker: "•", "▪", "➢", or the private-use glyphs PDFs emit for them."""
+    return unicodedata.category(char) in ("So", "Co") or char in "\u2022\u2023\u2043\u2219\u25aa\u25cf"
+
+
 def _starts_sentence(text: str, start: int) -> bool:
     """Whether the token at `start` is where English would capitalise anyway."""
     index = start - 1
@@ -100,7 +111,12 @@ def _starts_sentence(text: str, start: int) -> bool:
     if index < 0:
         return True
     char = text[index]
-    if char in _SENTENCE_BREAKS:
+    if char in _SENTENCE_BREAKS or _is_bullet(char):
+        return True
+    # A tab or a run of spaces: a new cell of a table or column a PDF flattened
+    # into one line ("Section Four  Technology infrastructure").
+    gap = text[max(0, start - 2):start]
+    if "\t" in gap or gap == "  ":
         return True
     if char == "-":
         # A bullet: the dash is the first thing on its line.
@@ -193,6 +209,15 @@ def _classify(text: str, token: _Token) -> Optional[str]:
     """The label a single token should be redacted under, or None to keep it."""
     if not token.capitalised or _is_incidental(token) or token.in_public_name:
         return None
+    if token.lower in lexicon.NUMBER_WORDS:
+        return None
+    # The attacker's name is behaviour, not the victim's identity: "claimed by
+    # the Rhysida ransomware gang". An English word ("Royal", "Play") counts
+    # only when the next word says it is an actor.
+    if token.lower in lexicon.THREAT_NAMES and (
+            not lexicon.is_ordinary(token.text)
+            or _next_word(text, token).lower() in lexicon.THREAT_ACTOR_WORDS):
+        return None
     if lexicon.is_strong_name(token.text):
         return "PERSON"
     if lexicon.is_public(token.text):
@@ -209,11 +234,47 @@ def _classify(text: str, token: _Token) -> Optional[str]:
             return "PERSON"
         return None
 
+    # "our Technology department", "the People teams": a function of the
+    # organisation, named by an ordinary word.
+    if ordinary and _next_word(text, token).lower() in _UNIT_WORDS:
+        return None
+
     # Mid-sentence. English capitalises nothing here but proper nouns, so a
     # word in capitals is emphasis ("NOT") and anything else is a name.
     if token.all_caps and ordinary:
         return None
     return "NAME"
+
+
+def _title_case_terms(text: str, tokens: List[_Token]) -> None:
+    """Keep capitalised terms of the trade that formal reports are full of.
+
+    "Multi-Factor Authentication", "Terminal Services", "Privileged Access
+    Management": every word is ordinary English, and the run ends in a word
+    that names a technical thing or a process. Mid-sentence capitals would
+    otherwise make each of them an organisation, and with them go the
+    behaviours the Attack DNA is built from. A run with any word that is not
+    English ("Aramco Management") or that ends in an organisation word
+    ("British Library") is left to the other rules.
+    """
+    index = 0
+    while index < len(tokens):
+        run = [tokens[index]]
+        while (index + len(run) < len(tokens)
+               and tokens[index + len(run)].capitalised
+               and run[-1].capitalised
+               and text[run[-1].end:tokens[index + len(run)].start] in (" ", "-", " & ")):
+            run.append(tokens[index + len(run)])
+        if (len(run) >= 2 and all(t.capitalised for t in run)
+                and run[-1].lower in lexicon.TERM_HEADS
+                and all((lexicon.is_ordinary(t.text) or lexicon.is_public(t.text)
+                         or t.lower in lexicon.FUNCTION_WORDS)
+                        and not lexicon.is_strong_name(t.text) for t in run)):
+            for token in run:
+                if token.redact == "NAME":
+                    token.redact = None
+                token.in_public_name = True
+        index += len(run)
 
 
 def _spill(text: str, tokens: List[_Token]) -> None:
@@ -238,6 +299,13 @@ def _spill(text: str, tokens: List[_Token]) -> None:
             # sector word, which on its own reads as part of a company name.
             if following.redact or lexicon.is_sector_word(following.text):
                 token.redact = "NAME"
+                # "Colonial [Pipeline]" is a company wherever "Colonial"
+                # appears; "Implement [Government standards]" is not.
+                token.spread = following.spread or (
+                    lexicon.is_sector_word(following.text)
+                    and (_next_word(text, following).lower() in lexicon.ORG_VERBS
+                         or re.match(r"['’]s\b", text[following.end:following.end + 2])
+                         is not None))
                 changed = True
 
 
@@ -266,6 +334,7 @@ def _subjects(text: str, tokens: List[_Token]) -> None:
             owned = re.match(r"['’]s\s+", after)
             if owned and _OWNED_RE.match(after[owned.end():]):
                 token.redact = "ORG"
+                token.spread = True
                 continue
             following = tokens[index + 1] if index + 1 < len(tokens) else None
             names_product = (following is not None and following.capitalised
@@ -273,6 +342,7 @@ def _subjects(text: str, tokens: List[_Token]) -> None:
                              and lexicon.is_public(following.text))
             if _VICTIM_LEAD_RE.search(text[max(0, token.start - 60):token.start]) and not names_product:
                 token.redact = "ORG"
+                token.spread = True
                 continue
 
         if _next_word(text, token).lower() not in lexicon.ORG_VERBS:
@@ -303,6 +373,7 @@ def _subjects(text: str, tokens: List[_Token]) -> None:
             if len(run) > 1 and lexicon.is_sector_word(member.text):
                 continue
             member.redact = member.redact or "ORG"
+            member.spread = True
 
 
 def _repeat(tokens: List[_Token]) -> None:
@@ -313,7 +384,12 @@ def _repeat(tokens: List[_Token]) -> None:
     the same company. Only words longer than three letters are carried over,
     so a short word swept into one name does not disappear from the report.
     """
-    known = {token.text: token.redact for token in tokens if token.redact and len(token.text) > 3}
+    # An ordinary word spreads only when something said it was a person or an
+    # organisation ("Colonial" in "Colonial Pipeline paid"), not merely that it
+    # was capitalised mid-sentence: in a formal report that is every heading
+    # word, and one stray capital would remove the word from the whole report.
+    known = {token.text: token.redact for token in tokens
+             if token.redact and len(token.text) > 3 and token.spread}
     for token in tokens:
         if (not token.redact and token.capitalised and not token.in_public_name
                 and token.text in known):
@@ -330,6 +406,9 @@ def find_names(text: str) -> List[Tuple[int, int, str]]:
     _mark_public_names(text, tokens)
     for token in tokens:
         token.redact = _classify(text, token)
+        token.spread = bool(token.redact) and (
+            token.redact == "PERSON" or not lexicon.is_ordinary(token.text))
+    _title_case_terms(text, tokens)
     _spill(text, tokens)
     _subjects(text, tokens)
     _repeat(tokens)
