@@ -292,6 +292,21 @@ def _subjects(text: str, tokens: List[_Token]) -> None:
             member.redact = member.redact or "ORG"
 
 
+def _repeat(tokens: List[_Token]) -> None:
+    """Once a word has been read as a name, it is that name everywhere.
+
+    "Colonial Pipeline" identifies Colonial; the next sentence opening with
+    "Colonial shut down ..." has no capital letter to give it away, but it is
+    the same company. Only words longer than three letters are carried over,
+    so a short word swept into one name does not disappear from the report.
+    """
+    known = {token.text: token.redact for token in tokens if token.redact and len(token.text) > 3}
+    for token in tokens:
+        if (not token.redact and token.capitalised and not token.in_public_name
+                and token.text in known):
+            token.redact = known[token.text]
+
+
 def find_names(text: str) -> List[Tuple[int, int, str]]:
     """Spans of `text` that name a person, an organisation or a place.
 
@@ -304,6 +319,7 @@ def find_names(text: str) -> List[Tuple[int, int, str]]:
         token.redact = _classify(text, token)
     _spill(text, tokens)
     _subjects(text, tokens)
+    _repeat(tokens)
 
     spans: List[Tuple[int, int, str]] = []
     for index, token in enumerate(tokens):

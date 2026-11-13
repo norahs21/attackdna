@@ -1,11 +1,17 @@
 """Maps sanitized incident text to MITRE ATT&CK techniques and tactics.
 
-Two complementary signals are combined:
+Three complementary signals are combined:
 
 1. **Explicit ids.** If the report already says "T1486", trust it.
 2. **Behaviour phrases.** A curated alias table maps how analysts actually
    write ("files were encrypted", "malicious macro") to technique ids, and a
    generic pass matches official technique names verbatim.
+3. **Resemblance to MITRE's examples.** Sentences the table has no phrase for
+   are compared with the ~17,600 sentences MITRE has labelled (see
+   `example_mapper`), which is where most of the recall comes from.
+
+Nothing the report denies is mapped: "no lateral movement occurred" is not
+lateral movement (see `negation`).
 
 Every match carries the evidence phrase that produced it, so the UI can show
 *why* a technique was assigned instead of asking the judges to take it on faith.
@@ -16,7 +22,9 @@ import re
 from functools import lru_cache
 from typing import Dict, List
 
+from app.services import example_mapper
 from app.services.knowledge_base import describe_technique, sort_tactics, technique_index
+from app.services.negation import is_negated
 
 # --------------------------------------------------------------------------
 # Curated behaviour -> technique aliases. These carry most of the mapping
@@ -82,7 +90,8 @@ ALIASES: Dict[str, List[str]] = {
               "enumerated accounts", "bulk directory enumeration"],
     "T1018": ["network scan", "scanned the network", "remote system discovery", "host discovery"],
     "T1082": ["system information discovery", "fingerprinted the host"],
-    "T1046": ["port scan", "network service scanning", "service discovery"],
+    "T1046": ["port scan", "network service scanning", "service discovery", "port scanning",
+              "advanced ip scanner", "angry ip scanner", "nmap", "netscan"],
     # Lateral movement
     "T1021.001": ["rdp", "remote desktop protocol", "lateral rdp"],
     "T1021.002": ["smb share", "admin share", "psexec", "smb lateral"],
@@ -118,8 +127,75 @@ ALIASES: Dict[str, List[str]] = {
     "T1210": ["smb exploit", "exploit to spread", "spread using an exploit",
               "remote services exploitation"],
     "T1498": ["ddos", "denial of service", "traffic flood"],
-    "T1657": ["financial theft", "fraudulent transfer", "business email compromise", "bec"],
+    "T1657": ["financial theft", "fraudulent transfer", "business email compromise", "bec",
+              "fraudulent payment", "changed the bank details", "payroll diversion",
+              "direct-deposit details"],
+    # T1556.006 is the adversary *changing* how MFA works. Its ATT&CK name is
+    # "Multi-Factor Authentication", so matching the name mapped every report
+    # that mentions MFA at all — including "was not protected by MFA", which
+    # is the absence of a control, not a technique. Only tampering counts.
+    "T1556.006": ["disabled mfa", "disabled multi-factor authentication", "mfa was disabled",
+                  "removed the mfa requirement", "excluded from mfa", "turned off mfa"],
+    "T1098.005": ["registered a new authenticator", "registered a new mfa device",
+                  "enrolled their own device", "enrolled a new device", "added an mfa device",
+                  "registered their own device"],
+    "T1557": ["adversary-in-the-middle", "aitm", "man-in-the-middle", "evilginx"],
+    "T1539": ["session token was stolen", "session token theft", "stole the session cookie",
+              "session cookie was captured", "session token was captured", "hijack authenticated sessions",
+              "session hijacking"],
+    "T1110.003": ["password spraying", "password spray"],
+    "T1110.004": ["credential stuffing"],
+    # Tools whose use is itself the technique. This is what ATT&CK's own
+    # software pages record, written the way an analyst names them.
+    "T1003.001": ["dumped lsass", "lsass memory", "lsass dump", "procdump"],
+    "T1003.003": ["ntdsutil", "ntds.dit"],
+    "T1482": ["nltest", "domain trust discovery", "enumerated domain trusts"],
+    "T1087.002": ["bloodhound", "sharphound", "adfind", "net group", "enumerated active directory"],
+    "T1219": ["anydesk", "teamviewer", "screenconnect", "atera", "splashtop",
+              "remote monitoring and management tool", "remote access software"],
+    "T1572": ["ngrok", "chisel", "plink", "protocol tunneling", "tunnelled traffic", "tunneled traffic"],
+    "T1496": ["xmrig", "cryptominer", "cryptocurrency miner", "mine cryptocurrency",
+              "mining cryptocurrency", "cryptomining", "cryptojacking", "resource hijacking"],
+    "T1070.001": ["wevtutil", "event logs were cleared", "cleared the event logs",
+                  "cleared windows event logs", "windows event logs were cleared"],
+    "T1105": ["certutil", "ingress tool transfer", "downloaded additional tools",
+              "downloaded additional payloads"],
+    "T1053.005": ["schtasks"],
+    "T1547.001": ["run key", "registry run", "run keys"],
+    "T1047": ["wmic", "wmi", "windows management instrumentation"],
+    "T1218.005": ["mshta"],
+    "T1218.010": ["regsvr32"],
+    "T1218.011": ["rundll32"],
+    "T1484.001": ["group policy object", "through group policy", "via group policy", "through a gpo",
+                  "via a gpo", "group policy modification"],
+    "T1567.002": ["rclone", "mega.nz", "megasync", "exfiltrated to mega"],
+    "T1560.001": ["rar archive", "7-zip archive", "archived with", "compressed the data",
+                  "staged in an archive", "zip archive"],
+    "T1052.001": ["usb drive", "usb stick", "removable media", "external drive"],
+    "T1195.001": ["typosquatted", "typosquatting", "malicious npm package", "malicious pypi package",
+                  "dependency confusion", "malicious package"],
+    "T1195.002": ["trojanised installer", "trojanized installer", "tampered installer",
+                  "compromised build server", "compromised build servers", "software supply chain"],
+    "T1552.001": ["access keys in a public repository", "keys to a public repository",
+                  "credentials in a repository", "secrets in source code", "hardcoded access keys"],
+    "T1552.005": ["metadata service", "instance metadata"],
+    "T1530": ["storage bucket", "storage buckets", "s3 bucket", "blob container", "cloud storage object"],
+    "T1610": ["privileged container", "deployed a container", "malicious container"],
+    "T1611": ["escaped to the host", "container escape", "escape to host"],
+    "T1098.004": ["added an ssh key", "ssh authorized_keys", "added their ssh key"],
+    "T1561.002": ["master boot record", "overwrote the mbr", "disk wipe", "wiped the disks"],
+    "T1056.001": ["keylogger", "keylogging", "keystroke logging"],
+    "T1113": ["screen capture", "took screenshots", "captured screenshots"],
+    "T1204.002": ["opened the attachment", "opened the malicious", "launched the lnk", "mounted the iso",
+                  "opened a malicious", "malicious iso", "malicious lnk", "enabled macros",
+                  "opened the document"],
+    "T1204.001": ["clicked the link", "clicked a link", "clicked on the link", "clicked on a link"],
+    "T1534": ["internal spearphishing", "internal phishing", "phishing from the compromised mailbox",
+              "sent phishing from the compromised account"],
+    "T1199": ["trusted relationship", "third-party access", "vendor access", "contractor access",
+              "credentials belonging to a contractor", "supplier's access"],
 }
+
 
 TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 
@@ -137,7 +213,26 @@ NAME_MATCH_STOPLIST = {
     "firmware", "exploits", "vulnerabilities", "server", "serverless", "proxy",
     "compression", "scripting", "source", "impersonation", "botnet", "at", "trap",
     "dll", "dns", "ssh", "cdns", "whois", "add-ins", "confluence", "sharepoint",
+    # The name of T1556.006. See the alias table.
+    "multi-factor authentication",
 }
+
+
+@lru_cache(maxsize=4096)
+def _phrase_pattern(phrase: str) -> "re.Pattern[str]":
+    """A whole-phrase pattern that tolerates a simple plural.
+
+    "smb share" has to match "SMB shares": an analyst writes whichever number
+    the incident had, and the boundary that keeps "rdp" out of "wordpress"
+    was also rejecting the plural of every phrase in the table.
+    """
+    return re.compile(rf"(?<![a-z0-9]){re.escape(phrase)}(?:e?s)?(?![a-z0-9])")
+
+
+def _affirmed(phrase: str, text_lower: str) -> bool:
+    """Whether the phrase occurs somewhere the report is not denying it."""
+    return any(not is_negated(text_lower, match.start())
+               for match in _phrase_pattern(phrase).finditer(text_lower))
 
 
 def _alias_matches(text_lower: str) -> Dict[str, List[str]]:
@@ -145,7 +240,7 @@ def _alias_matches(text_lower: str) -> Dict[str, List[str]]:
     hits: Dict[str, List[str]] = {}
     for technique_id, phrases in ALIASES.items():
         for phrase in phrases:
-            if re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", text_lower):
+            if _affirmed(phrase, text_lower):
                 hits.setdefault(technique_id, []).append(phrase)
     return hits
 
@@ -175,7 +270,7 @@ def _name_matches(text_lower: str) -> Dict[str, List[str]]:
         owner = owners.get(name_lower)
         if owner is not None and owner != technique_id:
             continue
-        if re.search(rf"(?<![a-z0-9]){re.escape(name_lower)}(?![a-z0-9])", text_lower):
+        if _affirmed(name_lower, text_lower):
             hits.setdefault(technique_id, []).append(name)
     return hits
 
@@ -209,6 +304,21 @@ def map_to_attack(text: str, extra_technique_ids: List[str] | None = None) -> di
         if TECHNIQUE_ID_RE.fullmatch(technique_id):
             evidence.setdefault(technique_id, []).append("model inference")
             sources.setdefault(technique_id, set()).add("llm")
+
+    # Sentences that read like the ones MITRE labelled. Added last and marked
+    # as such: a rule match quotes the report, this quotes MITRE, and an
+    # analyst weighing a mapping should know which kind they are looking at.
+    for suggestion in example_mapper.suggest(text or ""):
+        technique_id = suggestion["technique_id"]
+        family = technique_id.split(".")[0]
+        # A rule that already found this behaviour, at either level of detail,
+        # has said it better; the suggestion would only add a second label.
+        if any(known.split(".")[0] == family for known in evidence):
+            if technique_id in evidence:
+                sources[technique_id].add("example")
+            continue
+        evidence.setdefault(technique_id, []).append(suggestion["evidence"])
+        sources.setdefault(technique_id, set()).add("example")
 
     # A sub-technique implies its parent, so reporting both is noise: keep the
     # specific one. The parent survives only when the report named it by id,
@@ -247,8 +357,10 @@ def _confidence(sources: set, evidence_count: int) -> float:
         base = 0.85
     elif "behaviour" in sources:
         base = 0.75
-    if "llm" in sources and len(sources) > 1:
+    independent = sources & {"llm", "example"}
+    if independent and len(sources) > len(independent):
         base = min(0.98, base + 0.05)  # two independent paths agreed
-    elif sources == {"llm"}:
-        base = 0.6
+    elif sources <= {"llm", "example"} and sources:
+        # Inferred, not quoted: a lead for the analyst, weighted as one.
+        base = 0.65 if sources == {"llm", "example"} else 0.6
     return round(min(0.98, base + 0.03 * (evidence_count - 1)), 2)

@@ -16,6 +16,7 @@ Extraction is hybrid:
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 from app.services import llm_client
@@ -24,6 +25,7 @@ from app.services.ioc_extractor import extract_iocs
 from app.services.kev_enricher import enrich_cves, extract_cves, kev_summary
 from app.services.knowledge_base import TACTIC_LABELS, TACTIC_ORDER
 from app.services.mitre_mapper import map_to_attack
+from app.services.negation import is_negated
 
 # --------------------------------------------------------------------------
 # Classification vocabularies. Weighted so a single strong keyword beats
@@ -32,13 +34,22 @@ from app.services.mitre_mapper import map_to_attack
 ATTACK_TYPES: Dict[str, List[tuple]] = {
     "ransomware": [("ransom note", 5), ("ransomware", 5), ("ransom demand", 5),
                    ("files were encrypted", 4), ("encrypted files", 3), ("decryption key", 4),
-                   ("double extortion", 4), ("leak site", 3)],
+                   ("double extortion", 4), ("leak site", 3), ("demanded a ransom", 5),
+                   ("ransom was paid", 4), ("paid the ransom", 4), ("encrypted the", 3),
+                   ("encrypting files", 4), ("decryptor", 4)],
     "phishing": [("phishing", 4), ("spearphishing", 5), ("spear phishing", 5),
                  ("credential harvesting", 4), ("fake login page", 4), ("malicious link", 2),
-                 ("malicious attachment", 3)],
+                 ("malicious attachment", 3), ("smishing", 4), ("vishing", 4),
+                 ("spoofed login page", 4), ("fake sign-in page", 4), ("lookalike domain", 3),
+                 ("malicious email", 3), ("messages impersonating", 3),
+                 ("sign-on page hosted elsewhere", 3)],
     "business_email_compromise": [("business email compromise", 5), ("bec", 4),
                                   ("fraudulent transfer", 5), ("invoice fraud", 5),
-                                  ("wire transfer", 3), ("ceo fraud", 5), ("inbox rule", 3)],
+                                  ("wire transfer", 3), ("ceo fraud", 5), ("inbox rule", 3),
+                                  ("updated banking details", 5), ("new bank account", 4),
+                                  ("change of bank details", 5), ("payment redirection", 5),
+                                  ("vendor impersonation", 5), ("payroll diversion", 5),
+                                  ("paid to a fraudster", 4), ("emails that appeared to come from", 3)],
     "data_breach": [("data breach", 5), ("data exfiltration", 4), ("exfiltrated", 3),
                     ("records were stolen", 5), ("customer data", 3), ("data leak", 4),
                     ("data was stolen", 4), ("records were exfiltrated", 5),
@@ -46,7 +57,12 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                     ("notification obligations", 3), ("data theft", 4),
                     ("records were compromised", 5), ("payment card record", 5),
                     ("were exposed", 4), ("published stolen data", 5),
-                    ("leak site", 3), ("stole around", 3)],
+                    ("leak site", 3), ("stole around", 3), ("personal details", 3),
+                    ("personal data", 3), ("personal information", 3), ("was stolen", 4),
+                    ("were stolen", 4), ("were taken", 3), ("offered for sale", 4),
+                    ("posted on a forum", 4), ("hacking forum", 3), ("were scraped", 4),
+                    ("unauthorised access to data", 4), ("unauthorized access to data", 4),
+                    ("were accessed", 3), ("data on", 2), ("records with", 2)],
     # Exploitation of an internet-facing system. The original vocabulary here
     # covered web applications only, which left the entry vector of a third of
     # the corpus — including an incident titled "via unpatched VPN appliance" —
@@ -58,26 +74,51 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                          ("web application", 2), ("vpn appliance", 5), ("unpatched appliance", 5),
                          ("file transfer appliance", 5), ("remote access gateway", 4),
                          ("internet-facing", 4), ("edge device", 4), ("perimeter device", 4),
-                         ("exploited a vulnerability", 4), ("exploited a zero-day", 5)],
+                         ("exploited a vulnerability", 4), ("exploited a zero-day", 5),
+                         ("reachable from the internet", 4), ("exposed on the internet", 4),
+                         ("exposed to the internet", 4), ("did not require authentication", 4),
+                         ("unauthenticated", 3), ("server-side request forgery", 5), ("ssrf", 5),
+                         ("idor", 5), ("previously unknown flaw", 4), ("zero-day", 3),
+                         ("had not been patched", 4), ("unpatched", 3), ("misconfigured", 2),
+                         ("exposed api", 4), ("api endpoint", 2)],
     "credential_attack": [("password spraying", 5), ("brute force", 4), ("credential stuffing", 5),
                           ("mfa fatigue", 5), ("stolen credentials", 3), ("account takeover", 4),
                           # A password that reached the attacker before the attack
                           # began is a credential vector, however it got there.
                           ("credential dump", 4), ("credential marketplace", 4),
                           ("leaked password", 4), ("mfa bombing", 5),
-                          ("purchased from a credential", 4)],
+                          ("purchased from a credential", 4), ("failed authentication", 4),
+                          ("failed login", 4), ("login attempt", 3), ("password guessing", 4),
+                          ("guessed weak password", 4), ("weak password", 3),
+                          ("default password", 3), ("password reuse", 4), ("reused password", 4),
+                          ("username and password pairs", 5), ("no mfa", 2),
+                          ("dormant account", 3)],
     "insider_threat": [("insider", 5), ("disgruntled employee", 5), ("departing employee", 4),
-                       ("privilege abuse", 3), ("unauthorized access by staff", 4)],
+                       ("privilege abuse", 3), ("unauthorized access by staff", 4),
+                       ("former employee", 5), ("ex-employee", 5), ("terminated employee", 5),
+                       ("rogue employee", 5), ("abused their access", 5),
+                       ("abused his access", 5), ("abused her access", 5),
+                       ("after their employment had ended", 5), ("performance plan", 3),
+                       ("outside business hours", 2), ("access had not been removed", 4)],
     "supply_chain": [("supply chain", 5), ("third-party vendor", 4), ("compromised update", 5),
                      ("managed service provider", 4), ("msp", 3),
                      # A signed update carrying a backdoor is the defining shape
                      # of this vector, and reports describe it in these words.
                      ("trojanised update", 5), ("trojanized update", 5),
-                     ("build environment", 4), ("signed update", 4)],
+                     ("build environment", 4), ("signed update", 4), ("auto-update", 4),
+                     ("tampered with before release", 5), ("build server", 4),
+                     ("typosquatted", 5), ("malicious package", 5), ("dependency confusion", 5),
+                     ("outside supplier", 3), ("software supplier", 3)],
     "denial_of_service": [("ddos", 5), ("denial of service", 5), ("traffic flood", 4),
-                          ("service unavailable", 2)],
+                          ("service unavailable", 2), ("denial-of-service", 5),
+                          ("junk traffic", 5), ("flood of traffic", 4), ("volumetric", 4),
+                          ("amplification", 4), ("syn flood", 5), ("knocked offline", 3),
+                          ("gigabits per second", 4), ("gbps", 4), ("packets per second", 4)],
     "malware_infection": [("trojan", 4), ("infostealer", 5), ("backdoor", 3), ("rootkit", 4),
-                          ("botnet", 4), ("cryptominer", 5), ("malware", 2)],
+                          ("botnet", 4), ("cryptominer", 5), ("malware", 2),
+                          ("destructive malware", 5), ("wiper", 5), ("information stealer", 5),
+                          ("mine cryptocurrency", 5), ("cryptomining", 5), ("xmrig", 5),
+                          ("loader", 2), ("payload", 1)],
 }
 
 # How the attacker got in vs. what they ultimately did. A report that says
@@ -99,10 +140,30 @@ DECISIVE_MARKERS: List[tuple] = [
     ("ransomware", ["ransomware", "ransom note", "ransom demand", "files were encrypted",
                     "encrypted files", "double extortion", "decryption key"]),
     ("business_email_compromise", ["business email compromise", "fraudulent transfer",
-                                   "invoice fraud", "ceo fraud"]),
-    ("denial_of_service", ["ddos", "denial of service"]),
-    ("insider_threat", ["insider", "disgruntled employee"]),
+                                   "invoice fraud", "ceo fraud", "payment redirection",
+                                   "vendor impersonation", "payroll diversion"]),
+    ("denial_of_service", ["ddos", "denial of service", "denial-of-service"]),
+    ("insider_threat", ["insider", "disgruntled employee", "former employee", "ex-employee",
+                        "rogue employee"]),
 ]
+
+# What a mapped ATT&CK technique says about the kind of incident. The keyword
+# vocabulary above only knows the words someone listed; a technique can be
+# found from wording nobody listed (see example_mapper), and an Impact
+# technique names the outcome whatever words described it.
+TECHNIQUE_TYPE_HINTS: Dict[str, tuple] = {
+    "T1486": ("ransomware", 5), "T1490": ("ransomware", 2),
+    "T1498": ("denial_of_service", 5), "T1499": ("denial_of_service", 5),
+    "T1657": ("business_email_compromise", 3),
+    "T1496": ("malware_infection", 4), "T1485": ("malware_infection", 4),
+    "T1561": ("malware_infection", 4),
+    "T1041": ("data_breach", 2), "T1567": ("data_breach", 2), "T1048": ("data_breach", 2),
+    "T1530": ("data_breach", 3), "T1213": ("data_breach", 2),
+    "T1566": ("phishing", 4), "T1598": ("phishing", 3),
+    "T1110": ("credential_attack", 4), "T1621": ("credential_attack", 4),
+    "T1190": ("web_exploitation", 4),
+    "T1195": ("supply_chain", 5), "T1199": ("supply_chain", 3),
+}
 
 # Sector vocabulary. These deliberately favour words describing the affected
 # *function* over words in the organisation's name, because the Privacy Layer
@@ -114,40 +175,53 @@ SECTORS: Dict[str, List[str]] = {
     "finance": ["bank", "banking", "financial", "fintech", "insurance", "payment", "sama",
                 "trading", "brokerage", "finance department", "finance team", "finance officer",
                 "accounting", "accounts payable", "treasury", "wire transfer", "client records",
-                "investment", "credit bureau"],
+                "investment", "credit bureau", "card issuer", "credit card", "payments firm",
+                "lender", "stock exchange", "online banking", "insurer"],
     "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi",
                    "clinical", "health regulator", "care provider",
                    "protected health information", "prescription", "healthcare claims",
-                   "healthcare payments"],
+                   "healthcare payments", "health service", "radiology", "outpatient"],
     "government": ["ministry", "government", "public sector", "municipal", "federal", "agency",
-                   "civil service", "state entity"],
+                   "civil service", "state entity", "city government", "state auditor",
+                   "council", "municipality", "public agency", "residents", "citizens"],
     "energy": ["oil", "gas", "petrochemical", "refinery", "utility", "power grid", "energy",
-               "scada", "ics", "control network", "grid operator", "pipeline",
-               "pipeline operator", "fuel"],
-    "education": ["university", "school", "student", "college", "campus", "academic", "faculty"],
+               # No bare "pipeline": a CI pipeline is software, not fuel.
+               "scada", "ics", "control network", "grid operator", "fuel pipeline",
+               "oil pipeline", "gas pipeline", "pipeline operator", "pipeline operations",
+               "pipeline company", "fuel", "electricity", "power plant", "drilling"],
+    "education": ["university", "school", "student", "college", "campus", "academic", "faculty",
+                  "school district"],
     # Note: no bare "store" — it matches "object store", "data store" and would
     # file every cloud incident under retail.
     # "marketplace" alone is dropped: "credential marketplace" is where stolen
     # logins are sold, not a retailer.
     "retail": ["retail", "e-commerce", "ecommerce", "point of sale", "pos terminal",
                "storefront", "retail chain", "merchant", "customer database",
-               "online marketplace", "retailer"],
+               "online marketplace", "retailer", "shoppers", "online store", "web store",
+               "checkout", "point-of-sale", "self-checkout", "loyalty point"],
     # "operator" alone is dropped: pipeline, grid and plant operators are not telecoms.
     "telecom": ["telecom", "isp", "subscriber", "mobile network", "customer portal",
-                "mobile operator", "network operator"],
+                "mobile operator", "network operator", "mobile carrier", "wireless provider",
+                "broadband", "call detail records"],
     "technology": ["saas", "software company", "cloud provider", "tech company", "developer",
                    "software vendor", "engineering team", "source code", "repository",
                    "software provider", "platform provider", "managed service provider",
                    "software product", "management platform", "build environment",
-                   "software supplier", "technology company"],
+                   "software supplier", "technology company", "software maker",
+                   "software startup", "startup", "ci pipeline", "build server", "npm package",
+                   "kubernetes", "cloud bill"],
     "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial",
-                      "assembly line"],
+                      "assembly line", "manufacturer", "production scheduling"],
     "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse",
-                  "container tracking", "cargo"],
+                  "container tracking", "cargo", "freight forwarder", "shipment", "customs",
+                  "consignment"],
 }
 
 IMPACTS: Dict[str, List[str]] = {
-    "data_encrypted": ["encrypted", "ransomware", "unable to open files", "locked"],
+    # No bare "locked": "accounts were locked" is the response to a password
+    # attack, and reading it as encryption made a credential incident critical.
+    "data_encrypted": ["encrypted", "ransomware", "unable to open files", "files were locked",
+                       "locked files", "systems were locked", "encrypting"],
     "data_exfiltrated": ["exfiltrated", "data theft", "stolen data", "uploaded to", "data leak"],
     "service_disruption": ["outage", "downtime", "unavailable", "disrupted", "offline",
                            "operations halted", "service disruption"],
@@ -159,7 +233,10 @@ IMPACTS: Dict[str, List[str]] = {
     "credential_compromise": ["credentials were compromised", "password reset", "account compromised",
                               "credential dumping", "stolen credentials", "stolen password",
                               "compromised password", "corporate password", "obtained a password",
-                              "credentials were stolen"],
+                              "credentials were stolen", "accounts were compromised",
+                              "account was compromised", "were compromised", "compromised accounts",
+                              "accounts were accessed", "submitted credentials",
+                              "typed in their username and password", "harvested credentials"],
     "regulatory_exposure": ["regulator", "notification obligation", "gdpr", "pdpl", "compliance breach",
                             "reportable"],
 }
@@ -190,6 +267,33 @@ Summarise the attack's behaviour for defensive reuse. Output ONLY a JSON object:
 Only include technique_ids you can justify from the text."""
 
 
+_IS_RANSOMWARE_RE = re.compile(
+    r"\bis (?:a |an )?(?:[\w\-]+ ){0,4}ransomware\b|\bransomware-as-a-service\b", re.I)
+
+
+@lru_cache(maxsize=1)
+def _ransomware_families() -> tuple:
+    """Names of ransomware families, read from ATT&CK's software catalogue.
+
+    "LockBit was pushed to every machine" never says ransomware. Only names
+    that are not also English words are used — "Royal" and "Play" are
+    families too, and matching those would file every report that mentions a
+    royal commission under ransomware.
+    """
+    from app.services import lexicon
+    from app.services.knowledge_base import load_software
+
+    families = set()
+    for record in load_software():
+        # "X is a ransomware ...", not "X is a tool ransomware groups use".
+        if not _IS_RANSOMWARE_RE.search((record.get("description") or "")[:300]):
+            continue
+        first = re.split(r"[^A-Za-z0-9]+", record.get("name", "").strip())[0].lower()
+        if len(first) >= 4 and not lexicon.is_ordinary(first):
+            families.add(first)
+    return tuple(sorted(families))
+
+
 def _term_matches(term: str, text_lower: str) -> bool:
     """Whole-word match that tolerates a simple plural.
 
@@ -198,9 +302,11 @@ def _term_matches(term: str, text_lower: str) -> bool:
     found by running real published breach reports through the extractor, and
     each silently mis-filed incidents.
     """
-    return bool(re.search(
-        rf"(?<![a-z0-9]){re.escape(term)}(?:e?s)?(?![a-z0-9])", text_lower
-    ))
+    pattern = re.compile(rf"(?<![a-z0-9]){re.escape(term)}(?:e?s)?(?![a-z0-9])")
+    # A term the report denies is not evidence: "no data was exfiltrated" must
+    # not raise the severity for exfiltration.
+    return any(not is_negated(text_lower, match.start())
+               for match in pattern.finditer(text_lower))
 
 
 def _score_category(text_lower: str, vocab: Dict[str, List[tuple]]) -> Dict[str, int]:
@@ -216,7 +322,7 @@ def _decisive_type(text_lower: str) -> Optional[str]:
     """The attack type fixed by an unambiguous marker, if one is present."""
     for attack_type, markers in DECISIVE_MARKERS:
         for marker in markers:
-            if re.search(rf"(?<![a-z0-9]){re.escape(marker)}(?![a-z0-9])", text_lower):
+            if _term_matches(marker, text_lower):
                 return attack_type
     return None
 
@@ -262,7 +368,22 @@ def _match_keywords(text_lower: str, vocab: Dict[str, List[str]]) -> Dict[str, i
 def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
     text_lower = (sanitized_text or "").lower()
 
+    mapping = map_to_attack(sanitized_text)
+
     type_scores = _score_category(text_lower, ATTACK_TYPES)
+    for family in _ransomware_families():
+        if _term_matches(family, text_lower):
+            type_scores["ransomware"] = type_scores.get("ransomware", 0) + 4
+            break
+    for technique in mapping["techniques"]:
+        hint = TECHNIQUE_TYPE_HINTS.get(technique["id"].split(".")[0])
+        if hint:
+            label, weight = hint
+            # A technique the report states outright counts in full; one that
+            # was only inferred from resemblance counts for less.
+            if technique["confidence"] < 0.7:
+                weight = max(1, weight - 2)
+            type_scores[label] = type_scores.get(label, 0) + weight
     attack_type, initial_vector = _classify_attack(type_scores, text_lower)
 
     sector_scores = _match_keywords(text_lower, SECTORS)
@@ -271,7 +392,6 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
     impact_scores = _match_keywords(text_lower, IMPACTS)
     impacts = sorted(impact_scores, key=impact_scores.get, reverse=True)
 
-    mapping = map_to_attack(sanitized_text)
     cves = extract_cves(sanitized_text)
 
     return {
@@ -339,6 +459,12 @@ def _fallback_summary(dna: dict) -> str:
     )
 
 
+# Tactics that mean the attacker was operating inside the environment, as
+# opposed to knocking on it from outside.
+INTRUSION_TACTICS = {"execution", "persistence", "privilege-escalation", "credential-access",
+                     "lateral-movement", "command-and-control", "exfiltration"}
+
+
 def _severity(dna: dict, kev_info: dict) -> str:
     score = sum(SEVERITY_WEIGHTS.get(impact, 1) for impact in dna["impacts"])
     score += 3 if kev_info["known_exploited_count"] else 0
@@ -348,6 +474,11 @@ def _severity(dna: dict, kev_info: dict) -> str:
     if score >= 6:
         return "high"
     if score >= 3:
+        return "medium"
+    # A confirmed foothold is never "low", even when it was contained before
+    # it cost anything: a remote access trojan that was caught is still an
+    # intrusion, and the next one may not be.
+    if INTRUSION_TACTICS & set(dna.get("tactics", [])):
         return "medium"
     return "low"
 
