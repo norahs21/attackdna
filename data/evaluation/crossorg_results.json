@@ -1,0 +1,685 @@
+{
+  "generated_at": "2026-11-13 14:44 UTC",
+  "code_revision": "6bec4fd",
+  "dataset": "data/seed/crossorg_pairs.json",
+  "pairs": 20,
+  "mode": "offline (rule-based extraction, no LLM)",
+  "privacy_protection": {
+    "reports": 40,
+    "identifiers_planted": 171,
+    "identifiers_removed": {
+      "value": 0.9766,
+      "successes": 167,
+      "total": 171,
+      "ci95": [
+        0.9414,
+        0.9909
+      ]
+    },
+    "residual_identifiers": 4,
+    "residual_detail": {
+      "p11B": [
+        "+971 4 555 0192"
+      ],
+      "p15B": [
+        "Mirage"
+      ],
+      "p18A": [
+        "Wafa",
+        "wafa-claims-backup"
+      ]
+    },
+    "reports_with_residual": 3,
+    "self_check_missed": 3,
+    "over_redaction": {
+      "value": 0.0121,
+      "successes": 2,
+      "total": 165,
+      "ci95": [
+        0.0033,
+        0.0431
+      ]
+    },
+    "over_redaction_detail": {
+      "p05B": [
+        "guessed weak password"
+      ],
+      "p11B": [
+        "RMM"
+      ]
+    }
+  },
+  "behaviour_preservation": {
+    "reports": 40,
+    "attack_type_unchanged": {
+      "value": 1.0,
+      "successes": 40,
+      "total": 40,
+      "ci95": [
+        0.9124,
+        1.0
+      ]
+    },
+    "initial_vector_unchanged": {
+      "value": 1.0,
+      "successes": 40,
+      "total": 40,
+      "ci95": [
+        0.9124,
+        1.0
+      ]
+    },
+    "techniques_retained": {
+      "value": 1.0,
+      "successes": 72,
+      "total": 72,
+      "ci95": [
+        0.9493,
+        1.0
+      ]
+    },
+    "impacts_retained": {
+      "value": 1.0,
+      "successes": 14,
+      "total": 14,
+      "ci95": [
+        0.7847,
+        1.0
+      ]
+    },
+    "cves_retained": {
+      "value": 1.0,
+      "successes": 4,
+      "total": 4,
+      "ci95": [
+        0.5101,
+        1.0
+      ]
+    },
+    "accuracy_raw": {
+      "attack_type": {
+        "value": 0.925,
+        "successes": 37,
+        "total": 40,
+        "ci95": [
+          0.8014,
+          0.9742
+        ]
+      },
+      "initial_vector": {
+        "value": 1.0,
+        "successes": 40,
+        "total": 40,
+        "ci95": [
+          0.9124,
+          1.0
+        ]
+      },
+      "techniques": {
+        "precision": 0.8056,
+        "recall": 0.4677,
+        "f1": 0.5918,
+        "tp": 58,
+        "fp": 14,
+        "fn": 66
+      }
+    },
+    "accuracy_sanitized": {
+      "attack_type": {
+        "value": 0.925,
+        "successes": 37,
+        "total": 40,
+        "ci95": [
+          0.8014,
+          0.9742
+        ]
+      },
+      "initial_vector": {
+        "value": 1.0,
+        "successes": 40,
+        "total": 40,
+        "ci95": [
+          0.9124,
+          1.0
+        ]
+      },
+      "techniques": {
+        "precision": 0.7945,
+        "recall": 0.4677,
+        "f1": 0.5888,
+        "tp": 58,
+        "fp": 15,
+        "fn": 66
+      }
+    }
+  },
+  "cross_org_recall": {
+    "privacy_layer": "on",
+    "memory": {
+      "corpus_incidents": 24,
+      "contributed_by_A": 20,
+      "backend": "tfidf"
+    },
+    "queries": 20,
+    "precision_at_1": {
+      "value": 0.6,
+      "successes": 12,
+      "total": 20,
+      "ci95": [
+        0.3866,
+        0.7812
+      ]
+    },
+    "recall_at_5": {
+      "value": 0.95,
+      "successes": 19,
+      "total": 20,
+      "ci95": [
+        0.7639,
+        0.9911
+      ]
+    },
+    "top1_same_attack_type": {
+      "value": 0.9,
+      "successes": 18,
+      "total": 20,
+      "ci95": [
+        0.699,
+        0.9721
+      ]
+    },
+    "precision_at_5": 0.6977,
+    "mrr": 0.753,
+    "queries_exposing_A": 0,
+    "stored_records_exposing_A": 1,
+    "stored_exposure_detail": {
+      "p18A": [
+        "Wafa",
+        "wafa-claims-backup"
+      ]
+    },
+    "A_identifiers_exposed": [],
+    "foreign_incident_marked_as_own": 0,
+    "mitigation_reuse": {
+      "value": 0.9,
+      "successes": 18,
+      "total": 20,
+      "ci95": [
+        0.699,
+        0.9721
+      ]
+    },
+    "unattributed_recommendations": 0,
+    "per_query": [
+      {
+        "pair": "p01",
+        "pattern": "Ransomware delivered by a credential-harvesting phishing link, EDR disabled, SMB lateral movement, shadow copies deleted",
+        "rank": 1,
+        "top1": "Ransomware via phishing — Healthcare sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 1,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "3 shared ATT&CK technique(s): T1059.001, T1486, T1490",
+          "Overlapping kill-chain phases: execution, impact",
+          "Same attack type: ransomware",
+          "Same initial vector: phishing"
+        ]
+      },
+      {
+        "pair": "p02",
+        "pattern": "Double-extortion ransomware through an unpatched VPN appliance, RDP lateral movement, exfiltration before encryption",
+        "rank": 1,
+        "top1": "Ransomware via web exploitation — Education sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 5,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: ransomware",
+          "Same initial vector: web exploitation",
+          "Same vulnerability exploited: CVE-2023-4966"
+        ]
+      },
+      {
+        "pair": "p03",
+        "pattern": "Business email compromise: mailbox takeover, inbox rule, vendor impersonation, redirected payment",
+        "rank": 1,
+        "top1": "Business Email Compromise via phishing — Finance sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 2,
+        "retrieved_top5": 3,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "2 shared ATT&CK technique(s): T1114, T1566",
+          "Overlapping kill-chain phases: collection, initial-access",
+          "Same attack type: business email compromise",
+          "Same initial vector: phishing",
+          "Same sector: finance"
+        ]
+      },
+      {
+        "pair": "p04",
+        "pattern": "Credential stuffing against a customer portal leading to account takeover and stored-value fraud",
+        "rank": 3,
+        "top1": "Credential Attack — Government sector",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 2,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: credential attack",
+          "Same initial vector: credential attack"
+        ]
+      },
+      {
+        "pair": "p05",
+        "pattern": "Password spraying against cloud email without MFA, followed by mailbox data theft",
+        "rank": 2,
+        "top1": "Password spraying against remote access — government agency",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 4,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 2,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: credential attack",
+          "Same initial vector: credential attack"
+        ]
+      },
+      {
+        "pair": "p06",
+        "pattern": "MFA fatigue push-bombing to gain VPN access, then directory discovery and data theft",
+        "rank": 7,
+        "top1": "Uber — MFA fatigue and hardcoded credentials (2022)",
+        "top1_is_target": false,
+        "top1_same_attack_type": false,
+        "relevant_in_top5": 0,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 0,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same initial vector: credential attack"
+        ]
+      },
+      {
+        "pair": "p07",
+        "pattern": "SQL injection on a public web application, customer database dumped and offered for sale",
+        "rank": 1,
+        "top1": "Data Breach via web exploitation — Technology sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "1 shared ATT&CK technique(s): T1190",
+          "Same attack type: data breach",
+          "Same initial vector: web exploitation"
+        ]
+      },
+      {
+        "pair": "p08",
+        "pattern": "Web shell on an unpatched Exchange server, credential dumping with Mimikatz, persistence through scheduled tasks",
+        "rank": 1,
+        "top1": "Web Exploitation",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 1,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "3 shared ATT&CK technique(s): T1003, T1053, T1505.003",
+          "Overlapping kill-chain phases: credential-access, execution, persistence, privilege-escalation",
+          "Same attack type: web exploitation",
+          "Same initial vector: web exploitation",
+          "Same vulnerability exploited: CVE-2021-34473"
+        ]
+      },
+      {
+        "pair": "p09",
+        "pattern": "Supply-chain compromise through a trojanised vendor update that installed a backdoor beaconing over HTTPS",
+        "rank": 4,
+        "top1": "Kaseya VSA — REvil supply chain ransomware (2021)",
+        "top1_is_target": false,
+        "top1_same_attack_type": false,
+        "relevant_in_top5": 2,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 0,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: supply chain",
+          "Same initial vector: supply chain"
+        ]
+      },
+      {
+        "pair": "p10",
+        "pattern": "Typosquatted open-source package in the build pipeline stealing CI secrets and cloud keys",
+        "rank": 1,
+        "top1": "Supply Chain — Technology sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 2,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 2,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "1 shared ATT&CK technique(s): T1195.001",
+          "Same attack type: supply chain",
+          "Same initial vector: supply chain",
+          "Same sector: technology"
+        ]
+      },
+      {
+        "pair": "p11",
+        "pattern": "Managed service provider compromised; its remote management tool used to push ransomware to clients",
+        "rank": 2,
+        "top1": "Kaseya VSA — REvil supply chain ransomware (2021)",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 5,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 1,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "1 shared ATT&CK technique(s): T1486",
+          "Same attack type: ransomware",
+          "Same initial vector: supply chain"
+        ]
+      },
+      {
+        "pair": "p12",
+        "pattern": "Departing employee exfiltrates customer lists to personal cloud storage before leaving",
+        "rank": 3,
+        "top1": "Insider data theft before resignation — technology",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 3,
+        "retrieved_top5": 3,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: insider threat"
+        ]
+      },
+      {
+        "pair": "p13",
+        "pattern": "Former administrator whose access was never removed deletes virtual machines and backups",
+        "rank": 2,
+        "top1": "Insider Threat — Finance sector",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 3,
+        "retrieved_top5": 3,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 2,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: insider threat"
+        ]
+      },
+      {
+        "pair": "p14",
+        "pattern": "Volumetric UDP amplification DDoS against an online service, mitigated by scrubbing",
+        "rank": 1,
+        "top1": "Denial Of Service — Finance sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 2,
+        "retrieved_top5": 2,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: denial of service"
+        ]
+      },
+      {
+        "pair": "p15",
+        "pattern": "Exposed container API exploited to run a cryptominer",
+        "rank": 1,
+        "top1": "Malware Infection via web exploitation",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 3,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "1 shared ATT&CK technique(s): T1496",
+          "Same attack type: malware infection",
+          "Same initial vector: web exploitation"
+        ]
+      },
+      {
+        "pair": "p16",
+        "pattern": "Infostealer from cracked software steals browser session cookies, leading to SaaS account takeover",
+        "rank": 2,
+        "top1": "Malware Infection via web exploitation",
+        "top1_is_target": false,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 4,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: malware infection"
+        ]
+      },
+      {
+        "pair": "p17",
+        "pattern": "Destructive wiper deployed domain-wide through Group Policy scheduled tasks",
+        "rank": 1,
+        "top1": "Malware Infection — Energy sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "3 shared ATT&CK technique(s): T1053, T1485, T1561.002",
+          "Overlapping kill-chain phases: execution, impact, persistence, privilege-escalation",
+          "Same attack type: malware infection"
+        ]
+      },
+      {
+        "pair": "p18",
+        "pattern": "Publicly exposed cloud storage bucket containing database backups",
+        "rank": 1,
+        "top1": "Data Breach via web exploitation — Finance sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 4,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "1 shared ATT&CK technique(s): T1530",
+          "Same attack type: data breach",
+          "Same initial vector: web exploitation"
+        ]
+      },
+      {
+        "pair": "p19",
+        "pattern": "Help-desk vishing to reset MFA, then SSO access to cloud applications and data theft",
+        "rank": 1,
+        "top1": "Phishing",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 1,
+        "retrieved_top5": 2,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "Same attack type: phishing",
+          "Same initial vector: phishing"
+        ]
+      },
+      {
+        "pair": "p20",
+        "pattern": "Malicious macro attachment drops a loader, then Cobalt Strike and a banking trojan",
+        "rank": 1,
+        "top1": "Malware Infection via phishing — Finance sector",
+        "top1_is_target": true,
+        "top1_same_attack_type": true,
+        "relevant_in_top5": 3,
+        "retrieved_top5": 5,
+        "exposed_identifiers": [],
+        "marked_as_own": false,
+        "a_mitigations_recalled": 3,
+        "unattributed_recommendations": 0,
+        "match_reasons": [
+          "3 shared ATT&CK technique(s): T1059.001, T1071, T1204.002",
+          "Overlapping kill-chain phases: command-and-control, execution",
+          "Same attack type: malware infection",
+          "Same initial vector: phishing",
+          "Same sector: finance"
+        ]
+      }
+    ]
+  },
+  "own_incident_recognised": {
+    "value": 1.0,
+    "successes": 20,
+    "total": 20,
+    "ci95": [
+      0.8389,
+      1.0
+    ]
+  },
+  "privacy_utility": {
+    "with_privacy_layer": {
+      "precision_at_1": {
+        "value": 0.6,
+        "successes": 12,
+        "total": 20,
+        "ci95": [
+          0.3866,
+          0.7812
+        ]
+      },
+      "recall_at_5": {
+        "value": 0.95,
+        "successes": 19,
+        "total": 20,
+        "ci95": [
+          0.7639,
+          0.9911
+        ]
+      },
+      "mrr": 0.753,
+      "queries_exposing_A": 0,
+      "stored_records_exposing_A": 1
+    },
+    "without_privacy_layer": {
+      "precision_at_1": {
+        "value": 0.6,
+        "successes": 12,
+        "total": 20,
+        "ci95": [
+          0.3866,
+          0.7812
+        ]
+      },
+      "recall_at_5": {
+        "value": 0.95,
+        "successes": 19,
+        "total": 20,
+        "ci95": [
+          0.7639,
+          0.9911
+        ]
+      },
+      "mrr": 0.753,
+      "queries_exposing_A": 0,
+      "stored_records_exposing_A": 20,
+      "queries": 20,
+      "memory": {
+        "corpus_incidents": 24,
+        "contributed_by_A": 20,
+        "backend": "tfidf"
+      }
+    }
+  },
+  "no_distractors": {
+    "precision_at_1": {
+      "value": 0.7,
+      "successes": 14,
+      "total": 20,
+      "ci95": [
+        0.481,
+        0.8545
+      ]
+    },
+    "recall_at_5": {
+      "value": 1.0,
+      "successes": 20,
+      "total": 20,
+      "ci95": [
+        0.8389,
+        1.0
+      ]
+    },
+    "mrr": 0.8417,
+    "memory": {
+      "corpus_incidents": 0,
+      "contributed_by_A": 20,
+      "backend": "tfidf"
+    }
+  },
+  "caveats": [
+    "The 40 reports are synthetic, written for this experiment after the rules were frozen; labels were fixed before the first run and written by the project team, not by independent analysts.",
+    "Twenty queries is a small sample; read every rate with its 95% interval.",
+    "Retrieval scores depend on the memory backend (MiniLM with ChromaDB, or the offline TF-IDF fallback); the backend used is recorded with the results.",
+    "Removing identifiers is not full anonymity: details such as timing, sector and scale can still point to an organization."
+  ]
+}
