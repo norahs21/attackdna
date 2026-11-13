@@ -103,7 +103,7 @@ def test_the_app_starts_in_an_interpreter_that_has_imported_nothing():
 
 
 def test_every_mode_renders(corpus):
-    for mode in ["Analyze a report", "Add to memory", "Dashboard", "Ask the memory"]:
+    for mode in ["Analyze a report", "Dashboard", "Ask the memory"]:
         app = _run(mode)
         assert not app.exception, f"{mode} raised {app.exception}"
 
@@ -175,20 +175,24 @@ def test_analysing_stores_nothing(corpus):
     assert corpus.query(IncidentDB).count() == before
 
 
-def test_adding_needs_the_team_s_approval(corpus):
-    app = _run("Add to memory")
-
-    assert not app.exception
-    assert _button(app, "Add to shared memory").disabled
-
-
-def test_add_to_memory_stores_only_the_fingerprint(corpus):
+def test_analysing_with_the_switch_off_stores_nothing(corpus):
     from app.db.database import IncidentDB
 
-    app = _run("Add to memory")
-    app.text_area[0].set_value(REPORT).run()
-    app.checkbox[0].check().run()
-    _button(app, "Add to shared memory").click().run()
+    app = _analyze(_run())
+
+    assert not app.exception
+    assert not app.success
+    assert corpus.query(IncidentDB).filter(IncidentDB.provenance == "shared").count() == 0
+
+
+def test_with_the_switch_on_the_analysis_adds_only_the_fingerprint(corpus):
+    from app.db.database import IncidentDB
+
+    app = _run()
+    app.sidebar.toggle(key="add_to_memory").set_value(True).run()
+    app.text_area(key="analyze_text").set_value(REPORT).run()
+    app.text_area(key="team_actions").set_value("Isolated WKS-FIN-118 from the network").run()
+    _button(app, "Analyze and add to memory").click().run()
 
     assert not app.exception
     assert any("Added to shared memory" in str(s.value) for s in app.success)
@@ -197,22 +201,9 @@ def test_add_to_memory_stores_only_the_fingerprint(corpus):
     record = shared[0]
     assert record.raw_text is None
     assert "Falcon" not in (record.sanitized_text + record.title)
-
-
-def test_an_analysed_report_can_be_added_without_attaching_it_again(corpus):
-    from app.db.database import IncidentDB
-
-    app = _analyze(_run())
-    _button(app, "Add to memory").click().run()
-
-    assert not app.exception
-    assert app.sidebar.radio[0].value == "Add to memory"
+    assert [m.action for m in record.mitigations] and "WKS-FIN-118" not in record.mitigations[0].action
+    # Similar incidents were found before the report was added: it never recalls itself.
     assert "Ransomware via phishing" in _screen_text(app)
-    app.checkbox[0].check().run()
-    _button(app, "Add to shared memory").click().run()
-
-    assert any("Added to shared memory" in str(s.value) for s in app.success)
-    assert corpus.query(IncidentDB).filter(IncidentDB.provenance == "shared").count() == 1
 
 
 def test_the_report_download_is_offered(corpus):
@@ -249,7 +240,7 @@ def test_the_dashboard_has_no_incident_comparison(corpus):
 def test_the_interface_is_english_only(corpus):
     import re
 
-    for page in ["Analyze a report", "Add to memory", "Dashboard", "Ask the memory"]:
+    for page in ["Analyze a report", "Dashboard", "Ask the memory"]:
         app = _run(page)
         text = _screen_text(app) + " ".join(str(o) for s in app.selectbox for o in s.options)
         assert not re.search("[\u0600-\u06FF]", text), f"Arabic on {page}"

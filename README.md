@@ -20,15 +20,21 @@ matched and what worked, and never learns who was attacked.
 | Page | What the team does | What it sees |
 |---|---|---|
 | **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
-| **Add to memory** | Attaches a report, or carries over the one just analysed; optionally adds what it did; ticks the approval box | What is shared beside what never leaves, then a confirmation |
 | **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
 | **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
 
+**Add to memory** is a switch in the navigation rail, next to **Dark mode**. With
+it on, the team can list the response actions it took, and **Analyze and add to
+memory** analyses the report and then adds its fingerprint to shared memory.
+Turning it on is the team's approval; a report that fails the privacy check is
+never added.
+
 The interface is English only, with day and night modes (bottom of the
 navigation rail). Reports to try it with are in [`sample_reports/`](sample_reports):
-add an **A** report to memory, then analyse the matching **B** report.
+analyse an **A** report with **Add to memory** on, then turn it off and analyse
+the matching **B** report.
 
-Analysing stores nothing; only **Add to memory** does. The organisation this
+With the switch off, analysing stores nothing. The organisation this
 installation belongs to is set once in `backend/.env` (`ATTACKDNA_ORGANISATION`),
 as a login would set it in a deployed platform, and is kept only as a keyed
 pseudonym (`services/contributors.py`), used to tell a team "this match is your

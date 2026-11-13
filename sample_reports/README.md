@@ -6,12 +6,13 @@ organisation, person, address and host in them is fabricated.
 Files marked **A** and **B** are the same attack reported by two different
 organisations, in different words:
 
-1. Open **Add to memory**, attach the **A** report and add it.
-2. Open **Analyze a report**, attach the matching **B** report and analyze it.
+1. Turn on **Add to memory** in the sidebar, attach the **A** report and press
+   **Analyze and add to memory**.
+2. Turn **Add to memory** off, attach the matching **B** report and press **Analyze**.
 3. The top similar incident is A's, marked *shared by another organisation ·
    identity withheld*, with A's response recommended. Nothing names A.
 
-| A (add to memory) | B (analyze) | Attack |
+| A (analyse with Add to memory on) | B (analyse) | Attack |
 |---|---|---|
 | 01 hospital | 02 logistics | Ransomware through a phishing link |
 | 03 university (.docx) | 04 manufacturer (.pdf) | Ransomware through an unpatched VPN appliance |
