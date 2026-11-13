@@ -1,0 +1,8 @@
+Incident report: bank trojanised vendor update
+==============================================
+
+Bank of the Two Rivers installed a routine signed update for its branch queue-management
+software from vendor QueueSoft. The update had been tampered with before release in the
+vendor's build environment and carried a backdoor that beaconed to cdn-metrics-cloud.net
+over HTTPS every 30 minutes. Analyst Salman Al-Fahad found the beacon in proxy logs on
+host BR-QMS-17.

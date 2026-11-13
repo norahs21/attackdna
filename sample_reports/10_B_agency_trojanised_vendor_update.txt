@@ -1,0 +1,7 @@
+Incident report: agency trojanised vendor update
+================================================
+
+The General Authority for Statistics received a compromised update for its survey software
+through the supplier's auto-update. The vendor's build server had been breached, so the
+signed update included a backdoor that contacted an attacker server over HTTPS. Engineer
+Lulwa Al-Saud noticed periodic outbound connections from workstation GAS-SRV-09.

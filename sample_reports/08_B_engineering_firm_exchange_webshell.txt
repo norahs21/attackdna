@@ -1,0 +1,7 @@
+Incident report: engineering firm exchange webshell
+===================================================
+
+An unpatched on-premises Exchange server at Kinda Engineering Consultants was exploited
+through CVE-2021-34473. The intruder planted a web shell, dumped passwords from memory
+with Mimikatz and set up a scheduled task for persistence. The anomaly was spotted by
+sysadmin Waleed Fathi at 172.16.5.20.

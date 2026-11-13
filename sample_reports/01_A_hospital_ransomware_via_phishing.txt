@@ -1,0 +1,10 @@
+Incident report: hospital ransomware via phishing
+=================================================
+
+On 3 March the SOC at Al-Noor Specialist Hospital received an alert from WKS-RAD-044 in
+radiology. A nurse, Hessa Al-Mutairi (hessa.mutairi@alnoor-hospital.sa), had clicked a
+phishing link in an email from billing@med-invoices-portal.com and typed her credentials
+into a fake login page. The attacker signed in from 45.137.21.9, ran encoded PowerShell to
+disable the EDR agent, and moved laterally over SMB shares to FS-PACS-02. Volume shadow
+copies were deleted with vssadmin and files were encrypted on three file servers. A ransom
+note demanded payment in bitcoin. Contact: IT manager Khalid Al-Shehri, +966 50 381 2290.

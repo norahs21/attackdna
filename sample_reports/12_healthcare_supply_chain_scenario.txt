@@ -1,0 +1,15 @@
+Incident report: healthcare supply chain scenario
+=================================================
+
+Al-Noor Hospital Group reported on 3 March 2026 that ransomware had been deployed across
+its clinical estate.
+
+The intrusion originated with the group's managed service provider: attackers compromised
+the MSP's remote management tooling and pushed a malicious update to 210 clinical
+workstations. Obfuscated payloads executed through a signed binary proxy, and security
+tooling was disabled on affected hosts before files were encrypted.
+
+Patient scheduling and pharmacy dispensing systems were unavailable for 26 hours. The
+health regulator was notified within the statutory window. C2 beaconing was observed to
+91.219.236.10. Reported by Dr. Hanan Alqahtani, h.alqahtani@alnoor-health.sa, on host
+CLIN-WS-0087.
