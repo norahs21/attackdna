@@ -5,14 +5,16 @@ incident report about an attack on their own organisation. The interface is a
 working tool for that team, not a guided demo: no tour, no prepared scenarios,
 no explanations it does not need.
 
-Four pages:
+Three pages:
 
     Analyze a report   attach a report; see the identity removed first, then the
                        Attack DNA, similar incidents and the recommended response
-    Add to memory      contribute an incident's fingerprint to shared memory,
-                       with the team's approval (a report, or the one just analysed)
     Dashboard          what shared memory holds, in aggregate
     Ask the memory     a question answered only from what memory holds
+
+Two switches at the foot of the navigation rail: "Add to memory", which, when
+on, adds each analysed report's fingerprint to shared memory as part of the
+analysis (turning it on is the team's approval), and "Dark mode".
 
 The organisation this installation belongs to is configuration
 (ATTACKDNA_ORGANISATION in backend/.env), as it would come from a login in a
@@ -93,8 +95,7 @@ import theme  # noqa: E402
 API_URL = os.getenv("ATTACKDNA_API_URL", "").rstrip("/")
 ASSETS = Path(__file__).resolve().parent / "assets"
 
-PAGES = ["Analyze a report", "Add to memory", "Dashboard", "Ask the memory"]
-PHASES = ["detect", "contain", "eradicate", "recover", "harden"]
+PAGES = ["Analyze a report", "Dashboard", "Ask the memory"]
 
 st.set_page_config(page_title="ATTACKDNA", page_icon="■", layout="wide")
 state = st.session_state
@@ -104,11 +105,6 @@ state = st.session_state
 mode = "dark" if state.get("dark_mode", True) else "light"
 st.markdown(theme.style(mode), unsafe_allow_html=True)
 
-# Another page can send the team here (e.g. "add this incident to memory"):
-# the page is switched before the navigation widget is drawn, because a
-# widget's value cannot be changed after it exists in the same run.
-if "page_pending" in state:
-    state["page"] = state.pop("page_pending")
 
 
 # --------------------------------------------------------------------------
@@ -387,6 +383,14 @@ with st.sidebar:
             st.caption(f"API mode: `{API_URL}`")
 
     st.divider()
+    # Switched on before a report is analysed, it adds that report's fingerprint
+    # to shared memory as part of the same analysis. Turning it on is the
+    # security team's approval; a report that fails the privacy check is never
+    # added, whatever the switch says.
+    st.toggle("Add to memory", key="add_to_memory", value=False,
+              help="Shared: the attack's fingerprint, the sanitized summary and the response "
+                   "actions you list. Never shared: the original report, your organisation's "
+                   "name, the removed identifiers or the incident date.")
     st.toggle("Dark mode", key="dark_mode", value=True)
 
 
@@ -455,99 +459,18 @@ if page == "Ask the memory":
 
 
 # --------------------------------------------------------------------------
-# Add to memory
-# --------------------------------------------------------------------------
-if page == "Add to memory":
-    html(theme.page_head("Add to memory", "", [backend_tag()]))
-
-    receipt = state.pop("added_receipt", None)
-    if receipt:
-        if receipt.get("already_shared"):
-            st.info("This incident was already in memory, so it was not added again.")
-        else:
-            st.success(f"**Added to shared memory** as “{receipt.get('title', '')}”, with "
-                       f"{receipt.get('shared', {}).get('mitigations', 0)} response action(s). "
-                       "Other organisations recall its fingerprint; never your name or report.")
-
-    carried = state.get("carry")
-    if carried:
-        result = carried["result"]
-        html(verdict_card(result["dna"], result["similar_incidents"], result["mitigations"]))
-        privacy_banner(result["privacy"], carried["source"])
-        if st.button("Use a different report"):
-            state.pop("carry", None)
-            st.rerun()
-        text, source = carried.get("raw_for_api") or "", carried["source"]
-    else:
-        uploaded, pasted = report_input("add")
-
-    html('<div class="consent">'
-         '<div class="col share"><h4>Shared</h4><ul>'
-         '<li>Attack type, entry vector, sector and severity</li>'
-         '<li>ATT&amp;CK techniques, tactics, CVEs and impacts</li>'
-         '<li>The sanitized summary</li>'
-         '<li>The response actions below, sanitized</li></ul></div>'
-         '<div class="col keep"><h4>Never leaves your organisation</h4><ul>'
-         '<li>The original report and file</li>'
-         '<li>Your organisation\'s name</li>'
-         '<li>Names, emails, IP addresses, hosts and other identifiers</li>'
-         '<li>The incident date</li></ul></div></div>')
-
-    st.markdown("**What your team did** (optional)")
-    team_rows = []
-    for index in range(3):
-        action_col, phase_col, score_col = st.columns([5, 2, 2])
-        team_rows.append({
-            "action": action_col.text_input(f"Action {index + 1}", key=f"team_action_{index}",
-                                            placeholder="e.g. Isolated the affected hosts",
-                                            label_visibility="collapsed" if index else "visible"),
-            "category": phase_col.selectbox("Phase", PHASES, index=1, key=f"team_phase_{index}",
-                                            label_visibility="collapsed" if index else "visible"),
-            "effectiveness": score_col.number_input(
-                "Worked (%)", min_value=0, max_value=100, value=None, step=5,
-                key=f"team_score_{index}",
-                label_visibility="collapsed" if index else "visible"),
-        })
-
-    approved = st.checkbox("Approved by our security team for sharing with member organisations")
-    add = st.button("Add to shared memory", type="primary", width="stretch", disabled=not approved)
-    if not add:
-        st.stop()
-
-    if carried:
-        result = carried["result"]
-    else:
-        text, source, problem = read_input(uploaded, pasted)
-        if problem:
-            st.error(problem)
-            st.stop()
-        with st.spinner("Removing identifying information, then extracting the Attack DNA…"):
-            result = run_analysis(text, top_k, use_llm, simulation=False)
-        if not result["privacy"]["verified_clean"]:
-            privacy_banner(result["privacy"], source)
-            st.stop()
-
-    team_actions = [
-        {"action": row["action"].strip(), "category": row["category"],
-         "effectiveness": row["effectiveness"] / 100 if row["effectiveness"] is not None else None}
-        for row in team_rows if len((row["action"] or "").strip()) >= 3
-    ]
-    try:
-        receipt = run_contribution(result, text if API_URL else "", team_actions, use_llm)
-    except PrivacyGateError as exc:
-        st.error(str(exc))
-        st.stop()
-    state["added_receipt"] = receipt
-    state.pop("carry", None)
-    st.rerun()
-
-
-# --------------------------------------------------------------------------
 # Analyze a report
 # --------------------------------------------------------------------------
-html(theme.page_head("Analyze an incident report", "", [backend_tag()]))
+adding = bool(state.get("add_to_memory"))
+tags = [backend_tag()] + ([theme.status_tag("Add to memory: on")] if adding else [])
+html(theme.page_head("Analyze an incident report", "", tags))
 uploaded, pasted = report_input("analyze")
-run = st.button("Analyze", type="primary", width="stretch")
+if adding:
+    team_text = st.text_area(
+        "Response actions to share (optional, one per line)", key="team_actions", height=90,
+        placeholder="Isolated the affected hosts\nReset the compromised accounts")
+run = st.button("Analyze and add to memory" if adding else "Analyze",
+                type="primary", width="stretch")
 
 if run:
     text, source, problem = read_input(uploaded, pasted)
@@ -560,8 +483,22 @@ if run:
         except Exception as exc:  # noqa: BLE001
             st.error(f"Analysis failed: {exc}")
             st.stop()
-    state["analysis"] = {"result": result, "source": source,
-                         "raw_for_api": text if API_URL else None}
+    receipt, refused = None, None
+    # Similar incidents were found before the report is added, so it never
+    # recalls itself.
+    if adding and result["privacy"]["verified_clean"]:
+        actions = [{"action": line.strip(), "category": "contain"}
+                   for line in (team_text or "").splitlines() if len(line.strip()) >= 3]
+        try:
+            receipt = run_contribution(result, text if API_URL else "", actions, use_llm)
+        except PrivacyGateError as exc:
+            refused = str(exc)
+    elif adding:
+        refused = "Not added to memory: the privacy check did not pass."
+    state["analysis"] = {"result": result, "source": source, "receipt": receipt,
+                         "refused": refused}
+    if receipt:
+        st.rerun()   # so the memory figures in the rail include the new incident
 
 analysis = state.get("analysis")
 if not analysis:
@@ -582,16 +519,22 @@ if result["meta"].get("llm_blocked_by_privacy_gate"):
 
 html(verdict_card(dna, similar, mitigations))
 
-actions_left, actions_mid, actions_right = st.columns([1, 1, 2])
+receipt = analysis.get("receipt")
+if receipt:
+    if receipt.get("already_shared"):
+        st.info("Already in shared memory; not added again.")
+    else:
+        st.success(f"**Added to shared memory** as “{receipt.get('title', '')}”"
+                   + (f", with {receipt['shared']['mitigations']} response action(s)."
+                      if receipt.get("shared", {}).get("mitigations") else "."))
+elif analysis.get("refused"):
+    st.error(analysis["refused"])
+
+actions_left, _spacer = st.columns([1, 3])
 with actions_left:
     st.download_button("Download report", data=report_builder.build(result),
                        file_name=report_builder.filename(dna), mime="text/markdown",
                        width="stretch")
-with actions_mid:
-    if st.button("Add to memory", width="stretch", disabled=not privacy["verified_clean"]):
-        state["carry"] = analysis
-        state["page_pending"] = "Add to memory"
-        st.rerun()
 
 tab_dna, tab_memory, tab_response, tab_exercise = st.tabs(
     ["Attack DNA", f"Similar incidents ({len(similar)})", "Recommended response",
