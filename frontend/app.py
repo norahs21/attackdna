@@ -167,7 +167,6 @@ def corpus_incidents() -> list:
             "created": incident.created_at.isoformat() if incident.created_at else "",
             "attack_type": incident.attack_type or "unknown",
             "initial_vector": incident.initial_vector or "unknown",
-            "sector": incident.sector or "unknown",
             "severity": incident.severity or "unknown",
             "technique_ids": incident.technique_ids(),
             "tactics": incident.get_json("tactics", []),
@@ -329,7 +328,7 @@ def verdict_card(dna: dict, similar: list, mitigations: dict) -> str:
         f'<span><span class="k">{key}</span><span class="v">{value}</span></span></div>'
         for colour, key, value in rows)
     return (f'<div class="verdict"><div class="headline">{attack} via {vector}</div>'
-            f'<div class="sub">{dna["sector"].title()} sector · {len(dna["techniques"])} ATT&CK '
+            f'<div class="sub">{len(dna["techniques"])} ATT&CK '
             f'techniques · severity {dna["severity"]}</div>{row_html}</div>')
 
 
@@ -419,7 +418,7 @@ if page == "Ask the memory":
     default_question = "" if picked.startswith("—") else picked
     question = st.text_input(
         "Your question", value=default_question,
-        placeholder="e.g. What worked against ransomware in the finance sector?",
+        placeholder="e.g. What worked against ransomware that disabled EDR?",
         key=f"q_{picked}",
     )
     asked = st.button("Ask", type="primary", width="stretch")
@@ -448,7 +447,7 @@ if page == "Ask the memory":
             with st.expander(f"{source['similarity']:.0%} — {source['title']} · {cited}"):
                 html(theme.provenance_pill(source.get("provenance")))
                 st.markdown(
-                    f"**Type:** {source['attack_type']} · **Sector:** {source['sector']} · "
+                    f"**Type:** {source['attack_type']} · "
                     f"**Severity:** {source['severity']} · "
                     f"**Date:** {source['occurred_at'] or 'undated'}"
                 )
@@ -545,7 +544,6 @@ with tab_dna:
         ("Attack type", theme.esc(dna["attack_type"].replace("_", " ").title())),
         ("Initial vector", theme.esc((dna.get("initial_vector") or "unknown")
                                      .replace("_", " ").title())),
-        ("Sector", theme.esc(dna["sector"].title())),
         ("ATT&CK techniques", str(len(dna["techniques"]))),
         ("Severity", theme.severity_pill(dna["severity"])),
     ]))

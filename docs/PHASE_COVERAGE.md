@@ -56,7 +56,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 | Extract MITRE Techniques | ✅ | **87% precision / 86% recall** |
 | Extract IoCs | ✅ | `services/ioc_extractor.py` — shareable vs. victim-linked |
 | Extract CVEs | ✅ | `services/kev_enricher.py` |
-| Extract Target Sector | ✅ | 10 sectors · held-out **44%** (11/25), development 92% — the weak metric |
+| Extract Target Sector | Removed by design | Once names are removed the victim's industry is a clue to its identity, so it is not inferred or shared |
 | Extract Impact | ✅ | 6 impact classes · 81% recall |
 | Validate Attack DNA Output | ✅ | `validate_dna()` runs on every extraction |
 | Test Attack DNA Extraction | ✅ | `tests/test_dna_and_mapping.py` |
@@ -119,7 +119,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 | Add Incident Upload | ✅ | file upload + paste |
 | Add Demo Incident | ✅ | 4 prepared scenarios |
 | Display Privacy Sanitization | ✅ | redactions highlighted + audit table |
-| Display Attack DNA | ✅ | signature, type, vector, sector, severity |
+| Display Attack DNA | ✅ | signature, type, vector, severity |
 | Display MITRE Mapping | ✅ | with evidence and confidence per technique |
 | Display Threat Intelligence | ✅ | KEV, IoC profile, group/software resemblance |
 | Display Similar Incidents | ✅ | with match reasons and sub-scores |
@@ -148,7 +148,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 |---|---|---|
 | Functional Testing | ✅ | 93 tests |
 | AI Output Testing | ✅ | `tests/test_dna_and_mapping.py` |
-| Attack DNA Accuracy Testing | ✅ | `make eval` — held-out type 86%; development type/vector/sector 86/92/92% |
+| Attack DNA Accuracy Testing | ✅ | `make eval` — held-out type 86%; development type/vector 86/92% |
 | MITRE Mapping Testing | ✅ | F1 = 84% on labelled cases |
 | Similarity Search Testing | ✅ | precision@1 = 8/8 (development set A) |
 | Mitigation Relevance Testing | ✅ | citation and ranking assertions |

@@ -504,7 +504,7 @@ def main() -> None:
             "Twenty queries is a small sample; read every rate with its 95% interval.",
             "Retrieval scores depend on the memory backend (MiniLM with ChromaDB, or the "
             "offline TF-IDF fallback); the backend used is recorded with the results.",
-            "Removing identifiers is not full anonymity: details such as timing, sector and "
+            "Removing identifiers is not full anonymity: details such as timing and "
             "scale can still point to an organization.",
         ],
     }

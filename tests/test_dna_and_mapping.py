@@ -100,7 +100,7 @@ def test_an_entry_vector_that_is_genuinely_unknown_stays_unknown():
 
 def test_dna_contains_every_expected_field():
     dna = extract_dna(RANSOMWARE_REPORT, use_llm=False)
-    for field in ("attack_type", "initial_vector", "sector", "severity", "signature",
+    for field in ("attack_type", "initial_vector", "severity", "signature",
                   "techniques", "tactics", "cves", "cve_details", "kev", "impacts",
                   "summary", "embedding_text", "extraction_mode"):
         assert field in dna, f"missing {field}"
@@ -177,23 +177,20 @@ def test_extractors_tolerate_empty_input(text):
 
 
 # --------------------------------------------------------------------------
-# Sector and entry vector on real reports
+# No sector, and the entry vector on real reports
 # --------------------------------------------------------------------------
-def test_a_library_is_the_culture_sector_not_finance():
+def test_the_dna_does_not_guess_the_victims_sector():
+    """Once names are removed, the victim's industry is not inferred or shared."""
     from app.services.dna_extractor import extract_dna
 
     text = ("Ransomware encrypted the library services and the reading rooms closed. "
-            "The investment in new systems and the ransom payment demand were reviewed, "
-            "and the library's exhibitions moved online.")
-    assert extract_dna(text, {}, use_llm=False)["sector"] == "culture"
-
-
-def test_a_finance_department_alone_does_not_make_a_bank():
-    from app.services.dna_extractor import extract_dna
-
-    text = ("A spearphishing link reached a finance officer, whose mailbox was accessed "
-            "and used to approve a wire transfer.")
-    assert extract_dna(text, {}, use_llm=False)["sector"] != "finance"
+            "Patient records at the hospital and the bank's payment systems were spared.")
+    dna = extract_dna(text, {}, use_llm=False)
+    assert "sector" not in dna
+    for word in ("library", "hospital", "bank", "healthcare", "finance", "culture"):
+        assert word not in dna["signature"].lower()
+        assert word not in dna["embedding_text"].lower()
+        assert word not in dna["summary"].lower()
 
 
 def test_entry_through_stolen_credentials_without_mfa_is_a_credential_attack():

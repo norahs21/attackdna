@@ -208,8 +208,7 @@ def _headline(dna: dict) -> dict:
     technique_id = entry_technique["id"] if entry_technique else "—"
     detection = DETECTION_CATALOG.get(technique_id, DEFAULT_DETECTION)
 
-    sector = dna.get("sector", "unknown")
-    target = "the affected business unit" if sector == "unknown" else f"{sector.title()} function"
+    target = "the affected business unit"
 
     controls = _headline_controls(dna)
     return {

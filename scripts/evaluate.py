@@ -110,11 +110,11 @@ def run_case(session, case: dict, use_llm: bool) -> dict:
     row = {"id": case["id"], "latency": elapsed,
            "predicted": {"attack_type": dna["attack_type"],
                          "initial_vector": dna.get("initial_vector"),
-                         "sector": dna["sector"], "severity": dna["severity"]},
+                         "severity": dna["severity"]},
            "self_check_clean": result["privacy"]["verified_clean"],
            "dna_valid": dna.get("validation", {}).get("valid", False)}
 
-    for field in ("attack_type", "initial_vector", "sector"):
+    for field in ("attack_type", "initial_vector"):
         accepted = as_list(expected.get(field))
         row[field] = None if accepted is None else dna.get(field) in accepted
     if expected.get("severity"):
@@ -166,7 +166,7 @@ def summarise(rows: List[dict]) -> dict:
         return sum(scored), len(scored)
 
     summary = {"cases": len(rows)}
-    for field in ("attack_type", "initial_vector", "sector", "severity",
+    for field in ("attack_type", "initial_vector", "severity",
                   "retrieval_top1", "retrieval_top3"):
         summary[field] = tally(field)
     summary["techniques"] = prf(rows, "techniques")
@@ -185,7 +185,7 @@ def report(label: str, summary: dict, rows: List[dict], detail: bool) -> None:
     print(f"\n{label} — {summary['cases']} cases")
     print("-" * 72)
     for name, field in [("Attack type", "attack_type"), ("Initial vector", "initial_vector"),
-                        ("Sector", "sector"), ("Severity band", "severity")]:
+                        ("Severity band", "severity")]:
         hits, total = summary[field]
         if total:
             print(f"  {name:<24} {rate(hits, total)}")
@@ -212,7 +212,7 @@ def report(label: str, summary: dict, rows: List[dict], detail: bool) -> None:
         return
     for row in rows:
         problems = []
-        for field in ("attack_type", "initial_vector", "sector"):
+        for field in ("attack_type", "initial_vector"):
             if row.get(field) is False:
                 problems.append(f"{field}={row['predicted'][field]}")
         if row.get("techniques", {}).get("extra"):

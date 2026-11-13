@@ -11,7 +11,7 @@ Two corpora are loaded, and the difference matters:
     each carrying its source URL. These answer the obvious question about a
     memory system: where does the memory come from? They are real incidents
     with real, documented responses.
-  * **synthetic** — invented incidents covering sectors and attack types the
+  * **synthetic** — invented incidents covering attack types and entry vectors the
     public set does not, so retrieval has breadth. Every organisation, person
     and identifier in them is fabricated.
 
@@ -113,7 +113,7 @@ def main() -> None:
             print(
                 f"  [{tag}] [{dna['severity']:>8}] {entry['title']}\n"
                 f"             type={dna['attack_type']} vector={dna['initial_vector']} "
-                f"sector={dna['sector']} techniques={len(dna['techniques'])} "
+                f"techniques={len(dna['techniques'])} "
                 f"redactions={result['privacy']['total_redactions']} "
                 f"clean={result['privacy']['verified_clean']}"
             )

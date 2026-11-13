@@ -52,7 +52,6 @@ def overview(session: Session) -> dict:
 
     attack_types: Counter = Counter()
     initial_vectors: Counter = Counter()
-    sectors: Counter = Counter()
     severities: Counter = Counter()
     provenance: Counter = Counter()
     years: Counter = Counter()
@@ -70,7 +69,6 @@ def overview(session: Session) -> dict:
     for incident in incidents:
         attack_types[_pretty(incident.attack_type)] += 1
         initial_vectors[_pretty(incident.initial_vector)] += 1
-        sectors[_pretty(incident.sector)] += 1
         if incident.severity:
             severities[incident.severity] += 1
         provenance[incident.provenance or "internal"] += 1
@@ -115,7 +113,6 @@ def overview(session: Session) -> dict:
         "by_provenance": _ranked(provenance),
         "by_attack_type": _ranked(attack_types),
         "by_initial_vector": _ranked(initial_vectors),
-        "by_sector": _ranked(sectors),
         "by_severity": _in_order(severities, SEVERITY_ORDER),
         "by_year": sorted(
             ({"label": year, "count": count} for year, count in years.items()),

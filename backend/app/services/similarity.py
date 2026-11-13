@@ -9,7 +9,7 @@ So retrieval happens in two stages:
     1. **Recall** — vector memory returns semantically nearby Attack DNA.
     2. **Re-rank** — each candidate is re-scored on *structural* overlap:
        shared ATT&CK techniques, shared tactics, same attack type, same
-       initial vector, same sector, shared CVEs.
+       initial vector, shared CVEs.
 
 The final score is a blend of the two, and every match carries the human-
 readable reasons that produced it. An analyst can disagree with a match on the
@@ -33,12 +33,11 @@ STRUCTURAL_WEIGHT = 0.55
 
 # Contribution of each structural signal to the structural sub-score.
 STRUCTURE_WEIGHTS = {
-    "techniques": 0.40,
+    "techniques": 0.45,
     "tactics": 0.20,
     "attack_type": 0.18,
     "initial_vector": 0.10,
     "cves": 0.07,
-    "sector": 0.05,
 }
 
 
@@ -84,11 +83,6 @@ def _structural_score(current: dict, candidate: dict) -> tuple:
         score += STRUCTURE_WEIGHTS["cves"]
         reasons.append(f"Same vulnerability exploited: {', '.join(shared_cves[:3])}")
 
-    if (current.get("sector") not in (None, "unknown")
-            and current.get("sector") == candidate.get("sector")):
-        score += STRUCTURE_WEIGHTS["sector"]
-        reasons.append(f"Same sector: {current['sector']}")
-
     return min(1.0, score), reasons, shared_techniques, shared_tactics
 
 
@@ -96,7 +90,6 @@ def _candidate_from_incident(incident: IncidentDB) -> dict:
     return {
         "attack_type": incident.attack_type,
         "initial_vector": incident.initial_vector,
-        "sector": incident.sector,
         "tactics": incident.get_json("tactics", []),
         "technique_ids": incident.technique_ids(),
         "cves": incident.get_json("cves", []),
@@ -163,7 +156,6 @@ def find_similar_incidents(
             "shared_tactics": shared_tactics,
             "attack_type": incident.attack_type,
             "initial_vector": incident.initial_vector,
-            "sector": incident.sector,
             "severity": incident.severity,
             "signature": incident.signature,
             "summary": incident.summary,

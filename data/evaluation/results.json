@@ -10,10 +10,6 @@
     "attack_type": {
       "correct": 24,
       "total": 28
-    },
-    "sector": {
-      "correct": 11,
-      "total": 25
     }
   },
   "techniques": {
@@ -26,12 +22,12 @@
   },
   "cross_org": {
     "precision_at_1": {
-      "value": 0.65,
-      "successes": 13,
+      "value": 0.55,
+      "successes": 11,
       "total": 20,
       "ci95": [
-        0.4329,
-        0.8188
+        0.3421,
+        0.7418
       ]
     },
     "recall_at_5": {

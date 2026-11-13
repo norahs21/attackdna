@@ -28,7 +28,6 @@ def search_memory(request: SearchRequest, session: Session = Depends(get_session
         "query_dna": {
             "attack_type": dna["attack_type"],
             "initial_vector": dna.get("initial_vector"),
-            "sector": dna["sector"],
             "severity": dna["severity"],
             "signature": dna["signature"],
             "techniques": dna["techniques"],
@@ -73,7 +72,6 @@ def simulate(request: SimulateRequest, session: Session = Depends(get_session)):
         dna = {
             "attack_type": incident.attack_type,
             "initial_vector": incident.initial_vector,
-            "sector": incident.sector,
             "severity": incident.severity,
             "signature": incident.signature,
             "summary": incident.summary,

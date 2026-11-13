@@ -20,7 +20,7 @@ matched and what worked, and never learns who was attacked.
 | Page | What the team does | What it sees |
 |---|---|---|
 | **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
-| **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
+| **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
 | **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
 
 **Add to memory** is a switch in the navigation rail, next to **Dark mode**. With
@@ -56,9 +56,8 @@ data the system was not tuned on; offline, no LLM.
 | Attack type correct | **85.7%** | 24 of 28 real incident summaries (Wikipedia, verbatim) |
 | ATT&CK techniques found | **81.6%** | 3,218 of 3,945 MITRE sentences about attackers never seen in training |
 | …of suggestions, correct | 60.1% | a lower bound: each sentence has a single label |
-| Sector correct | 44.0% | 11 of 25: names are removed, so the sector must be inferred from what the text says |
 | **Across organisations** | | |
-| B finds A's incident first | **65%** | 13 of 20 attacks reported by two organisations in different words |
+| B finds A's incident first | **55%** | 11 of 20 attacks reported by two organisations in different words; second in 7 of the other 9 |
 | …in its top five | **95%** | 19 of 20 |
 | A's response reused by B | 90% | recommended with its source named |
 | Screens that named A | **0 of 20** | B never learns who A is |
@@ -72,8 +71,14 @@ company names, a storage-bucket name) are reported, not fixed after the fact.
 The system has also been run end to end on a real published incident review,
 the British Library's 2024 report on its ransomware attack (18-page PDF): the
 library, its sites and its staff are removed, the attacker (Rhysida) is kept,
-and it is read as ransomware entering through compromised credentials, in the
-culture sector, with 15 ATT&CK techniques.
+and it is read as ransomware entering through compromised credentials, with
+14 ATT&CK techniques.
+
+**No sector.** Attack DNA does not record which industry the victim is in.
+Once names are removed, the sector is itself a clue to who the victim was, so
+it is neither inferred nor shared, and matching uses behaviour alone. The
+measured cost: B finds A's incident first in 55% of attacks instead of 65%;
+the top-five figure (95%) and response reuse (90%) are unchanged.
 
 ## The pipeline
 
@@ -213,8 +218,8 @@ moved from fin-ws-042 to dc01         →  moved from [HOSTNAME_REDACTED_1] to [
 CVE-2024-21412, Mimikatz, PowerShell  →  unchanged — this is the attack's DNA
 ```
 
-What it does not claim: that free text is anonymous. A date, a size and a rare
-sector can still narrow down a victim. The guarantee the system rests on is
+What it does not claim: that free text is anonymous. A date or a size can
+still narrow down a victim; for that reason the industry is not recorded at all. The guarantee the system rests on is
 structural and lives one stage later — see *Privacy by construction* below.
 
 ### ② Attack DNA — `backend/app/services/dna_extractor.py`
@@ -298,7 +303,8 @@ analyst has no way to check the machine's work. So retrieval is two-stage:
 
 1. **Recall** — vector memory returns semantically nearby DNA.
 2. **Re-rank** — candidates are re-scored on *structural* overlap: shared ATT&CK
-   techniques, shared tactics, attack type, initial vector, shared CVEs, sector.
+   techniques, shared tactics, attack type, initial vector, shared CVEs. Never
+   sector: the victim's industry is not recorded.
 
 Every match carries the reasons that produced it:
 
@@ -441,7 +447,7 @@ scripts/
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
   seed/public_incidents.json   10 real publicly-documented breaches, cited
-  seed/incidents.json          14 synthetic incidents for sector breadth
+  seed/incidents.json          14 synthetic incidents for breadth
   seed/evaluation_set.json     development set A (8 cases)
   seed/evaluation_dev.json     development set B (28 cases)
   seed/evaluation_heldout.json held-out test: 32 real incident summaries
@@ -504,8 +510,8 @@ stage?"*:
     Target, SolarWinds, Kaseya, Uber), compiled from public reporting with the
     source URL on every entry. These answer the first question anyone asks of a
     memory system: where does the memory come from?
-  - `data/seed/incidents.json` — **14 synthetic incidents** covering sectors the
-    public set does not. Every organisation, person and identifier is invented.
+  - `data/seed/incidents.json` — **14 synthetic incidents** covering attack patterns
+    the public set does not. Every organisation, person and identifier is invented.
 - Reports of both kinds are stored un-sanitized on purpose: seeding runs them
   through the real Privacy Layer, so the seeded corpus is proof the pipeline works
   rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the

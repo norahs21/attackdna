@@ -65,7 +65,8 @@ class IncidentDB(Base):
     # --- Attack DNA ---
     attack_type = Column(String, index=True, nullable=True)
     initial_vector = Column(String, index=True, nullable=True)
-    sector = Column(String, index=True, nullable=True)
+    # No sector column: once names are removed, the victim's industry is not
+    # inferred or shared (an older database's sector column is simply unused).
     severity = Column(String, index=True, nullable=True)
     signature = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
@@ -121,7 +122,6 @@ class IncidentDB(Base):
             "sanitized_text": self.sanitized_text,
             "attack_type": self.attack_type,
             "initial_vector": self.initial_vector,
-            "sector": self.sector,
             "severity": self.severity,
             "signature": self.signature,
             "summary": self.summary,

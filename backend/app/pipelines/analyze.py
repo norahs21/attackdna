@@ -252,7 +252,6 @@ def _persist(
         sanitized_text=result["privacy"]["sanitized_text"],
         attack_type=dna["attack_type"],
         initial_vector=dna.get("initial_vector"),
-        sector=dna["sector"],
         severity=dna["severity"],
         signature=dna["signature"],
         summary=dna["summary"],
@@ -292,7 +291,6 @@ def _persist(
         {
             "attack_type": incident.attack_type,
             "initial_vector": incident.initial_vector or "unknown",
-            "sector": incident.sector,
             "severity": incident.severity,
             "techniques": [t["id"] for t in dna["techniques"]],
             "signature": incident.signature,
@@ -306,16 +304,12 @@ def _shared_title(dna: dict) -> str:
     vector = (dna.get("initial_vector") or "unknown")
     via = (f" via {vector.replace('_', ' ')}"
            if vector not in ("unknown", dna["attack_type"]) else "")
-    sector = dna["sector"]
-    where = f" — {sector.title()} sector" if sector != "unknown" else ""
-    return f"{attack}{via}{where}"
+    return f"{attack}{via}"
 
 
 def _derive_title(dna: dict) -> str:
     attack = dna["attack_type"].replace("_", " ").title()
-    sector = dna["sector"]
-    where = f" — {sector.title()}" if sector != "unknown" else ""
-    return f"{attack}{where} ({datetime.utcnow():%Y-%m-%d})"
+    return f"{attack} ({datetime.utcnow():%Y-%m-%d})"
 
 
 def reindex_memory(session: Session) -> dict:
@@ -335,7 +329,6 @@ def reindex_memory(session: Session) -> dict:
             {
                 "attack_type": incident.attack_type,
                 "initial_vector": incident.initial_vector or "unknown",
-                "sector": incident.sector,
                 "severity": incident.severity,
                 "techniques": incident.technique_ids(),
                 "signature": incident.signature,

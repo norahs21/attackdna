@@ -87,7 +87,6 @@ def create_incident(request: IngestRequest, session: Session = Depends(get_sessi
 def list_incidents(
     session: Session = Depends(get_session),
     attack_type: Optional[str] = None,
-    sector: Optional[str] = None,
     severity: Optional[str] = None,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -95,8 +94,6 @@ def list_incidents(
     query = session.query(IncidentDB)
     if attack_type:
         query = query.filter(IncidentDB.attack_type == attack_type)
-    if sector:
-        query = query.filter(IncidentDB.sector == sector)
     if severity:
         query = query.filter(IncidentDB.severity == severity)
 

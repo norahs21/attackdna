@@ -155,7 +155,7 @@ def test_a_name_the_layer_misses_still_cannot_reach_the_attack_dna():
     dna = extract_dna(raw, use_llm=False)
 
     record = json.dumps({key: dna[key] for key in (
-        "attack_type", "initial_vector", "sector", "severity", "signature", "summary",
+        "attack_type", "initial_vector", "severity", "signature", "summary",
         "embedding_text", "techniques", "tactics", "impacts", "cves")})
     for identifier in ("Zubair", "Qureshi", "Marwah", "mwp-eng-0042", "Yanbu"):
         assert identifier not in record, f"{identifier} reached the Attack DNA"

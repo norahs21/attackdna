@@ -62,9 +62,9 @@ def privacy() -> dict:
 
 
 def classification() -> dict:
-    """Attack type and sector on real incident summaries, labels fixed in advance."""
+    """Attack type on real incident summaries, labels fixed in advance."""
     held = load("evaluation_heldout.json") or {"cases": []}
-    scores = {"attack_type": [0, 0], "sector": [0, 0]}
+    scores = {"attack_type": [0, 0]}
     for case in held["cases"]:
         clean = sanitize(case["text"])
         dna = extract_dna(clean.sanitized_text, clean.counts, use_llm=False)
@@ -103,9 +103,6 @@ def main() -> None:
         ("ATTACK DNA", None, None),
         ("Attack type correct", pct(c["attack_type"]["correct"], c["attack_type"]["total"]),
          f"{c['attack_type']['correct']} of {c['attack_type']['total']} real incident summaries"),
-        ("Sector correct", pct(c["sector"]["correct"], c["sector"]["total"]),
-         f"{c['sector']['correct']} of {c['sector']['total']}: names are removed, so the sector "
-         "must be inferred"),
     ]
     if mapper:
         f = mapper["final"]
