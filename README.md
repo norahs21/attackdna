@@ -1,15 +1,63 @@
 # 🧬 ATTACKDNA
 
-**An AI-powered cyber memory that turns past incidents into reusable attack intelligence.**
+**One organisation's cyber incident becomes another organisation's defensive
+knowledge, without sharing the victim's identity or its report.**
 
 Every organisation solves the same attack twice. The first time it is an incident;
 the second time it should be a lookup. It usually isn't, because the useful part of
 an incident report is buried inside data nobody is allowed to share.
 
 ATTACKDNA separates the two. It strips the victim's identity out of an incident
-report and keeps the attack's *behaviour* — its **Attack DNA** — as a searchable,
-shareable record. The next incident that looks like it gets answered with what
-actually worked last time.
+report and keeps the attack's *behaviour*, its **Attack DNA**, as a searchable
+record. With the security team's approval, that fingerprint joins a **shared
+memory**: the next organisation hit by the same pattern recalls it, sees why it
+matched and what worked, and never learns who was attacked.
+
+---
+
+## How a security team uses it
+
+| Step | What the team does | What it sees |
+|---|---|---|
+| 1. Attach report | Attaches the report as written: PDF, Word or text | Nothing to choose, nothing to configure |
+| 2. Remove identity | — | **"Sensitive information removed successfully"**, with counts per category, the sanitized text and the masked audit |
+| 3. Attack DNA & matches | — | The verdict, the ATT&CK mapping with evidence, similar incidents from shared memory (other organisations' incidents marked *identity withheld*) and the recommended response, each action citing its source |
+| 4. Share (optional) | Ticks the approval box and, optionally, adds what it did | Exactly what would be shared and what never leaves, side by side; then **Contribute** or **Keep private** |
+
+Nothing is stored until step 4. The organisation's name is kept only as a keyed
+pseudonym (`services/contributors.py`), used to tell a team "this match is your
+own incident" and never returned by the API. Shared records carry the month they
+were shared, not the incident date. If the privacy check fails, the text is not
+sent to any LLM and cannot be shared.
+
+### The cross-organisation experiment
+
+`make eval-crossorg` runs the experiment behind the claim
+(`scripts/evaluate_crossorg.py`, data in `data/seed/crossorg_pairs.json`).
+Organisation A contributes 20 incidents; organisation B reports the same 20
+attack patterns in its own words. A's incidents sit among the 24-incident
+corpus, which acts as distractors. Offline mode, TF-IDF memory backend:
+
+| Measurement | Result |
+|---|---|
+| Identifiers removed: 171 marked by hand in 40 reports | **167 / 171 = 98%** (95% CI 94–99%) |
+| Attack terms lost to over-redaction | 2 / 165 = 1% |
+| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **72 / 72 = 100%** |
+| B recalls A's incident first: Precision@1 | **12 / 20 = 60%** (95% CI 39–78%) |
+| …in its top five: Recall@5 · MRR | **19 / 20 = 95%** · 0.75 |
+| B's top match has the same attack type | 18 / 20 = 90% |
+| A's recorded response recommended to B, with its source | 18 / 20 = 90% |
+| B's screens that showed anything naming A | **0 / 20** |
+| Shared records still naming A | 1 / 20 (two identifiers in one report) |
+| Same experiment without the privacy layer: Precision@1 · records naming A | 60% · **20 / 20** |
+
+Removing the victim's identity cost no retrieval quality on this set, and without
+the privacy layer every shared record named its victim. The four identifiers that
+survived (a phone number written with spaces, two single-word company names, a
+storage-bucket name) are reported as found rather than fixed after the fact. The
+40 reports are synthetic and were labelled by the project team, so independent
+annotation and real SOC reports are the next step. The Evidence page in the demo
+shows every number with its interval and every query.
 
 ---
 
@@ -64,6 +112,7 @@ make data      # download & process MITRE ATT&CK, CISA KEV and the CTI layers
 make seed      # load the historical incident corpus into memory
 make demo      # http://localhost:8501
 make eval      # measure accuracy against the labelled evaluation set
+make eval-crossorg  # the cross-organisation sharing experiment
 ```
 
 ### Measured results
@@ -110,6 +159,7 @@ What these say, plainly:
 ```bash
 make eval           # development + held-out + privacy audit
 make eval-mapper    # technique mapping on MITRE-labelled sentences
+make eval-crossorg  # organisation A shares, organisation B recalls
 ```
 
 No API key is required. Without one the system runs in **rule-based mode**: every
@@ -356,14 +406,22 @@ The privacy promise is enforced by the schema, not by convention:
   fields — never from the report.
 - The token→original map stays in memory for the audit panel; it is never persisted,
   embedded, or sent to a model.
-- The LLM, when enabled, only ever sees text that has already been sanitized.
+- The LLM, when enabled, only ever sees text that has already been sanitized,
+  and only when the privacy check passed.
+- Sharing is a separate, explicit step (`contribute()`), which takes the
+  analysed result and never the raw report, re-runs the privacy check, and
+  sanitizes the team's free-text response notes as well.
+- The contributing organisation is stored as an HMAC pseudonym under a
+  server-side key (`backend/.pseudonym_key` or `ATTACKDNA_PSEUDONYM_KEY`), absent
+  from every API response.
 
 - The Attack DNA itself is assembled from closed vocabularies: enumerated
   types, ATT&CK ids and names, and MITRE's own example sentences. No free
   text from the report can enter it — so a name the privacy layer misses
   still cannot reach the record that is embedded and shared.
 
-`tests/test_pipeline.py` and `tests/test_privacy_names.py` assert each of these.
+`tests/test_pipeline.py`, `tests/test_privacy_names.py` and
+`tests/test_cross_organization.py` assert each of these.
 
 ---
 
@@ -392,9 +450,11 @@ backend/app/
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
     simulator.py               ⑥ safe tabletop generation
-  pipelines/analyze.py         analyze() / ingest() / reindex_memory()
+    contributors.py            keyed pseudonyms for contributing organisations
+    document_reader.py         PDF / Word / text reports to plain text
+  pipelines/analyze.py         analyze() / contribute() / ingest() / reindex_memory()
   routes/                      FastAPI endpoints
-frontend/app.py                Streamlit demo — the full six-step journey
+frontend/app.py                Streamlit interface: attach → identity removed → DNA & matches → share
 scripts/
   download_*.py, process_*.py  knowledge-base preparation
   process_cti.py               ATT&CK mitigations, groups, software, campaigns
@@ -402,6 +462,7 @@ scripts/
   process_examples.py          MITRE's labelled procedure examples
   evaluate.py                  development sets, held-out test, privacy audit
   evaluate_mapper.py           technique mapping on MITRE-labelled sentences
+  evaluate_crossorg.py         cross-organisation recall, privacy and behaviour
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
   seed/public_incidents.json   10 real publicly-documented breaches, cited
@@ -411,7 +472,9 @@ data/
   seed/evaluation_heldout.json held-out test: 32 real incident summaries
   seed/privacy_audit.json      identifiers marked by hand, 73 sentences
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         326 tests
+  seed/crossorg_pairs.json     20 attack patterns reported by two organisations
+  evaluation/                  latest cross-organisation results (read by the UI)
+tests/                         348 tests
 ```
 
 ---
@@ -419,9 +482,10 @@ tests/                         326 tests
 ## Testing
 
 ```bash
-make test          # 326 tests
+make test          # 348 tests
 make eval          # development sets, held-out test, privacy audit
 make eval-mapper   # technique mapping on MITRE-labelled sentences
+make eval-crossorg # cross-organisation recall, privacy and behaviour
 ```
 
 The suite covers redaction correctness, fingerprint preservation, ATT&CK mapping
