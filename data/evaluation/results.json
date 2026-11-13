@@ -1,0 +1,58 @@
+{
+  "privacy": {
+    "identifiers_removed": 275,
+    "identifiers": 279,
+    "terms_kept": 189,
+    "terms": 191,
+    "texts": 112
+  },
+  "classification": {
+    "attack_type": {
+      "correct": 24,
+      "total": 28
+    },
+    "sector": {
+      "correct": 11,
+      "total": 25
+    }
+  },
+  "techniques": {
+    "recall": 0.8157160963244613,
+    "precision": 0.6008215085884989,
+    "f1": 0.6919686055262876,
+    "found": 3218,
+    "sentences": 3945,
+    "suggested": 5356
+  },
+  "cross_org": {
+    "precision_at_1": {
+      "value": 0.65,
+      "successes": 13,
+      "total": 20,
+      "ci95": [
+        0.4329,
+        0.8188
+      ]
+    },
+    "recall_at_5": {
+      "value": 0.95,
+      "successes": 19,
+      "total": 20,
+      "ci95": [
+        0.7639,
+        0.9911
+      ]
+    },
+    "mitigation_reuse": {
+      "value": 0.9,
+      "successes": 18,
+      "total": 20,
+      "ci95": [
+        0.699,
+        0.9721
+      ]
+    },
+    "queries_exposing_A": 0,
+    "queries": 20
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "test_sentences": 3945,
+  "held_out_sources": 214,
+  "final": {
+    "recall": 0.8157160963244613,
+    "precision": 0.6008215085884989,
+    "f1": 0.6919686055262876,
+    "found": 3218,
+    "sentences": 3945,
+    "suggested": 5356
+  }
+}

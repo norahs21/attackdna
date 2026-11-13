@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-13 16:11 UTC",
-  "code_revision": "412a3b8",
+  "generated_at": "2026-11-13 22:13 UTC",
+  "code_revision": "5286148",
   "dataset": "data/seed/crossorg_pairs.json",
   "pairs": 20,
   "mode": "offline (rule-based extraction, no LLM)",
@@ -70,12 +70,12 @@
       ]
     },
     "techniques_retained": {
-      "value": 1.0,
-      "successes": 81,
-      "total": 81,
+      "value": 0.9863,
+      "successes": 72,
+      "total": 73,
       "ci95": [
-        0.9547,
-        1.0
+        0.9264,
+        0.9976
       ]
     },
     "impacts_retained": {
@@ -116,12 +116,12 @@
         ]
       },
       "techniques": {
-        "precision": 0.7654,
-        "recall": 0.5,
-        "f1": 0.6049,
-        "tp": 62,
-        "fp": 19,
-        "fn": 62
+        "precision": 0.8356,
+        "recall": 0.4919,
+        "f1": 0.6193,
+        "tp": 61,
+        "fp": 12,
+        "fn": 63
       }
     },
     "accuracy_sanitized": {
@@ -144,12 +144,12 @@
         ]
       },
       "techniques": {
-        "precision": 0.7294,
-        "recall": 0.5,
-        "f1": 0.5933,
-        "tp": 62,
-        "fp": 23,
-        "fn": 62
+        "precision": 0.8108,
+        "recall": 0.4839,
+        "f1": 0.6061,
+        "tp": 60,
+        "fp": 14,
+        "fn": 64
       }
     }
   },
@@ -162,21 +162,21 @@
     },
     "queries": 20,
     "precision_at_1": {
-      "value": 0.7,
-      "successes": 14,
+      "value": 0.65,
+      "successes": 13,
       "total": 20,
       "ci95": [
-        0.481,
-        0.8545
+        0.4329,
+        0.8188
       ]
     },
     "recall_at_5": {
-      "value": 1.0,
-      "successes": 20,
+      "value": 0.95,
+      "successes": 19,
       "total": 20,
       "ci95": [
-        0.8389,
-        1.0
+        0.7639,
+        0.9911
       ]
     },
     "top1_same_attack_type": {
@@ -189,7 +189,7 @@
       ]
     },
     "precision_at_5": 0.65,
-    "mrr": 0.8058,
+    "mrr": 0.7792,
     "queries_exposing_A": 0,
     "stored_records_exposing_A": 1,
     "stored_exposure_detail": {
@@ -201,12 +201,12 @@
     "A_identifiers_exposed": [],
     "foreign_incident_marked_as_own": 0,
     "mitigation_reuse": {
-      "value": 0.85,
-      "successes": 17,
+      "value": 0.9,
+      "successes": 18,
       "total": 20,
       "ci95": [
-        0.6396,
-        0.9476
+        0.699,
+        0.9721
       ]
     },
     "unattributed_recommendations": 0,
@@ -222,10 +222,10 @@
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
-        "a_mitigations_recalled": 0,
+        "a_mitigations_recalled": 2,
         "unattributed_recommendations": 0,
         "match_reasons": [
-          "3 shared ATT&CK technique(s): T1059.001, T1486, T1490",
+          "2 shared ATT&CK technique(s): T1059.001, T1486",
           "Overlapping kill-chain phases: execution, impact",
           "Same attack type: ransomware",
           "Same initial vector: phishing"
@@ -242,10 +242,9 @@
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
-        "a_mitigations_recalled": 2,
+        "a_mitigations_recalled": 1,
         "unattributed_recommendations": 0,
         "match_reasons": [
-          "1 shared ATT&CK technique(s): T1657",
           "Same attack type: ransomware",
           "Same initial vector: web exploitation",
           "Same vulnerability exploited: CVE-2023-4966"
@@ -262,7 +261,7 @@
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
-        "a_mitigations_recalled": 2,
+        "a_mitigations_recalled": 3,
         "unattributed_recommendations": 0,
         "match_reasons": [
           "2 shared ATT&CK technique(s): T1114, T1566",
@@ -293,7 +292,7 @@
       {
         "pair": "p05",
         "pattern": "Password spraying against cloud email without MFA, followed by mailbox data theft",
-        "rank": 2,
+        "rank": 3,
         "top1": "Password spraying against remote access — government agency",
         "top1_is_target": false,
         "top1_same_attack_type": true,
@@ -301,7 +300,7 @@
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
-        "a_mitigations_recalled": 1,
+        "a_mitigations_recalled": 2,
         "unattributed_recommendations": 0,
         "match_reasons": [
           "Same attack type: credential attack",
@@ -311,19 +310,17 @@
       {
         "pair": "p06",
         "pattern": "MFA fatigue push-bombing to gain VPN access, then directory discovery and data theft",
-        "rank": 5,
+        "rank": 6,
         "top1": "Uber — MFA fatigue and hardcoded credentials (2022)",
         "top1_is_target": false,
         "top1_same_attack_type": false,
-        "relevant_in_top5": 1,
+        "relevant_in_top5": 0,
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
         "a_mitigations_recalled": 0,
         "unattributed_recommendations": 0,
         "match_reasons": [
-          "1 shared ATT&CK technique(s): T1133",
-          "Overlapping kill-chain phases: credential-access, initial-access, persistence",
           "Same initial vector: credential attack"
         ]
       },
@@ -444,7 +441,7 @@
       {
         "pair": "p13",
         "pattern": "Former administrator whose access was never removed deletes virtual machines and backups",
-        "rank": 3,
+        "rank": 2,
         "top1": "Insider Threat — Finance sector",
         "top1_is_target": false,
         "top1_same_attack_type": true,
@@ -497,18 +494,17 @@
       {
         "pair": "p16",
         "pattern": "Infostealer from cracked software steals browser session cookies, leading to SaaS account takeover",
-        "rank": 1,
-        "top1": "Malware Infection — Government sector",
-        "top1_is_target": true,
+        "rank": 2,
+        "top1": "Malware Infection via web exploitation",
+        "top1_is_target": false,
         "top1_same_attack_type": true,
-        "relevant_in_top5": 4,
+        "relevant_in_top5": 5,
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
-        "a_mitigations_recalled": 3,
+        "a_mitigations_recalled": 1,
         "unattributed_recommendations": 0,
         "match_reasons": [
-          "1 shared ATT&CK technique(s): T1539",
           "Same attack type: malware infection"
         ]
       },
@@ -519,15 +515,15 @@
         "top1": "Malware Infection — Energy sector",
         "top1_is_target": true,
         "top1_same_attack_type": true,
-        "relevant_in_top5": 4,
+        "relevant_in_top5": 5,
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
         "a_mitigations_recalled": 3,
         "unattributed_recommendations": 0,
         "match_reasons": [
-          "3 shared ATT&CK technique(s): T1053, T1485, T1561.002",
-          "Overlapping kill-chain phases: execution, impact, persistence, privilege-escalation",
+          "4 shared ATT&CK technique(s): T1053, T1484.001, T1485, T1561.002",
+          "Overlapping kill-chain phases: defense-impairment, execution, impact, persistence",
           "Same attack type: malware infection"
         ]
       },
@@ -575,7 +571,7 @@
         "top1": "Malware Infection via phishing — Finance sector",
         "top1_is_target": true,
         "top1_same_attack_type": true,
-        "relevant_in_top5": 3,
+        "relevant_in_top5": 2,
         "retrieved_top5": 5,
         "exposed_identifiers": [],
         "marked_as_own": false,
@@ -603,47 +599,47 @@
   "privacy_utility": {
     "with_privacy_layer": {
       "precision_at_1": {
-        "value": 0.7,
-        "successes": 14,
+        "value": 0.65,
+        "successes": 13,
         "total": 20,
         "ci95": [
-          0.481,
-          0.8545
+          0.4329,
+          0.8188
         ]
       },
       "recall_at_5": {
-        "value": 1.0,
-        "successes": 20,
+        "value": 0.95,
+        "successes": 19,
         "total": 20,
         "ci95": [
-          0.8389,
-          1.0
+          0.7639,
+          0.9911
         ]
       },
-      "mrr": 0.8058,
+      "mrr": 0.7792,
       "queries_exposing_A": 0,
       "stored_records_exposing_A": 1
     },
     "without_privacy_layer": {
       "precision_at_1": {
-        "value": 0.7,
-        "successes": 14,
+        "value": 0.65,
+        "successes": 13,
         "total": 20,
         "ci95": [
-          0.481,
-          0.8545
+          0.4329,
+          0.8188
         ]
       },
       "recall_at_5": {
-        "value": 1.0,
-        "successes": 20,
+        "value": 0.95,
+        "successes": 19,
         "total": 20,
         "ci95": [
-          0.8389,
-          1.0
+          0.7639,
+          0.9911
         ]
       },
-      "mrr": 0.8142,
+      "mrr": 0.7875,
       "queries_exposing_A": 0,
       "stored_records_exposing_A": 20,
       "queries": 20,
@@ -656,12 +652,12 @@
   },
   "no_distractors": {
     "precision_at_1": {
-      "value": 0.8,
-      "successes": 16,
+      "value": 0.7,
+      "successes": 14,
       "total": 20,
       "ci95": [
-        0.584,
-        0.9193
+        0.481,
+        0.8545
       ]
     },
     "recall_at_5": {
@@ -673,7 +669,7 @@
         1.0
       ]
     },
-    "mrr": 0.8917,
+    "mrr": 0.8417,
     "memory": {
       "corpus_incidents": 0,
       "contributed_by_A": 20,
