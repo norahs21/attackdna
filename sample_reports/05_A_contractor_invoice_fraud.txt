@@ -1,0 +1,10 @@
+Incident report: contractor invoice fraud
+=========================================
+
+Riyadh Towers Contracting lost SAR 1.2 million to invoice fraud. The accounts payable
+clerk, Abdullah Al-Ghamdi, had entered his password on a phishing page that looked like
+the Microsoft 365 sign-in. The attacker logged into his mailbox from 102.165.48.77,
+created an inbox rule that moved every message from the supplier into the RSS folder, and
+replied to an open invoice thread impersonating the vendor with updated banking details.
+The payment was wired to the new bank account. Reported to finance director Lama Al-
+Zahrani (lama.z@rtc-contracting.sa).

@@ -17,22 +17,20 @@ matched and what worked, and never learns who was attacked.
 
 ## How a security team uses it
 
-| Step | What the team does | What it sees |
+| Page | What the team does | What it sees |
 |---|---|---|
-| 1. Attach report | Attaches the report as written: PDF, Word or text | Nothing to choose, nothing to configure |
-| 2. Remove identity | — | **"Sensitive information removed successfully"**, with counts per category, the sanitized text and the masked audit |
-| 3. Attack DNA & matches | — | The verdict, the ATT&CK mapping with evidence, similar incidents from shared memory (other organisations' incidents marked *identity withheld*) and the recommended response, each action citing its source |
-| 4. Share (optional) | Ticks the approval box and, optionally, adds what it did | Exactly what would be shared and what never leaves, side by side; then **Contribute** or **Keep private** |
+| **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
+| **Add to memory** | Attaches a report, or carries over the one just analysed; optionally adds what it did; ticks the approval box | What is shared beside what never leaves, then a confirmation |
+| **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
+| **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
 
-The interface has four pages (**Analyze a report**, **Dashboard**, **Ask the
-memory**, **Evidence**), is English only, and has a day and a night appearance
-(the switch sits at the bottom of the navigation rail). The Dashboard shows what
-shared memory holds: key figures, incidents over time, where the memory comes
-from (member contributions, real breaches, synthetic), the attack mix, the most
-seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage,
-the latest fingerprints and the actions with the best recorded outcomes.
+The interface is English only, with day and night modes (bottom of the
+navigation rail). Reports to try it with are in [`sample_reports/`](sample_reports):
+add an **A** report to memory, then analyse the matching **B** report.
 
-Nothing is stored until step 4. The organisation's name is kept only as a keyed
+Analysing stores nothing; only **Add to memory** does. The organisation this
+installation belongs to is set once in `backend/.env` (`ATTACKDNA_ORGANISATION`),
+as a login would set it in a deployed platform, and is kept only as a keyed
 pseudonym (`services/contributors.py`), used to tell a team "this match is your
 own incident" and never returned by the API. Shared records carry the month they
 were shared, not the incident date. If the privacy check fails, the text is not
@@ -44,28 +42,33 @@ sent to any LLM and cannot be shared.
 (`scripts/evaluate_crossorg.py`, data in `data/seed/crossorg_pairs.json`).
 Organisation A contributes 20 incidents; organisation B reports the same 20
 attack patterns in its own words. A's incidents sit among the 24-incident
-corpus, which acts as distractors. Offline mode, TF-IDF memory backend:
+corpus, which acts as distractors. Offline mode, no LLM, MiniLM memory and hybrid
+technique mapping:
 
 | Measurement | Result |
 |---|---|
 | Identifiers removed: 171 marked by hand in 40 reports | **167 / 171 = 98%** (95% CI 94–99%) |
 | Attack terms lost to over-redaction | 2 / 165 = 1% |
-| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **72 / 72 = 100%** |
-| B recalls A's incident first: Precision@1 | **12 / 20 = 60%** (95% CI 39–78%) |
-| …in its top five: Recall@5 · MRR | **19 / 20 = 95%** · 0.75 |
-| B's top match has the same attack type | 18 / 20 = 90% |
-| A's recorded response recommended to B, with its source | 18 / 20 = 90% |
+| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **81 / 81 = 100%** |
+| B recalls A's incident first: Precision@1 | **14 / 20 = 70%** (95% CI 48–85%) |
+| …in its top five: Recall@5 · MRR | **20 / 20 = 100%** · 0.81 |
+| B's top match has the same attack type | 19 / 20 = 95% |
+| A's recorded response recommended to B, with its source | 17 / 20 = 85% |
 | B's screens that showed anything naming A | **0 / 20** |
 | Shared records still naming A | 1 / 20 (two identifiers in one report) |
-| Same experiment without the privacy layer: Precision@1 · records naming A | 60% · **20 / 20** |
+| Same experiment without the privacy layer: Precision@1 · records naming A | 70% · **20 / 20** |
 
 Removing the victim's identity cost no retrieval quality on this set, and without
 the privacy layer every shared record named its victim. The four identifiers that
 survived (a phone number written with spaces, two single-word company names, a
 storage-bucket name) are reported as found rather than fixed after the fact. The
 40 reports are synthetic and were labelled by the project team, so independent
-annotation and real SOC reports are the next step. The Evidence page in the demo
-shows every number with its interval and every query.
+annotation and real SOC reports are the next step. Every number, with its
+interval and every query, is written to `data/evaluation/crossorg_results.json`.
+
+With the offline TF-IDF backend instead of MiniLM (no ChromaDB installed), the
+same experiment gives Precision@1 60%, Recall@5 95% and MRR 0.75; privacy and
+exposure figures are identical.
 
 ---
 
@@ -138,8 +141,8 @@ never seen them, their labels were fixed first, and it was run on them once.
 | Sector — same summaries | 11 / 25 = 44% (95% CI 27–63%) |
 | Identifiers removed — names marked by hand in those summaries | **53 / 55 = 96%** |
 | Identifiers removed — 40 new sentences, 10 categories | **51 / 53 = 96%** |
-| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **44%**, precision 62% |
-| …of which the learned mapper, when it answers | precision **87%** |
+| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **65%**, precision 62% (hybrid) |
+| …with TF-IDF only (no MiniLM) | recall 44%, precision 62% |
 
 | Development (36 cases, tuned on these) | Result |
 |---|---|
@@ -160,6 +163,11 @@ What these say, plainly:
   what an untouched test measured, so 96% is what is reported.
 - **Technique mapping has one label per sentence**, so a second technique the
   sentence really does describe counts as wrong. Precision is a lower bound.
+- **Hybrid mapping** fuses the TF-IDF vote with a MiniLM vote over the same
+  MITRE examples. Its rule and floor were chosen on a development split of the
+  training sources; the held-out sources were measured once afterwards. Recall
+  rose from 44% to 65% at about the same precision (62.2% to 61.5%). It needs
+  ChromaDB; without it the mapper falls back to TF-IDF.
 - **Before these changes**, on 28 reports the rules had never seen, the
   extractor named the attack type for 8 and found 17% of the techniques, and
   19 of 34 realistic sentences leaked an identifier.

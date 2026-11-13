@@ -1,0 +1,15 @@
+Incident report: near miss scenario
+===================================
+
+Sahm Capital Investment Bank contained a ransomware intrusion on 21 May 2026 before any
+encryption occurred.
+
+Initial access was a spearphishing link that harvested credentials from an employee in the
+finance department. The attacker signed in with the valid account, ran encoded PowerShell,
+and attempted to disable the EDR agent — which triggered a tamper-protection alert.
+Attempted lateral movement over SMB shares was blocked by network segmentation, and an
+attempt to delete shadow copies was blocked by application control.
+
+No files were encrypted and no data was exfiltrated. Total time from first alert to full
+containment was 12 minutes. Reported by Analyst Reem Alkhalifa,
+r.alkhalifa@sahmcapital.sa, attacker source 178.62.44.19.

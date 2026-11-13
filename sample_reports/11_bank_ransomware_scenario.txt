@@ -1,0 +1,19 @@
+Incident report: bank ransomware scenario
+=========================================
+
+On 12 February 2026 the SOC at Falcon National Bank detected ransomware on WKSTN-FIN-204
+in the finance department.
+
+Initial access came from a spearphishing link emailed to sara.nasser@falconbank.com.sa
+from billing@secure-invoice-portal.top. The user clicked the link and entered credentials
+on a fake login page.
+
+The attacker signed in with the valid account from 91.240.118.22, ran encoded PowerShell,
+and disabled the EDR agent on the host. They moved laterally over SMB shares to FS-
+CORP-02, deleted shadow copies, and files were encrypted across two file servers.
+Approximately 40 GB of customer data was exfiltrated to cloud storage before encryption
+began. C2 beaconing was observed to 45.83.192.17.
+
+The vulnerability CVE-2024-21412 was exploited on an unpatched host during lateral
+movement. Operations were disrupted for 14 hours. Reported by CISO Ahmed Alrashid, +966 55
+123 4567.

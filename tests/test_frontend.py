@@ -58,7 +58,7 @@ def _button(app: AppTest, label: str):
 def _analyze(app: AppTest, text: str = REPORT) -> AppTest:
     """Paste a report and press the one button a team needs."""
     app.text_area[0].set_value(text).run()
-    _button(app, "Remove identity and analyze").click().run()
+    _button(app, "Analyze").click().run()
     return app
 
 
@@ -103,7 +103,7 @@ def test_the_app_starts_in_an_interpreter_that_has_imported_nothing():
 
 
 def test_every_mode_renders(corpus):
-    for mode in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
+    for mode in ["Analyze a report", "Add to memory", "Dashboard", "Ask the memory"]:
         app = _run(mode)
         assert not app.exception, f"{mode} raised {app.exception}"
 
@@ -125,26 +125,25 @@ def test_an_empty_memory_dashboard_says_so_instead_of_crashing(clean_memory):
     assert any("Memory is empty" in str(w.value) for w in app.warning)
 
 
-def test_the_first_step_is_attaching_a_report_not_choosing_one(corpus):
-    """A security team arrives with its own report; the main flow never asks it to
-    pick someone else's. Sample reports exist, but only in the sidebar's demo panel."""
+def test_the_platform_opens_on_attaching_a_report(corpus):
+    """A security team arrives with its own report: no tour, no picker, no notes."""
     app = _run()
 
     assert not app.exception
-    assert not app.main.selectbox, "the analysis flow should not open with a picker"
+    assert not app.main.selectbox, "the analysis page should not open with a picker"
     screen = _screen_text(app)
-    assert "Attach your incident report" in screen
+    for gone in ("Presenter notes", "Step 1", "Demo", "Evidence"):
+        assert gone not in screen, f"{gone!r} should not be on a working platform"
+    assert not app.sidebar.text_input, "the organisation is configuration, not a field"
 
 
-def test_privacy_is_the_first_result_then_the_verdict_then_sharing(corpus):
+def test_privacy_is_the_first_result_then_the_verdict(corpus):
     app = _analyze(_run())
 
     assert not app.exception
     screen = _screen_text(app)
-    removed = screen.index("Sensitive information removed successfully")
-    assert removed < screen.index("Attack DNA and shared memory")
-    assert screen.index("Attack DNA and shared memory") < screen.index(
-        "Share with other organisations")
+    assert screen.index("Sensitive information removed successfully") < screen.index(
+        "Ransomware via phishing")
 
 
 def test_the_verdict_names_the_attack_and_the_first_action(corpus):
@@ -153,7 +152,7 @@ def test_the_verdict_names_the_attack_and_the_first_action(corpus):
     screen = _screen_text(app)
     assert "Ransomware via phishing" in screen
     assert "Do this first" in screen
-    assert "identifying value(s) were removed" in screen
+    assert "identifying value(s) removed" in screen
 
 
 def test_nothing_identifying_reaches_the_screen(corpus):
@@ -167,25 +166,29 @@ def test_nothing_identifying_reaches_the_screen(corpus):
     assert "REDACTED" in screen
 
 
-def test_nothing_is_stored_until_the_team_approves(corpus):
+def test_analysing_stores_nothing(corpus):
     from app.db.database import IncidentDB
 
     before = corpus.query(IncidentDB).count()
-    app = _analyze(_run())
+    _analyze(_run())
 
     assert corpus.query(IncidentDB).count() == before
-    share = _button(app, "Contribute to shared memory")
-    assert share.disabled, "sharing must need the approval box ticked first"
 
 
-def test_approving_adds_the_fingerprint_to_shared_memory(corpus):
+def test_adding_needs_the_team_s_approval(corpus):
+    app = _run("Add to memory")
+
+    assert not app.exception
+    assert _button(app, "Add to shared memory").disabled
+
+
+def test_add_to_memory_stores_only_the_fingerprint(corpus):
     from app.db.database import IncidentDB
 
-    app = _run()
-    app.sidebar.text_input[0].set_value("Falcon Bank Ltd").run()
-    _analyze(app)
+    app = _run("Add to memory")
+    app.text_area[0].set_value(REPORT).run()
     app.checkbox[0].check().run()
-    _button(app, "Contribute to shared memory").click().run()
+    _button(app, "Add to shared memory").click().run()
 
     assert not app.exception
     assert any("Added to shared memory" in str(s.value) for s in app.success)
@@ -194,19 +197,22 @@ def test_approving_adds_the_fingerprint_to_shared_memory(corpus):
     record = shared[0]
     assert record.raw_text is None
     assert "Falcon" not in (record.sanitized_text + record.title)
-    assert record.contributor_ref and "Falcon" not in record.contributor_ref
 
 
-def test_keeping_it_private_stores_nothing(corpus):
+def test_an_analysed_report_can_be_added_without_attaching_it_again(corpus):
     from app.db.database import IncidentDB
 
-    before = corpus.query(IncidentDB).count()
     app = _analyze(_run())
-    _button(app, "Keep private: analysis only").click().run()
+    _button(app, "Add to memory").click().run()
 
     assert not app.exception
-    assert any("Kept private" in str(i.value) for i in app.info)
-    assert corpus.query(IncidentDB).count() == before
+    assert app.sidebar.radio[0].value == "Add to memory"
+    assert "Ransomware via phishing" in _screen_text(app)
+    app.checkbox[0].check().run()
+    _button(app, "Add to shared memory").click().run()
+
+    assert any("Added to shared memory" in str(s.value) for s in app.success)
+    assert corpus.query(IncidentDB).filter(IncidentDB.provenance == "shared").count() == 1
 
 
 def test_the_report_download_is_offered(corpus):
@@ -223,34 +229,30 @@ def test_a_too_short_report_is_rejected_with_a_message(corpus):
     assert any("at least a couple of sentences" in str(e.value) for e in app.error)
 
 
-def test_the_evidence_page_shows_the_cross_organisation_results(corpus):
-    app = _run("Evidence")
-
-    assert not app.exception
-    screen = _screen_text(app)
-    assert "Cross-org Precision@1" in screen or "No results yet" in str(
-        [w.value for w in app.warning])
-
-
-def test_asking_the_memory_puts_the_sources_under_the_answer(corpus):
+def test_asking_needs_no_report_first(corpus):
     app = _run("Ask the memory")
     app.text_input[0].set_value("What worked against ransomware in finance?").run()
     next(b for b in app.button if b.label == "Ask").click().run()
 
     assert not app.exception
-    screen = _screen_text(app)
-    assert "Sources" in screen
-    # The retrieval statistics are a footnote, never a wall between the answer
-    # and the evidence it was built from.
-    assert screen.index("Sources") < screen.index("incident(s) retrieved")
+    assert "Sources" in _screen_text(app)
+
+
+def test_the_dashboard_has_no_incident_comparison(corpus):
+    app = _run("Dashboard")
+
+    assert not app.exception
+    assert "Compare two incidents" not in _screen_text(app)
+    assert not any("Compare" in str(e.label) for e in app.expander)
 
 
 def test_the_interface_is_english_only(corpus):
     import re
 
-    for page in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
+    for page in ["Analyze a report", "Add to memory", "Dashboard", "Ask the memory"]:
         app = _run(page)
-        assert not re.search("[\u0600-\u06FF]", _screen_text(app)), f"Arabic on {page}"
+        text = _screen_text(app) + " ".join(str(o) for s in app.selectbox for o in s.options)
+        assert not re.search("[\u0600-\u06FF]", text), f"Arabic on {page}"
 
 
 def test_day_and_night_both_render(corpus):

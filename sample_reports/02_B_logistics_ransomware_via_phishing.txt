@@ -1,0 +1,10 @@
+Incident report: logistics ransomware via phishing
+==================================================
+
+Gulf Freight Logistics' dispatch office lost access to its shared drives on a Thursday
+night. Investigation showed that an employee, Omar Haddad, had followed a link in a fake
+parcel-tracking email and entered his username and password on a spoofed login page. Using
+that account from 91.219.236.18, the intruders launched obfuscated PowerShell scripts that
+turned off the endpoint protection, then spread to other hosts through SMB file shares.
+Before encryption they removed the Windows shadow copies. Every file share was encrypted
+and a ransom note was left on each server. Reported by omar.haddad@gulffreight.com.
