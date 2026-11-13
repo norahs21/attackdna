@@ -305,10 +305,12 @@ def map_to_attack(text: str, extra_technique_ids: List[str] | None = None) -> di
             evidence.setdefault(technique_id, []).append("model inference")
             sources.setdefault(technique_id, set()).add("llm")
 
+    learned = example_mapper.analyse(text or "")
+
     # Sentences that read like the ones MITRE labelled. Added last and marked
     # as such: a rule match quotes the report, this quotes MITRE, and an
     # analyst weighing a mapping should know which kind they are looking at.
-    for suggestion in example_mapper.suggest(text or ""):
+    for suggestion in learned["suggestions"]:
         technique_id = suggestion["technique_id"]
         family = technique_id.split(".")[0]
         # A rule that already found this behaviour, at either level of detail,

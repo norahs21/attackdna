@@ -10,7 +10,7 @@ PIP := .venv/bin/pip
 PYTHON := $(shell command -v python3.12 || command -v python3.11 || \
                   command -v python3.10 || command -v python3)
 
-.PHONY: help setup data embeddings seed api demo test eval eval-mapper eval-crossorg check-llm clean reset all
+.PHONY: help setup data embeddings seed api demo test results eval eval-mapper eval-crossorg check-llm clean reset all
 
 help:
 	@echo "ATTACKDNA"
@@ -22,6 +22,7 @@ help:
 	@echo "  make demo    Run the Streamlit demo        (http://localhost:8501)"
 	@echo "  make api     Run the FastAPI service        (http://localhost:8000/docs)"
 	@echo "  make test    Run the test suite"
+	@echo "  make results The results on one page (measures everything, a few minutes)"
 	@echo "  make eval    Development sets, held-out test and privacy audit"
 	@echo "  make eval-mapper  Technique mapping on MITRE-labelled sentences"
 	@echo "  make embeddings  Re-embed MITRE's examples for the hybrid mapper (~10 min)"
@@ -62,8 +63,14 @@ data:
 	$(PY) scripts/process_examples.py
 	# Embeds only examples new in this ATT&CK release; skipped without ChromaDB.
 	-$(PY) scripts/embed_examples.py
+	-$(PY) scripts/train_technique_classifier.py
 	$(PY) scripts/download_kev.py
 	$(PY) scripts/process_kev.py
+
+results:
+	$(PY) scripts/evaluate_mapper.py
+	$(PY) scripts/evaluate_crossorg.py > /dev/null
+	$(PY) scripts/results.py
 
 eval:
 	$(PY) scripts/evaluate.py

@@ -174,3 +174,44 @@ def test_unknown_cve_is_not_flagged():
 def test_extractors_tolerate_empty_input(text):
     assert extract_cves(text) == []
     assert map_to_attack(text)["techniques"] == []
+
+
+# --------------------------------------------------------------------------
+# Sector and entry vector on real reports
+# --------------------------------------------------------------------------
+def test_a_library_is_the_culture_sector_not_finance():
+    from app.services.dna_extractor import extract_dna
+
+    text = ("Ransomware encrypted the library services and the reading rooms closed. "
+            "The investment in new systems and the ransom payment demand were reviewed, "
+            "and the library's exhibitions moved online.")
+    assert extract_dna(text, {}, use_llm=False)["sector"] == "culture"
+
+
+def test_a_finance_department_alone_does_not_make_a_bank():
+    from app.services.dna_extractor import extract_dna
+
+    text = ("A spearphishing link reached a finance officer, whose mailbox was accessed "
+            "and used to approve a wire transfer.")
+    assert extract_dna(text, {}, use_llm=False)["sector"] != "finance"
+
+
+def test_entry_through_stolen_credentials_without_mfa_is_a_credential_attack():
+    from app.services.dna_extractor import extract_dna
+
+    text = ("The attackers used compromised credentials of a third-party account on the "
+            "terminal server, which was not subject to multi-factor authentication, and "
+            "then encrypted the file servers with ransomware.")
+    dna = extract_dna(text, {}, use_llm=False)
+    assert dna["attack_type"] == "ransomware"
+    assert dna["initial_vector"] == "credential_attack"
+
+
+def test_a_long_report_gets_a_handful_of_learned_techniques_not_one_per_sentence():
+    from app.services import example_mapper
+
+    if not example_mapper.CLASSIFIER_PATH.exists():
+        return
+    text = " ".join(f"The library opened exhibition number {i} to the public." for i in range(40))
+    text += " The attackers ran PowerShell to download a payload and encrypted the servers."
+    assert len(example_mapper.suggest(text)) <= example_mapper.MAX_LEARNED_PER_REPORT

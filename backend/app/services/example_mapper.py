@@ -49,6 +49,28 @@ logger = logging.getLogger(__name__)
 EXAMPLES_PATH = DATA_DIR / "processed" / "procedure_examples.json.gz"
 # MiniLM embeddings of the same examples, made by scripts/embed_examples.py.
 EMBEDDINGS_PATH = DATA_DIR / "processed" / "procedure_embeddings.npz"
+# A classifier trained on those embeddings (scripts/train_technique_classifier.py).
+CLASSIFIER_PATH = DATA_DIR / "processed" / "technique_classifier.npz"
+
+# How the trained classifier's probabilities and the nearest-example votes are
+# combined, and what it takes to suggest a technique. Chosen on development
+# data only: a split carved from the training sources for single sentences,
+# and 76 team-labelled development reports for whole reports.
+#   * 70% classifier, 30% nearest-example votes;
+#   * in one sentence, a technique is suggested at a combined probability of
+#     0.2, and a second one too when it also reaches 0.2;
+#   * across a whole report, only suggestions at 0.7 or more count, and at most
+#     the five strongest: a long report would otherwise collect a weak guess
+#     from every sentence, including the ones not about the attack.
+#   * a sentence whose closest MITRE example is less similar than 0.5 is not
+#     about an attack at all ("the cafeteria is closed on Thursday": 0.25),
+#     and gets no suggestion: a classifier always spreads its probability over
+#     some technique, however unrelated the sentence.
+CLASSIFIER_WEIGHT = 0.7
+PICK_FLOOR = 0.2
+MEANING_GATE = 0.5
+REPORT_FLOOR = 0.7
+MAX_LEARNED_PER_REPORT = 5
 
 # How many labelled sentences vote on each report sentence.
 NEIGHBOURS = 10
@@ -176,19 +198,14 @@ def split_sentences(text: str) -> List[str]:
     return [sentence for sentence in sentences if len(sentence.split()) >= 4]
 
 
-# The hybrid rule. Both indices vote over their 10 nearest examples; the votes
-# for each technique are added, with equal weight, and the winner is accepted
-# when the sum reaches FUSED_FLOOR. Chosen on a development split carved from
-# the training sources only (scripts/evaluate_mapper.py holds out a different
-# fifth of the sources for the test): there, fusion raised the combined recall
-# from 43% to 65% at an unchanged precision (62% -> 63%). The floor is the
-# simplest point on that plateau that does not lower precision.
+# The previous hybrid rule (TF-IDF + MiniLM votes, no classifier). Still used
+# when the trained classifier is not available.
 FUSED_FLOOR = 3.0
 
 
 def fuse(tfidf: Optional[dict], semantic: Optional[dict],
          floor: float = FUSED_FLOOR) -> Optional[dict]:
-    """One sentence's hybrid verdict, or None when the evidence is too thin."""
+    """One sentence's nearest-example verdict, or None when the evidence is too thin."""
     votes: Dict[str, float] = {}
     for outcome in (tfidf, semantic):
         if outcome:
@@ -199,79 +216,186 @@ def fuse(tfidf: Optional[dict], semantic: Optional[dict],
     winner = max(votes, key=lambda tid: (votes[tid], tid))
     if votes[winner] < floor:
         return None
-    # The evidence shown is the closest MITRE example for the winner, from the
-    # semantic side when it voted for it (it matched on meaning).
     for outcome in (semantic, tfidf):
         if outcome and winner in outcome["best"]:
             example = outcome["best"][winner]
             break
-    return {"technique_id": winner, "vote": round(votes[winner], 4), "example": example,
-            "agreed": bool(tfidf and semantic and winner in tfidf["votes"]
-                           and winner in semantic["votes"])}
+    return {"technique_id": winner, "vote": round(votes[winner], 4), "example": example}
 
 
-def _evidence(example: Example, how: str) -> str:
+def family(technique_id: str) -> str:
+    return technique_id.split(".")[0]
+
+
+class TechniqueClassifier:
+    """Logistic regression from a sentence's MiniLM vector to an ATT&CK technique."""
+
+    def __init__(self, classes, coef, intercept) -> None:
+        self.classes = list(classes)
+        self.coef = coef
+        self.intercept = intercept
+
+    @classmethod
+    def fit(cls, examples: Sequence[Example], vectors, regularisation: float = 30.0):
+        import numpy as np
+        from sklearn.linear_model import LogisticRegression
+
+        labels = np.array([family(example[0]) for example in examples])
+        model = LogisticRegression(C=regularisation, max_iter=300)
+        model.fit(vectors, labels)
+        return cls(model.classes_, model.coef_.astype(np.float32),
+                   model.intercept_.astype(np.float32))
+
+    def save(self, path, examples: Sequence[Example]) -> None:
+        import numpy as np
+
+        np.savez_compressed(path, classes=np.asarray(self.classes), coef=self.coef,
+                            intercept=self.intercept, count=np.int64(len(examples)))
+
+    @classmethod
+    def load(cls, path):
+        import numpy as np
+
+        stored = np.load(path)
+        return cls([str(c) for c in stored["classes"]], stored["coef"], stored["intercept"])
+
+    def probabilities(self, vectors):
+        import numpy as np
+
+        scores = vectors @ self.coef.T + self.intercept
+        scores -= scores.max(axis=1, keepdims=True)
+        exp = np.exp(scores)
+        return exp / exp.sum(axis=1, keepdims=True)
+
+
+@lru_cache(maxsize=1)
+def _classifier() -> Optional[TechniqueClassifier]:
+    if os.getenv("ATTACKDNA_CLASSIFIER", "1") == "0" or not CLASSIFIER_PATH.exists():
+        return None
+    try:
+        return TechniqueClassifier.load(CLASSIFIER_PATH)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Technique classifier unreadable (%s)", exc)
+        return None
+
+
+def decide(probabilities, classes: Sequence[str], tfidf: Optional[dict],
+           semantic: Optional[dict]) -> List[dict]:
+    """One sentence's suggestions.
+
+    Shared by the pipeline and scripts/evaluate_mapper.py, so the benchmark
+    measures exactly what a report goes through.
+    """
+    import numpy as np
+
+    if semantic is not None and semantic["similarity"] < MEANING_GATE:
+        return []
+    index = {name: i for i, name in enumerate(classes)}
+    votes = np.zeros(len(classes), dtype=np.float32)
+    for outcome in (tfidf, semantic):
+        if outcome:
+            for technique_id, vote in outcome["votes"].items():
+                position = index.get(family(technique_id))
+                if position is not None:
+                    votes[position] += vote
+    if votes.sum() > 0:
+        votes /= votes.sum()
+    combined = CLASSIFIER_WEIGHT * probabilities + (1 - CLASSIFIER_WEIGHT) * votes
+    order = np.argsort(-combined, kind="stable")
+
+    picks = []
+    for rank in (0, 1):
+        position = order[rank]
+        if combined[position] < PICK_FLOOR:
+            break
+        chosen = classes[position]
+        # The classifier names the technique; the nearest examples say which
+        # sub-technique, when one of them is that specific.
+        specific: Dict[str, float] = {}
+        example = None
+        for outcome in (semantic, tfidf):
+            if not outcome:
+                continue
+            for technique_id, vote in outcome["votes"].items():
+                if family(technique_id) == chosen:
+                    specific[technique_id] = specific.get(technique_id, 0.0) + vote
+        technique_id = max(specific, key=lambda t: (specific[t], t)) if specific else chosen
+        for outcome in (semantic, tfidf):
+            if outcome and technique_id in outcome.get("best", {}):
+                example = outcome["best"][technique_id]
+                break
+        picks.append({"technique_id": technique_id,
+                      "probability": round(float(combined[position]), 4),
+                      "example": example})
+    return picks
+
+
+def _evidence(example: Optional[Example], how: str) -> str:
+    if example is None:
+        return "classified from MITRE's labelled examples"
     _tid, source_id, _name, sentence = example
     preview = sentence if len(sentence) <= 140 else sentence[:137].rstrip() + "..."
     return f"{how} MITRE example ({source_id}): \"{preview}\""
 
 
-def suggest(text: str, vote_floor: float = VOTE_FLOOR) -> List[dict]:
-    """Techniques the report's sentences resemble, strongest first.
-
-    Hybrid when the semantic index is available (TF-IDF + MiniLM, fused);
-    TF-IDF alone otherwise, exactly as before. Each suggestion carries the
-    MITRE example it rests on, and one technique is returned once, with its
-    best-supported sentence.
-    """
+def analyse(text: str, vote_floor: float = VOTE_FLOOR) -> dict:
+    """Learned suggestions for a report, strongest first."""
+    empty = {"suggestions": []}
     if not enabled():
-        return []
+        return empty
     index = _index()
     if index is None:
-        return []
+        return empty
 
     sentences = split_sentences(text)
     tfidf_votes = index.vote(sentences)
     semantic = _semantic_index()
+    head = _classifier()
     strongest: Dict[str, dict] = {}
 
-    if semantic is not None:
+    def keep(technique_id, score, example, how, method):
+        current = strongest.get(technique_id)
+        if current is None or score > current["vote"]:
+            strongest[technique_id] = {"technique_id": technique_id, "vote": score,
+                                       "method": method, "evidence": _evidence(example, how)}
+
+    meaning_votes, vectors = None, None
+    if semantic is not None and sentences:
         try:
-            semantic_votes = semantic.vote(sentences)
+            vectors = semantic.encode(sentences)
+            meaning_votes = semantic.vote(sentences, vectors=vectors)
         except Exception as exc:  # noqa: BLE001 - the model failing mid-run
             logger.warning("Semantic mapping failed (%s); TF-IDF only", exc)
-            semantic = None
 
-    if semantic is not None:
-        for tfidf, meaning in zip(tfidf_votes, semantic_votes):
+    if meaning_votes is not None and head is not None:
+        probabilities = head.probabilities(vectors)
+        for row, tfidf, meaning in zip(probabilities, tfidf_votes, meaning_votes):
+            for pick in decide(row, head.classes, tfidf, meaning):
+                keep(pick["technique_id"], pick["probability"], pick["example"],
+                     "resembles", "classifier")
+        ranked = sorted(strongest.values(), key=lambda s: (-s["vote"], s["technique_id"]))
+        if len(sentences) > 1:
+            ranked = [s for s in ranked if s["vote"] >= REPORT_FLOOR][:MAX_LEARNED_PER_REPORT]
+        return {"suggestions": ranked}
+
+    if meaning_votes is not None:
+        for tfidf, meaning in zip(tfidf_votes, meaning_votes):
             verdict = fuse(tfidf, meaning)
-            if verdict is None:
-                continue
-            current = strongest.get(verdict["technique_id"])
-            if current is None or verdict["vote"] > current["vote"]:
-                strongest[verdict["technique_id"]] = {
-                    "technique_id": verdict["technique_id"],
-                    "vote": verdict["vote"],
-                    "similarity": None,
-                    "method": "hybrid",
-                    "evidence": _evidence(verdict["example"], "resembles (by meaning and wording)"),
-                }
+            if verdict:
+                keep(verdict["technique_id"], verdict["vote"], verdict["example"],
+                     "resembles (by meaning and wording)", "hybrid")
     else:
         for outcome in tfidf_votes:
-            if (outcome is None or outcome["vote"] < vote_floor
-                    or outcome["similarity"] < SIMILARITY_FLOOR):
-                continue
-            technique_id = outcome["technique_id"]
-            current = strongest.get(technique_id)
-            if current is None or outcome["vote"] > current["vote"]:
-                strongest[technique_id] = {
-                    "technique_id": technique_id,
-                    "vote": outcome["vote"],
-                    "similarity": outcome["similarity"],
-                    "method": "tfidf",
-                    "evidence": _evidence(outcome["example"], "resembles"),
-                }
-    return sorted(strongest.values(), key=lambda s: (-s["vote"], s["technique_id"]))
+            if (outcome and outcome["vote"] >= vote_floor
+                    and outcome["similarity"] >= SIMILARITY_FLOOR):
+                keep(outcome["technique_id"], outcome["vote"], outcome["example"],
+                     "resembles", "tfidf")
+    return {"suggestions": sorted(strongest.values(), key=lambda s: (-s["vote"], s["technique_id"]))}
+
+
+def suggest(text: str, vote_floor: float = VOTE_FLOOR) -> List[dict]:
+    """Techniques the report's sentences resemble, strongest first."""
+    return analyse(text, vote_floor)["suggestions"]
 
 
 # --------------------------------------------------------------------------
@@ -407,14 +531,19 @@ class SemanticIndex:
         self.vectors = vectors
         self.embed = embed
 
+    def encode(self, sentences: Sequence[str]):
+        import numpy as np
+
+        vectors = np.asarray(self.embed(list(sentences)), dtype=np.float32)
+        return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+
     def vote(self, sentences: Sequence[str], vectors=None) -> List[Optional[dict]]:
         import numpy as np
 
         if not sentences:
             return []
         if vectors is None:
-            vectors = np.asarray(self.embed(list(sentences)), dtype=np.float32)
-            vectors /= np.linalg.norm(vectors, axis=1, keepdims=True)
+            vectors = self.encode(sentences)
         similarities = vectors @ self.vectors.T
         results: List[Optional[dict]] = []
         for row in similarities:
@@ -454,6 +583,7 @@ def stats() -> dict:
     return {
         "enabled": enabled() and bool(examples),
         "semantic": _semantic_index() is not None,
+        "classifier": _classifier() is not None,
         "examples": len(examples),
         "techniques_covered": len({example[0] for example in examples}),
     }
