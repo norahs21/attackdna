@@ -50,6 +50,14 @@ class IncidentDB(Base):
     source_url = Column(String, nullable=True)
     why_it_matters = Column(Text, nullable=True)
 
+    # Keyed pseudonym of the contributing organisation (services/contributors).
+    # Used only to tell a viewer "this one is yours"; deliberately absent from
+    # to_dict(), so it never appears in an API response or on screen.
+    contributor_ref = Column(String, nullable=True, index=True)
+    # When a security team approved sharing this incident. Null for corpus
+    # incidents that were loaded rather than contributed.
+    shared_at = Column(DateTime, nullable=True)
+
     # Opt-in only — see the module docstring.
     raw_text = Column(Text, nullable=True)
     sanitized_text = Column(Text, nullable=False)
@@ -128,6 +136,7 @@ class IncidentDB(Base):
             "iocs": self.get_json("iocs", {}),
             "attribution": self.get_json("attribution", {}),
             "redaction_count": self.redaction_count,
+            "shared_at": self.shared_at.isoformat() if self.shared_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "mitigations": [m.to_dict() for m in self.mitigations],
         }

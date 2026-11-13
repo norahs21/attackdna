@@ -12,6 +12,9 @@ __pycache__/
 backend/.env
 *.env
 !.env.example
+# The key behind contributor pseudonyms. Anyone holding it can test a guessed
+# organisation name against shared memory, so it never leaves the server.
+backend/.pseudonym_key
 
 # Local databases & vector store
 *.db
