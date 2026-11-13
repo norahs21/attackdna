@@ -47,6 +47,8 @@ from app.services.negation import negated_spans
 logger = logging.getLogger(__name__)
 
 EXAMPLES_PATH = DATA_DIR / "processed" / "procedure_examples.json.gz"
+# MiniLM embeddings of the same examples, made by scripts/embed_examples.py.
+EMBEDDINGS_PATH = DATA_DIR / "processed" / "procedure_embeddings.npz"
 
 # How many labelled sentences vote on each report sentence.
 NEIGHBOURS = 10
@@ -200,6 +202,108 @@ def suggest(text: str, vote_floor: float = VOTE_FLOOR) -> List[dict]:
                 "evidence": f"resembles MITRE example ({source_id}): \"{preview}\"",
             }
     return sorted(strongest.values(), key=lambda s: (-s["vote"], s["technique_id"]))
+
+
+# --------------------------------------------------------------------------
+# The semantic half: the same examples, compared by meaning
+# --------------------------------------------------------------------------
+# TF-IDF only sees shared words, so "the operator pulled hashes out of LSASS"
+# and "credential dumping from process memory" look unrelated to it. MiniLM
+# embeddings place them close together. The semantic index votes exactly like
+# the TF-IDF one, over the same labelled examples, and `suggest` combines the
+# two (HYBRID below). Everything stays local: the model is the ONNX build that
+# ChromaDB ships, and the example vectors are precomputed.
+
+
+def semantic_enabled() -> bool:
+    return (os.getenv("ATTACKDNA_SEMANTIC_MAPPER", "1") != "0"
+            and EMBEDDINGS_PATH.exists() and enabled())
+
+
+@lru_cache(maxsize=1)
+def embedding_function():
+    """MiniLM as a callable over a list of sentences, or None if unavailable.
+
+    Fails soft: no ChromaDB, no cached model and no network all mean the
+    semantic half is off and the TF-IDF half answers alone.
+    """
+    try:
+        from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+
+        function = ONNXMiniLM_L6_V2()
+        function(["warm-up"])
+        return function
+    except Exception as exc:  # noqa: BLE001 - import, download or runtime failure
+        logger.info("Semantic mapping unavailable (%s); TF-IDF only", exc)
+        return None
+
+
+@lru_cache(maxsize=1)
+def load_embeddings():
+    """The example vectors as unit-length float32, or None if missing or stale."""
+    import numpy as np
+
+    if not EMBEDDINGS_PATH.exists():
+        return None
+    try:
+        stored = np.load(EMBEDDINGS_PATH)
+        if int(stored["count"]) != len(load_examples()):
+            logger.warning("Example embeddings are stale; run scripts/embed_examples.py")
+            return None
+        vectors = stored["vectors"].astype(np.float32) / 127.0
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Example embeddings unreadable (%s)", exc)
+        return None
+    return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+
+
+class SemanticIndex:
+    """Nearest-example vote over MiniLM vectors; same shape as ExampleIndex."""
+
+    def __init__(self, examples: Sequence[Example], vectors, embed) -> None:
+        self.examples = list(examples)
+        self.techniques = [example[0] for example in self.examples]
+        self.vectors = vectors
+        self.embed = embed
+
+    def vote(self, sentences: Sequence[str], vectors=None) -> List[Optional[dict]]:
+        import numpy as np
+
+        if not sentences:
+            return []
+        if vectors is None:
+            vectors = np.asarray(self.embed(list(sentences)), dtype=np.float32)
+            vectors /= np.linalg.norm(vectors, axis=1, keepdims=True)
+        similarities = vectors @ self.vectors.T
+        results: List[Optional[dict]] = []
+        for row in similarities:
+            nearest = np.argsort(-row, kind="stable")[:NEIGHBOURS]
+            votes: Dict[str, float] = {}
+            best: Dict[str, int] = {}
+            for index in nearest:
+                technique_id = self.techniques[index]
+                votes[technique_id] = votes.get(technique_id, 0.0) + float(row[index])
+                best.setdefault(technique_id, int(index))
+            winner = max(votes, key=lambda tid: (votes[tid], tid))
+            results.append({
+                "technique_id": winner,
+                "vote": round(votes[winner], 4),
+                "similarity": round(float(row[best[winner]]), 4),
+                "example": self.examples[best[winner]],
+                "ranked": sorted(votes, key=lambda tid: (-votes[tid], tid))[:3],
+            })
+        return results
+
+
+@lru_cache(maxsize=1)
+def _semantic_index() -> Optional[SemanticIndex]:
+    if not semantic_enabled():
+        return None
+    vectors = load_embeddings()
+    embed = embedding_function() if vectors is not None else None
+    if vectors is None or embed is None:
+        return None
+    return SemanticIndex(load_examples(), vectors, embed)
 
 
 def stats() -> dict:
