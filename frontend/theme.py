@@ -50,6 +50,7 @@ PROVENANCE_LABELS = {
     "public": ("Real breach", SERIES[2]),
     "synthetic": ("Synthetic", SERIES[1]),
     "internal": ("Your incident", SERIES[0]),
+    "shared": ("Shared by a member", SERIES[0]),
 }
 
 STYLE = f"""
@@ -147,6 +148,52 @@ STYLE = f"""
   .pill-synthetic{{ background: rgba(217,89,38,.15);  color: #e8926f; border-color: rgba(217,89,38,.45); }}
   .pill-internal {{ background: rgba(57,135,229,.15); color: #7fb1ef; border-color: rgba(57,135,229,.45); }}
 
+  .pill-shared   {{ background: rgba(57,135,229,.15); color: #7fb1ef; border-color: rgba(57,135,229,.45); }}
+  .pill-yours    {{ background: rgba(255,255,255,.08); color: {INK}; border-color: rgba(255,255,255,.3); }}
+
+  /* --- Journey: four steps, the current one lit --- */
+  .journey {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: 0 0 1.4rem; }}
+  .journey .step {{
+    border: 1px solid {BORDER}; border-radius: 10px; padding: .55rem .7rem;
+    background: rgba(255,255,255,.02); font-size: .8rem; color: {INK_MUTED}; line-height: 1.35;
+  }}
+  .journey .step b {{ display: block; color: {INK_SECONDARY}; font-size: .86rem; font-weight: 600; }}
+  .journey .step .ar {{ display: block; font-size: .78rem; }}
+  .journey .step.done {{ border-color: rgba(12,163,12,.45); }}
+  .journey .step.done b {{ color: #4cc24c; }}
+  .journey .step.now {{ border-color: rgba(57,135,229,.6); background: rgba(57,135,229,.10); }}
+  .journey .step.now b {{ color: {INK}; }}
+  @media (max-width: 720px) {{ .journey {{ grid-template-columns: repeat(2, 1fr); }} }}
+
+  /* --- Privacy outcome: the first thing a team sees after attaching a report --- */
+  .shield {{
+    border-radius: 14px; padding: 1.1rem 1.25rem; margin: .3rem 0 1rem;
+    border: 1px solid rgba(12,163,12,.5);
+    background: linear-gradient(180deg, rgba(12,163,12,.14), rgba(12,163,12,.04)), {SURFACE};
+  }}
+  .shield.fail {{
+    border-color: rgba(208,59,59,.6);
+    background: linear-gradient(180deg, rgba(208,59,59,.16), rgba(208,59,59,.04)), {SURFACE};
+  }}
+  .shield .title {{ font-size: 1.3rem; font-weight: 650; letter-spacing: -.01em; }}
+  .shield .title-ar {{ font-size: 1.05rem; color: {INK_SECONDARY}; margin-top: .1rem; direction: rtl; text-align: left; }}
+  .shield .detail {{ color: {INK_SECONDARY}; font-size: .9rem; margin-top: .6rem; line-height: 1.55; }}
+  .shield .chips {{ margin-top: .5rem; }}
+  .chip {{
+    display: inline-block; padding: .14rem .55rem; border-radius: 6px; margin: .15rem .3rem .15rem 0;
+    font-size: .76rem; background: rgba(255,255,255,.06); border: 1px solid {BORDER}; color: {INK_SECONDARY};
+  }}
+  .chip strong {{ color: {INK}; }}
+
+  /* --- Consent: what leaves, what stays --- */
+  .consent {{ display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin: .4rem 0 1rem; }}
+  .consent .col {{ border: 1px solid {BORDER}; border-radius: 12px; padding: .8rem 1rem; background: {SURFACE}; }}
+  .consent .col h4 {{ margin: 0 0 .45rem; font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; }}
+  .consent .col.share h4 {{ color: #7fb1ef; }}
+  .consent .col.keep h4 {{ color: #4cc24c; }}
+  .consent ul {{ margin: 0; padding-left: 1.1rem; font-size: .88rem; color: {INK_SECONDARY}; line-height: 1.6; }}
+  @media (max-width: 720px) {{ .consent {{ grid-template-columns: 1fr; }} }}
+
   .redact {{ color: #ef8080; font-weight: 600; background: rgba(208,59,59,.12);
              border-radius: 4px; padding: 0 .2rem; }}
 
@@ -160,6 +207,14 @@ STYLE = f"""
   .tile .v {{ font-size: 1.85rem; font-weight: 650; letter-spacing: -.02em;
               line-height: 1.25; margin-top: .1rem; }}
   .tile .d {{ color: {INK_SECONDARY}; font-size: .78rem; }}
+
+  /* --- Facts: short labelled values that wrap instead of truncating --- */
+  .facts {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: .6rem; margin: .3rem 0 1rem; }}
+  .facts .f {{ border: 1px solid {BORDER}; border-radius: 10px; padding: .55rem .75rem;
+               background: {SURFACE}; }}
+  .facts .k {{ color: {INK_MUTED}; font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; }}
+  .facts .v {{ font-size: 1.12rem; font-weight: 620; margin-top: .15rem; line-height: 1.3; }}
 
   /* --- Streamlit chrome --- */
   div[data-testid="stExpander"] details {{
@@ -199,13 +254,71 @@ def severity_pill(severity: str) -> str:
     return f'<span class="pill pill-{(severity or "low").lower()}">{label}</span>'
 
 
-def provenance_pill(provenance: str) -> str:
-    """Where a recalled incident came from — never shown without this."""
+def provenance_pill(provenance: str, yours: bool = False) -> str:
+    """Where a recalled incident came from — never shown without this.
+
+    A shared incident says only whether it is the viewer's own. Which other
+    organisation contributed it is exactly what the system does not know how
+    to say.
+    """
     key = (provenance or "internal").lower()
+    if yours:
+        return '<span class="pill pill-yours">Your organisation\'s incident</span>'
     label = {"public": "Real documented breach",
              "synthetic": "Synthetic training incident",
-             "internal": "Your own incident"}.get(key, key.title())
+             "internal": "Internal incident",
+             "shared": "Shared by another organisation · identity withheld",
+             }.get(key, key.title())
     return f'<span class="pill pill-{key}">{label}</span>'
+
+
+def journey(current: int, done: int = 0) -> str:
+    """The four steps a security team goes through, with the current one lit."""
+    steps = [
+        ("Attach report", "إرفاق التقرير"),
+        ("Remove identity", "إزالة الهوية"),
+        ("Attack DNA & matches", "البصمة والحوادث المشابهة"),
+        ("Share (optional)", "المشاركة (اختياري)"),
+    ]
+    cells = []
+    for index, (english, arabic) in enumerate(steps, start=1):
+        state = "done" if index <= done else ("now" if index == current else "")
+        cells.append(f'<div class="step {state}"><b>{index}. {english}</b>'
+                     f'<span class="ar">{arabic}</span></div>')
+    return f'<div class="journey">{"".join(cells)}</div>'
+
+
+def chips(counts: dict) -> str:
+    """Removed identifier categories, as countable chips."""
+    labels = {
+        "PERSON": ("person", "people"), "NAME": ("name", "names"),
+        "ORG": ("organisation", "organisations"), "EMAIL": ("email", "emails"),
+        "IP": ("IP address", "IP addresses"), "PHONE": ("phone number", "phone numbers"),
+        "HOSTNAME": ("hostname", "hostnames"), "DOMAIN": ("domain", "domains"),
+        "URL": ("URL", "URLs"), "ACCOUNT": ("account", "accounts"),
+        "ARABIC_TEXT": ("Arabic passage", "Arabic passages"),
+        "FOREIGN_TEXT": ("non-Latin passage", "non-Latin passages"),
+        "NATIONAL_ID": ("national ID", "national IDs"), "IBAN": ("bank account", "bank accounts"),
+        "CREDIT_CARD": ("card number", "card numbers"), "MAC": ("MAC address", "MAC addresses"),
+        "SECRET": ("secret", "secrets"), "TOKEN": ("token", "tokens"),
+        "REFERENCE": ("case reference", "case references"),
+        "USER_PATH": ("user path", "user paths"),
+    }
+
+    def name(kind: str, count: int) -> str:
+        singular, plural = labels.get(kind, (kind.replace("_", " ").lower(),) * 2)
+        return singular if count == 1 else plural
+
+    parts = [f'<span class="chip"><strong>{count}</strong> {name(kind, count)}</span>'
+             for kind, count in sorted(counts.items(), key=lambda item: -item[1])]
+    return f'<div class="chips">{"".join(parts)}</div>'
+
+
+def facts(items) -> str:
+    """A row of labelled values; long values wrap rather than being cut off."""
+    cells = "".join(f'<div class="f"><div class="k">{label}</div><div class="v">{value}</div></div>'
+                    for label, value in items)
+    return f'<div class="facts">{cells}</div>'
 
 
 def tile(label: str, value: str, detail: str = "") -> str:
