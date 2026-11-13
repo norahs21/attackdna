@@ -23,6 +23,24 @@ class AnalyzeRequest(BaseModel):
     top_k: int = Field(5, ge=1, le=20)
     use_llm: bool = True
     include_simulation: bool = True
+    organisation: Optional[str] = Field(
+        None,
+        description="The analysing organisation. Used only to mark which recalled "
+                    "incidents are its own; never stored by this endpoint.",
+    )
+
+
+class ContributeRequest(BaseModel):
+    """Analyze an incident and, with the security team's approval, share it."""
+
+    text: str = Field(..., min_length=20, description="Raw incident report; not stored")
+    organisation: Optional[str] = Field(
+        None, description="Kept only as a keyed pseudonym, never in readable form",
+    )
+    mitigations: List[MitigationIn] = Field(
+        default_factory=list, description="What the team did; sanitized before storage",
+    )
+    use_llm: bool = True
 
 
 class IngestRequest(BaseModel):

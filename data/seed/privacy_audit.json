@@ -1,0 +1,740 @@
+{
+  "_readme": "Privacy audit. Each sentence carries identifiers marked by hand ('must_not_survive') and, where relevant, attack vocabulary the layer has to leave readable ('must_survive'). The check is a plain substring test on the sanitized output, so it does not depend on what the privacy layer believes it detected. 'development' sentences were used to build the detectors; 'heldout' sentences were written after the rules were frozen and run once.",
+  "development": [
+    {
+      "id": "dev_01",
+      "category": "person",
+      "text": "Ahmed Al-Qahtani opened the attachment on Sunday morning.",
+      "must_not_survive": [
+        "Ahmed",
+        "Qahtani"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_02",
+      "category": "person",
+      "text": "Sara clicked the link and entered her password.",
+      "must_not_survive": [
+        "Sara"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_03",
+      "category": "person",
+      "text": "The email was opened by Fahad Alotaibi from the finance team.",
+      "must_not_survive": [
+        "Fahad",
+        "Alotaibi"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_04",
+      "category": "person",
+      "text": "Reported by: Layla Al-Otaibi, SOC analyst.",
+      "must_not_survive": [
+        "Layla",
+        "Otaibi"
+      ],
+      "must_survive": [
+        "SOC"
+      ]
+    },
+    {
+      "id": "dev_05",
+      "category": "person",
+      "text": "The mailbox of \"Noura Al-Harbi\" had an inbox rule.",
+      "must_not_survive": [
+        "Noura",
+        "Harbi"
+      ],
+      "must_survive": [
+        "inbox rule"
+      ]
+    },
+    {
+      "id": "dev_06",
+      "category": "organisation",
+      "text": "Saudi Aramco detected the intrusion on its engineering network.",
+      "must_not_survive": [
+        "Aramco"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_07",
+      "category": "organisation",
+      "text": "STC reported a DDoS against its customer portal.",
+      "must_not_survive": [
+        "STC"
+      ],
+      "must_survive": [
+        "DDoS"
+      ]
+    },
+    {
+      "id": "dev_08",
+      "category": "organisation",
+      "text": "Al Rajhi Bank disclosed fraudulent transfers.",
+      "must_not_survive": [
+        "Rajhi"
+      ],
+      "must_survive": [
+        "Bank"
+      ]
+    },
+    {
+      "id": "dev_09",
+      "category": "organisation",
+      "text": "Bank of Riyadh disclosed fraudulent transfers.",
+      "must_not_survive": [
+        "Riyadh"
+      ],
+      "must_survive": [
+        "Bank"
+      ]
+    },
+    {
+      "id": "dev_10",
+      "category": "organisation",
+      "text": "University of Jeddah notified its regulator.",
+      "must_not_survive": [
+        "Jeddah"
+      ],
+      "must_survive": [
+        "University"
+      ]
+    },
+    {
+      "id": "dev_11",
+      "category": "organisation",
+      "text": "King Saud University isolated the affected lab network.",
+      "must_not_survive": [
+        "Saud"
+      ],
+      "must_survive": [
+        "University"
+      ]
+    },
+    {
+      "id": "dev_12",
+      "category": "organisation",
+      "text": "The Ministry of Health confirmed patient portals were offline.",
+      "must_not_survive": [
+        "Health"
+      ],
+      "must_survive": [
+        "Ministry"
+      ]
+    },
+    {
+      "id": "dev_13",
+      "category": "organisation",
+      "text": "Aseer medical centre reported an outage.",
+      "must_not_survive": [
+        "Aseer"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_14",
+      "category": "organisation",
+      "text": "Qasr Financial Group's servers were encrypted.",
+      "must_not_survive": [
+        "Qasr"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_15",
+      "category": "organisation",
+      "text": "The MSP, Gulf Managed IT, pushed the update.",
+      "must_not_survive": [
+        "Gulf Managed"
+      ],
+      "must_survive": [
+        "MSP"
+      ]
+    },
+    {
+      "id": "dev_16",
+      "category": "organisation",
+      "text": "Riyadh General Hospital disclosed a breach.",
+      "must_not_survive": [
+        "Riyadh"
+      ],
+      "must_survive": [
+        "Hospital"
+      ]
+    },
+    {
+      "id": "dev_17",
+      "category": "location",
+      "text": "The data centre in Dammam was taken offline.",
+      "must_not_survive": [
+        "Dammam"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_18",
+      "category": "location",
+      "text": "The CFO of the Riyadh branch approved the transfer.",
+      "must_not_survive": [
+        "Riyadh"
+      ],
+      "must_survive": [
+        "CFO"
+      ]
+    },
+    {
+      "id": "dev_19",
+      "category": "contact",
+      "text": "Call the on-call engineer on +966 55 123 4567.",
+      "must_not_survive": [
+        "55 123 4567",
+        "4567"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_20",
+      "category": "contact",
+      "text": "Call 0551234567 for the incident bridge.",
+      "must_not_survive": [
+        "0551234567"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_21",
+      "category": "contact",
+      "text": "The employee's national ID 1087654321 was exposed.",
+      "must_not_survive": [
+        "1087654321"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_22",
+      "category": "host",
+      "text": "The attacker moved from fin-ws-042 to dc01 using RDP.",
+      "must_not_survive": [
+        "fin-ws-042",
+        "dc01"
+      ],
+      "must_survive": [
+        "RDP"
+      ]
+    },
+    {
+      "id": "dev_23",
+      "category": "host",
+      "text": "The attacker moved from WKSTN-FIN-042 to SRV-DC01.",
+      "must_not_survive": [
+        "WKSTN-FIN-042",
+        "SRV-DC01"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_24",
+      "category": "host",
+      "text": "Encryption began on fileserver-01.corp.local.",
+      "must_not_survive": [
+        "fileserver-01"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_25",
+      "category": "account",
+      "text": "The account jsmith was used to log in; later svc_backup was abused.",
+      "must_not_survive": [
+        "jsmith",
+        "svc_backup"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_26",
+      "category": "account",
+      "text": "Logon by CORP\\a.mansour at 02:14.",
+      "must_not_survive": [
+        "a.mansour"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_27",
+      "category": "network",
+      "text": "Phish sent to a.mansour@qasrfg.com.sa.",
+      "must_not_survive": [
+        "a.mansour",
+        "qasrfg"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_28",
+      "category": "network",
+      "text": "C2 at 45.12.213.99 and lateral to 10.44.12.8.",
+      "must_not_survive": [
+        "45.12.213.99",
+        "10.44.12.8"
+      ],
+      "must_survive": [
+        "C2"
+      ]
+    },
+    {
+      "id": "dev_29",
+      "category": "network",
+      "text": "Beaconing to 2001:db8::1 was observed.",
+      "must_not_survive": [
+        "2001:db8::1"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_30",
+      "category": "network",
+      "text": "Payload fetched from evil-update[.]com/payload.",
+      "must_not_survive": [
+        "evil-update"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_31",
+      "category": "arabic",
+      "text": "أبلغ المهندس أحمد القحطاني من مستشفى عسير عن تشفير الملفات.",
+      "must_not_survive": [
+        "أحمد",
+        "القحطاني",
+        "عسير"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_32",
+      "category": "arabic",
+      "text": "تعرضت شركة قصر المالية لهجوم فدية.",
+      "must_not_survive": [
+        "قصر"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "dev_33",
+      "category": "codename",
+      "text": "Project Falcon source code was copied from the Nakheel build server.",
+      "must_not_survive": [
+        "Falcon",
+        "Nakheel"
+      ],
+      "must_survive": []
+    }
+  ],
+  "heldout": [
+    {
+      "id": "held_01",
+      "category": "person",
+      "text": "Khalid forwarded the invoice to accounts payable without checking the sender.",
+      "must_not_survive": [
+        "Khalid"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_02",
+      "category": "person",
+      "text": "According to Dr. Reem Al-Shehri, the radiology system went down at 03:10.",
+      "must_not_survive": [
+        "Reem",
+        "Shehri"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_03",
+      "category": "person",
+      "text": "The attacker impersonated Abdulrahman Bin Saleh, the head of treasury.",
+      "must_not_survive": [
+        "Abdulrahman",
+        "Saleh"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_04",
+      "category": "person",
+      "text": "Yusuf Demir, a contractor, still had VPN access six months after leaving.",
+      "must_not_survive": [
+        "Yusuf",
+        "Demir"
+      ],
+      "must_survive": [
+        "VPN"
+      ]
+    },
+    {
+      "id": "held_05",
+      "category": "person",
+      "text": "Maria Gonzalez noticed the mouse moving on its own and called the help desk.",
+      "must_not_survive": [
+        "Maria",
+        "Gonzalez"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_06",
+      "category": "person",
+      "text": "A message from Tom asked finance to change the supplier's bank details.",
+      "must_not_survive": [
+        "Tom"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_07",
+      "category": "person",
+      "text": "Approved by: Eng. Hessa Al-Dossari",
+      "must_not_survive": [
+        "Hessa",
+        "Dossari"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_08",
+      "category": "person",
+      "text": "The CFO, Mr. Li Wei, received a call that sounded like the chairman.",
+      "must_not_survive": [
+        "Li Wei"
+      ],
+      "must_survive": [
+        "CFO"
+      ]
+    },
+    {
+      "id": "held_09",
+      "category": "organisation",
+      "text": "Almarai's distribution centres lost access to the ordering system.",
+      "must_not_survive": [
+        "Almarai"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_10",
+      "category": "organisation",
+      "text": "The breach at Mobily exposed call records of prepaid customers.",
+      "must_not_survive": [
+        "Mobily"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_11",
+      "category": "organisation",
+      "text": "SABIC engineers found a remote access trojan on a historian server.",
+      "must_not_survive": [
+        "SABIC"
+      ],
+      "must_survive": [
+        "remote access trojan"
+      ]
+    },
+    {
+      "id": "held_12",
+      "category": "organisation",
+      "text": "Customers of Jarir received fake delivery messages.",
+      "must_not_survive": [
+        "Jarir"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_13",
+      "category": "organisation",
+      "text": "Dar Al-Arkan disclosed that a ransomware group published its contracts.",
+      "must_not_survive": [
+        "Arkan"
+      ],
+      "must_survive": [
+        "ransomware"
+      ]
+    },
+    {
+      "id": "held_14",
+      "category": "organisation",
+      "text": "The National Water Company restored billing after four days.",
+      "must_not_survive": [
+        "National Water"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_15",
+      "category": "organisation",
+      "text": "Northwind Traders said the attackers were inside for three weeks.",
+      "must_not_survive": [
+        "Northwind"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_16",
+      "category": "organisation",
+      "text": "Investigators traced the intrusion to a laptop at Contoso's Jeddah office.",
+      "must_not_survive": [
+        "Contoso",
+        "Jeddah"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_17",
+      "category": "organisation",
+      "text": "Emirates NBD customers were targeted by the same phishing kit.",
+      "must_not_survive": [
+        "NBD"
+      ],
+      "must_survive": [
+        "phishing"
+      ]
+    },
+    {
+      "id": "held_18",
+      "category": "organisation",
+      "text": "The Saudi Electricity Company isolated two substations.",
+      "must_not_survive": [
+        "Saudi Electricity"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_19",
+      "category": "location",
+      "text": "Staff at the Tabuk plant were sent home.",
+      "must_not_survive": [
+        "Tabuk"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_20",
+      "category": "location",
+      "text": "The backup site in Al Khobar was unaffected.",
+      "must_not_survive": [
+        "Khobar"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_21",
+      "category": "location",
+      "text": "Flights from King Khalid International Airport were delayed.",
+      "must_not_survive": [
+        "King Khalid"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_22",
+      "category": "host",
+      "text": "Lateral movement went from hr-lt-0147 to app-srv-03 and then to backup02.",
+      "must_not_survive": [
+        "hr-lt-0147",
+        "app-srv-03",
+        "backup02"
+      ],
+      "must_survive": [
+        "Lateral movement"
+      ]
+    },
+    {
+      "id": "held_23",
+      "category": "host",
+      "text": "The domain controller RUH-DC-02 logged 4,000 failed Kerberos requests.",
+      "must_not_survive": [
+        "RUH-DC-02"
+      ],
+      "must_survive": [
+        "Kerberos"
+      ]
+    },
+    {
+      "id": "held_24",
+      "category": "host",
+      "text": "PowerShell was launched on JED-POS-114 from mgmt01.",
+      "must_not_survive": [
+        "JED-POS-114",
+        "mgmt01"
+      ],
+      "must_survive": [
+        "PowerShell"
+      ]
+    },
+    {
+      "id": "held_25",
+      "category": "host",
+      "text": "Hostname: sql-prod-07",
+      "must_not_survive": [
+        "sql-prod-07"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_26",
+      "category": "account",
+      "text": "The service account svc_sqlagent ran the scheduled task.",
+      "must_not_survive": [
+        "svc_sqlagent"
+      ],
+      "must_survive": [
+        "scheduled task"
+      ]
+    },
+    {
+      "id": "held_27",
+      "category": "account",
+      "text": "They logged in as n.alharbi and created the account helpdesk2.",
+      "must_not_survive": [
+        "n.alharbi"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_28",
+      "category": "account",
+      "text": "Username: fmutairi",
+      "must_not_survive": [
+        "fmutairi"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_29",
+      "category": "network",
+      "text": "Stolen files were uploaded to files.dropzone-cdn.net over HTTPS.",
+      "must_not_survive": [
+        "dropzone-cdn"
+      ],
+      "must_survive": [
+        "HTTPS"
+      ]
+    },
+    {
+      "id": "held_30",
+      "category": "network",
+      "text": "The phishing email came from payroll@hr-benefits-portal.co.",
+      "must_not_survive": [
+        "payroll@",
+        "hr-benefits-portal"
+      ],
+      "must_survive": [
+        "phishing"
+      ]
+    },
+    {
+      "id": "held_31",
+      "category": "network",
+      "text": "Traffic to 203.0.113.77:8443 continued for nine days.",
+      "must_not_survive": [
+        "203.0.113.77"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_32",
+      "category": "network",
+      "text": "The loader contacted hxxps://cdn-update[.]top/a.bin every hour.",
+      "must_not_survive": [
+        "cdn-update"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_33",
+      "category": "network",
+      "text": "Internal scanning covered 172.16.40.0/22.",
+      "must_not_survive": [
+        "172.16.40.0"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_34",
+      "category": "contact",
+      "text": "The fraudster asked for a callback on 011 456 7890.",
+      "must_not_survive": [
+        "456 7890"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_35",
+      "category": "contact",
+      "text": "Payment was requested to IBAN SA4420000001234567891234.",
+      "must_not_survive": [
+        "SA4420000001234567891234"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_36",
+      "category": "contact",
+      "text": "Her iqama number 2456789012 appeared in the leaked spreadsheet.",
+      "must_not_survive": [
+        "2456789012"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_37",
+      "category": "arabic",
+      "text": "أفاد الموظف خالد العتيبي بأن حسابه في بنك الرياض تعرّض للاختراق.",
+      "must_not_survive": [
+        "خالد",
+        "العتيبي",
+        "الرياض"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_38",
+      "category": "arabic",
+      "text": "تم عزل الخادم في فرع جدة بعد اكتشاف برمجية الفدية LockBit.",
+      "must_not_survive": [
+        "جدة"
+      ],
+      "must_survive": [
+        "LockBit"
+      ]
+    },
+    {
+      "id": "held_39",
+      "category": "codename",
+      "text": "The stolen archive contained designs for Programme Horizon and the Wadi pilot.",
+      "must_not_survive": [
+        "Horizon",
+        "Wadi"
+      ],
+      "must_survive": []
+    },
+    {
+      "id": "held_40",
+      "category": "reference",
+      "text": "Reference: INC-2026-00931, raised by the night shift.",
+      "must_not_survive": [
+        "INC-2026-00931"
+      ],
+      "must_survive": []
+    }
+  ]
+}

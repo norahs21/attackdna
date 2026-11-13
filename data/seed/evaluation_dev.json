@@ -1,0 +1,641 @@
+{
+  "_readme": "Development set B. 28 incident descriptions written during a review of the project, in two styles: 16 the way public write-ups read, 12 the way SOC analysts write. They were first used as an unseen probe (attack type 8/28, technique recall 17%) and then used to improve the rules — which is why they are reported as development data and never as a test result. Each 'expected' field lists every acceptable answer; technique labels are technique families (no sub-technique).",
+  "cases": [
+    {
+      "id": "dev_h01",
+      "style": "public write-up",
+      "text": "A national health service suffered a major ransomware attack in May. The intrusion started eight weeks earlier when a staff member opened a malicious Excel file attached to a phishing email. The operators installed Cobalt Strike, escalated to domain administrator, and moved across the networks of several hospitals over the following weeks, switching off antivirus software on servers along the way. Roughly 700 GB of patient and staff data was copied out before Conti was detonated across the estate. Radiology and outpatient appointments were cancelled for weeks.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "healthcare"
+        ],
+        "techniques": [
+          "T1566",
+          "T1204",
+          "T1486",
+          "T1562",
+          "T1021",
+          "T1078",
+          "T1041"
+        ]
+      }
+    },
+    {
+      "id": "dev_h02",
+      "style": "public write-up",
+      "text": "A mobile carrier confirmed that personal details of about 9.8 million current and former subscribers were taken. An application programming interface used for testing had been left reachable from the internet and did not require authentication. The intruder iterated through customer identifiers and pulled names, dates of birth and passport numbers, then posted a sample on a hacking forum and asked for one million dollars. The privacy commissioner opened an investigation.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "telecom"
+        ],
+        "techniques": [
+          "T1190"
+        ]
+      }
+    },
+    {
+      "id": "dev_h03",
+      "style": "public write-up",
+      "text": "The online banking sites of several large banks were knocked offline intermittently over three days. Hacktivists directed junk traffic from hijacked web servers at the banks, peaking near 70 gigabits per second. Customers could not log in to check balances or pay bills. The banks said no accounts were accessed and no customer information was taken.",
+      "expected": {
+        "attack_type": [
+          "denial_of_service"
+        ],
+        "initial_vector": [
+          "unknown"
+        ],
+        "sector": [
+          "finance"
+        ],
+        "techniques": [
+          "T1498"
+        ]
+      }
+    },
+    {
+      "id": "dev_h04",
+      "style": "public write-up",
+      "text": "A payments firm disclosed that a former employee downloaded internal reports after their employment had ended. The reports contained full names and brokerage account numbers for 8.2 million customers of its investing product. The person had regular access to these reports as part of past job duties, and their access had not been removed when they left. No passwords or card numbers were included.",
+      "expected": {
+        "attack_type": [
+          "insider_threat"
+        ],
+        "initial_vector": [
+          "unknown"
+        ],
+        "sector": [
+          "finance"
+        ],
+        "techniques": [
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_h05",
+      "style": "public write-up",
+      "text": "A business phone software maker shipped a desktop client that had been tampered with before release. Investigators found that an engineer at the company had earlier installed a compromised trading application on a personal computer, which gave the intruders a foothold and eventually access to the build servers. The installer signed with the company's own certificate was then delivered to customers through the normal auto-update channel and loaded an information stealer that harvested browser data and contacted attacker-controlled servers for further instructions.",
+      "expected": {
+        "attack_type": [
+          "malware_infection",
+          "supply_chain"
+        ],
+        "initial_vector": [
+          "supply_chain"
+        ],
+        "sector": [
+          "technology"
+        ],
+        "techniques": [
+          "T1195",
+          "T1071",
+          "T1553"
+        ]
+      }
+    },
+    {
+      "id": "dev_h06",
+      "style": "public write-up",
+      "text": "A large card issuer said an outsider obtained data from more than 100 million credit card applications. A firewall in front of a web application hosted in the cloud was misconfigured, which let the attacker trick the server into requesting temporary credentials from the cloud metadata service. Those credentials were then used to list and copy the contents of over 700 storage buckets. A former cloud engineer was arrested after boasting about the theft online.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "finance"
+        ],
+        "techniques": [
+          "T1190",
+          "T1552",
+          "T1530"
+        ]
+      }
+    },
+    {
+      "id": "dev_h07",
+      "style": "public write-up",
+      "text": "An outdoor clothing retailer reset passwords for about 195,000 online shoppers. Over a period of three weeks, automated login attempts using username and password pairs taken from unrelated breaches succeeded against accounts on its web store. The attackers could view names, purchase history, billing addresses and loyalty point balances. Payment card numbers were not stored on the site.",
+      "expected": {
+        "attack_type": [
+          "credential_attack",
+          "data_breach"
+        ],
+        "initial_vector": [
+          "credential_attack"
+        ],
+        "sector": [
+          "retail"
+        ],
+        "techniques": [
+          "T1110",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_h08",
+      "style": "public write-up",
+      "text": "A state oil company took its corporate network offline after destructive malware struck roughly 30,000 office computers. The malware overwrote the master boot record and files on each machine and left an image of a burning flag. It spread to other machines through network shares using domain credentials that had been stolen earlier. Drilling and production systems were on a separate network and were not affected, but it took about two weeks to rebuild the workstations.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "unknown",
+          "credential_attack"
+        ],
+        "sector": [
+          "energy"
+        ],
+        "techniques": [
+          "T1485",
+          "T1561",
+          "T1021",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_h09",
+      "style": "public write-up",
+      "text": "A city government paid 1.2 million dollars to a fraudster. Staff in accounts payable received emails that appeared to come from a construction contractor asking for future payments to be sent to a new bank account, with a signed form attached. Two scheduled payments went to the new account before the real contractor asked why it had not been paid. The city has recovered part of the money through its bank.",
+      "expected": {
+        "attack_type": [
+          "business_email_compromise"
+        ],
+        "initial_vector": [
+          "phishing",
+          "unknown"
+        ],
+        "sector": [
+          "government"
+        ],
+        "techniques": [
+          "T1657",
+          "T1566"
+        ]
+      }
+    },
+    {
+      "id": "dev_h10",
+      "style": "public write-up",
+      "text": "An automotive parts manufacturer halted production at four plants for a week. The attackers got in through the company's SSL VPN, which had not been patched against CVE-2018-13379, and used it to read session files containing usernames and passwords. They logged in as an IT administrator, used Remote Desktop to reach the domain controllers, removed backups and pushed LockBit to every Windows machine through group policy.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "web_exploitation",
+          "credential_attack"
+        ],
+        "sector": [
+          "manufacturing"
+        ],
+        "techniques": [
+          "T1190",
+          "T1133",
+          "T1078",
+          "T1021",
+          "T1490",
+          "T1486",
+          "T1484"
+        ]
+      }
+    },
+    {
+      "id": "dev_h11",
+      "style": "public write-up",
+      "text": "Students and staff at a university received messages saying their mailbox was almost full, with a button that opened a copy of the university's single sign-on page hosted elsewhere. About 400 people typed in their username and password. The captured accounts were then used to send the same message to thousands of other addresses inside and outside the university before the IT department forced password changes.",
+      "expected": {
+        "attack_type": [
+          "phishing"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "education"
+        ],
+        "techniques": [
+          "T1566",
+          "T1078",
+          "T1534"
+        ]
+      }
+    },
+    {
+      "id": "dev_h12",
+      "style": "public write-up",
+      "text": "A software startup received a cloud bill of 45,000 dollars for a single weekend. A developer had pushed code containing long-lived access keys to a public repository. Within minutes, bots found the keys and launched several hundred GPU instances in regions the company never uses to mine cryptocurrency. No customer data was touched.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "unknown",
+          "credential_attack"
+        ],
+        "sector": [
+          "technology"
+        ],
+        "techniques": [
+          "T1552",
+          "T1496",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_h13",
+      "style": "public write-up",
+      "text": "A global freight forwarder shut down most of its operating systems worldwide after discovering a ransomware attack. For about three weeks the company could not arrange shipments, process customs paperwork or manage warehouse inventory, and customers moved cargo to competitors. The company later reported 60 million dollars in costs related to the attack.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "unknown"
+        ],
+        "sector": [
+          "logistics"
+        ],
+        "techniques": [
+          "T1486"
+        ]
+      }
+    },
+    {
+      "id": "dev_h14",
+      "style": "public write-up",
+      "text": "The state auditor's office said files belonging to 1.6 million residents who had filed unemployment claims were accessed. The office used a twenty-year-old file transfer product from an outside supplier, and attackers chained previously unknown flaws in it to install a web shell and download whatever was stored on the device. Several weeks later, victims began receiving emails threatening to publish the data unless they paid.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "government"
+        ],
+        "techniques": [
+          "T1190",
+          "T1505",
+          "T1041"
+        ]
+      }
+    },
+    {
+      "id": "dev_h15",
+      "style": "public write-up",
+      "text": "A wireless provider said data on 54 million people was stolen, including social security numbers and driver's licence details. The intruder told reporters he found an unprotected router exposed on the internet, used it to get into a data centre near the company's headquarters, and guessed weak passwords to reach more than 100 servers holding customer databases. The data was offered for sale on a forum for six bitcoin.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation",
+          "credential_attack"
+        ],
+        "sector": [
+          "telecom"
+        ],
+        "techniques": [
+          "T1190",
+          "T1133",
+          "T1110",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_h16",
+      "style": "public write-up",
+      "text": "A home improvement chain confirmed that 56 million payment cards were compromised over five months. The criminals entered the network with a username and password stolen from an outside supplier, took advantage of an unpatched Windows flaw to gain elevated rights, and installed custom malware on self-checkout terminals that copied card details from memory. The malware was designed to avoid detection by the antivirus product in use.",
+      "expected": {
+        "attack_type": [
+          "data_breach",
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "credential_attack",
+          "supply_chain"
+        ],
+        "sector": [
+          "retail"
+        ],
+        "techniques": [
+          "T1078",
+          "T1068",
+          "T1005",
+          "T1199"
+        ]
+      }
+    },
+    {
+      "id": "dev_a01",
+      "style": "analyst report",
+      "text": "Initial access was achieved through an IcedID phishing email containing a malicious ISO attachment. After the user mounted the image and launched the LNK file, the threat actor ran discovery commands (nltest, net group, AdFind), deployed Cobalt Strike beacons, dumped LSASS memory, and moved laterally via RDP and PsExec. Data was exfiltrated with Rclone to Mega before Quantum ransomware was deployed domain-wide through WMI. The victim is a regional bank; time to ransomware was under four hours.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "finance"
+        ],
+        "techniques": [
+          "T1566",
+          "T1204",
+          "T1087",
+          "T1482",
+          "T1003",
+          "T1021",
+          "T1567",
+          "T1486",
+          "T1047",
+          "T1071"
+        ]
+      }
+    },
+    {
+      "id": "dev_a02",
+      "style": "analyst report",
+      "text": "The SOC received an alert for anomalous sign-ins to Microsoft 365. Investigation showed the user's session token was captured by an adversary-in-the-middle phishing kit, bypassing MFA. The threat actor registered a new authenticator device, created inbox rules to move messages containing 'invoice' to RSS Feeds, and replied in an existing thread with updated banking details for a supplier of the hospital. A payment of 310,000 USD was sent before finance noticed the discrepancy.",
+      "expected": {
+        "attack_type": [
+          "business_email_compromise"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "healthcare"
+        ],
+        "techniques": [
+          "T1566",
+          "T1557",
+          "T1539",
+          "T1098",
+          "T1114",
+          "T1564",
+          "T1657",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_a03",
+      "style": "analyst report",
+      "text": "The threat actor exploited CVE-2023-4966 (Citrix Bleed) on the organisation's NetScaler gateway to hijack authenticated sessions without credentials. From the gateway they pivoted to a jump server over RDP, harvested credentials with Mimikatz, enumerated Active Directory with BloodHound, and staged 40 GB of engineering documents in a RAR archive that was uploaded to an attacker-controlled SFTP server. No encryption took place. The victim is an electricity transmission operator.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "energy"
+        ],
+        "techniques": [
+          "T1190",
+          "T1021",
+          "T1003",
+          "T1087",
+          "T1560",
+          "T1048",
+          "T1041",
+          "T1563"
+        ]
+      }
+    },
+    {
+      "id": "dev_a04",
+      "style": "analyst report",
+      "text": "Over a 72-hour window the identity provider logged 1.1 million failed authentications against the student portal from residential proxy addresses, consistent with credential stuffing. 2,340 accounts were accessed successfully. The threat actor changed the direct-deposit details for 61 student employees. Accounts were locked, sessions revoked and a forced password reset was issued to the whole university.",
+      "expected": {
+        "attack_type": [
+          "credential_attack"
+        ],
+        "initial_vector": [
+          "credential_attack"
+        ],
+        "sector": [
+          "education"
+        ],
+        "techniques": [
+          "T1110",
+          "T1078",
+          "T1657",
+          "T1090"
+        ]
+      }
+    },
+    {
+      "id": "dev_a05",
+      "style": "analyst report",
+      "text": "EDR flagged rundll32.exe spawning from a OneNote attachment on a workstation in the ministry's procurement department. The payload was Qakbot, which established persistence through a scheduled task and a Run key, injected into wermgr.exe, and beaconed to its C2 over HTTPS. The host was isolated within 25 minutes, before any lateral movement. Credentials for the affected user were reset.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "government"
+        ],
+        "techniques": [
+          "T1566",
+          "T1204",
+          "T1218",
+          "T1053",
+          "T1547",
+          "T1055",
+          "T1071"
+        ]
+      }
+    },
+    {
+      "id": "dev_a06",
+      "style": "analyst report",
+      "text": "A volumetric DDoS combining DNS amplification and SYN floods hit the e-commerce platform during a sale event, peaking at 310 Gbps and 45 million packets per second. The storefront and checkout API were unreachable for 95 minutes until traffic was rerouted through the scrubbing provider. No evidence of intrusion was found.",
+      "expected": {
+        "attack_type": [
+          "denial_of_service"
+        ],
+        "initial_vector": [
+          "unknown"
+        ],
+        "sector": [
+          "retail"
+        ],
+        "techniques": [
+          "T1498"
+        ]
+      }
+    },
+    {
+      "id": "dev_a07",
+      "style": "analyst report",
+      "text": "A database administrator at a telecom provider, who had been placed on a performance plan, queried the billing database outside business hours and exported call detail records for 14 high-profile subscribers to a USB drive. DLP did not block the transfer because the device was allow-listed. The activity was found during a quarterly access review. HR and legal were engaged and the account was disabled.",
+      "expected": {
+        "attack_type": [
+          "insider_threat"
+        ],
+        "initial_vector": [
+          "unknown"
+        ],
+        "sector": [
+          "telecom"
+        ],
+        "techniques": [
+          "T1078",
+          "T1052",
+          "T1213",
+          "T1005"
+        ]
+      }
+    },
+    {
+      "id": "dev_a08",
+      "style": "analyst report",
+      "text": "A CI pipeline at a software company pulled a typosquatted npm package that had been published two days earlier. The package's post-install script read environment variables, including cloud access keys and a signing token, and sent them to a remote webhook. The threat actor used the keys to clone private repositories. Tokens were rotated and the build runners were rebuilt.",
+      "expected": {
+        "attack_type": [
+          "supply_chain",
+          "data_breach",
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "supply_chain"
+        ],
+        "sector": [
+          "technology"
+        ],
+        "techniques": [
+          "T1195",
+          "T1552",
+          "T1059",
+          "T1567",
+          "T1213",
+          "T1078"
+        ]
+      }
+    },
+    {
+      "id": "dev_a09",
+      "style": "analyst report",
+      "text": "The threat actor authenticated to the corporate VPN using credentials for a dormant contractor account that had no MFA enrolled. They performed network discovery with Advanced IP Scanner, used Impacket's secretsdump against a domain controller, disabled Windows Defender through a GPO, deleted volume shadow copies with vssadmin, and deployed Akira ransomware to ESXi hosts over SSH. Production scheduling at the factory was down for six days.",
+      "expected": {
+        "attack_type": [
+          "ransomware"
+        ],
+        "initial_vector": [
+          "credential_attack"
+        ],
+        "sector": [
+          "manufacturing"
+        ],
+        "techniques": [
+          "T1078",
+          "T1133",
+          "T1046",
+          "T1018",
+          "T1003",
+          "T1562",
+          "T1484",
+          "T1490",
+          "T1486",
+          "T1021"
+        ]
+      }
+    },
+    {
+      "id": "dev_a10",
+      "style": "analyst report",
+      "text": "An attacker abused an unauthenticated IDOR in the shipment-tracking API of a logistics company to enumerate consignment records. Roughly 420,000 records with consignee names, addresses and phone numbers were scraped over eleven days at a low request rate that stayed under the WAF threshold. The endpoint was patched and the regulator was notified under PDPL.",
+      "expected": {
+        "attack_type": [
+          "data_breach"
+        ],
+        "initial_vector": [
+          "web_exploitation"
+        ],
+        "sector": [
+          "logistics"
+        ],
+        "techniques": [
+          "T1190"
+        ]
+      }
+    },
+    {
+      "id": "dev_a11",
+      "style": "analyst report",
+      "text": "Multiple employees of an insurance company reported SMS messages impersonating the IT help desk with a link to a spoofed Okta login page. Three users submitted credentials and one-time codes. The threat actor enrolled their own device for MFA, accessed the internal wiki and the ticketing system, and searched for 'VPN' and 'password'. Access was terminated after roughly two hours; no customer data access was identified.",
+      "expected": {
+        "attack_type": [
+          "phishing",
+          "credential_attack"
+        ],
+        "initial_vector": [
+          "phishing"
+        ],
+        "sector": [
+          "finance"
+        ],
+        "techniques": [
+          "T1566",
+          "T1078",
+          "T1098",
+          "T1213",
+          "T1111"
+        ]
+      }
+    },
+    {
+      "id": "dev_a12",
+      "style": "analyst report",
+      "text": "During threat hunting the team found XMRig running on eleven Kubernetes worker nodes of the hospital's patient-portal cluster. The actor had gained access through an exposed Docker API on port 2375, deployed a privileged container, escaped to the host and added an SSH key for persistence. CPU usage had been at 100% for nine days. No patient data was accessed.",
+      "expected": {
+        "attack_type": [
+          "malware_infection"
+        ],
+        "initial_vector": [
+          "web_exploitation",
+          "unknown"
+        ],
+        "sector": [
+          "healthcare"
+        ],
+        "techniques": [
+          "T1496",
+          "T1190",
+          "T1133",
+          "T1610",
+          "T1611",
+          "T1098"
+        ]
+      }
+    }
+  ]
+}

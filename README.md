@@ -1,15 +1,71 @@
 # 🧬 ATTACKDNA
 
-**An AI-powered cyber memory that turns past incidents into reusable attack intelligence.**
+**One organisation's cyber incident becomes another organisation's defensive
+knowledge, without sharing the victim's identity or its report.**
 
 Every organisation solves the same attack twice. The first time it is an incident;
 the second time it should be a lookup. It usually isn't, because the useful part of
 an incident report is buried inside data nobody is allowed to share.
 
 ATTACKDNA separates the two. It strips the victim's identity out of an incident
-report and keeps the attack's *behaviour* — its **Attack DNA** — as a searchable,
-shareable record. The next incident that looks like it gets answered with what
-actually worked last time.
+report and keeps the attack's *behaviour*, its **Attack DNA**, as a searchable
+record. With the security team's approval, that fingerprint joins a **shared
+memory**: the next organisation hit by the same pattern recalls it, sees why it
+matched and what worked, and never learns who was attacked.
+
+---
+
+## How a security team uses it
+
+| Step | What the team does | What it sees |
+|---|---|---|
+| 1. Attach report | Attaches the report as written: PDF, Word or text | Nothing to choose, nothing to configure |
+| 2. Remove identity | — | **"Sensitive information removed successfully"**, with counts per category, the sanitized text and the masked audit |
+| 3. Attack DNA & matches | — | The verdict, the ATT&CK mapping with evidence, similar incidents from shared memory (other organisations' incidents marked *identity withheld*) and the recommended response, each action citing its source |
+| 4. Share (optional) | Ticks the approval box and, optionally, adds what it did | Exactly what would be shared and what never leaves, side by side; then **Contribute** or **Keep private** |
+
+The interface has four pages (**Analyze a report**, **Dashboard**, **Ask the
+memory**, **Evidence**), is English only, and has a day and a night appearance
+(the switch sits at the bottom of the navigation rail). The Dashboard shows what
+shared memory holds: key figures, incidents over time, where the memory comes
+from (member contributions, real breaches, synthetic), the attack mix, the most
+seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage,
+the latest fingerprints and the actions with the best recorded outcomes.
+
+Nothing is stored until step 4. The organisation's name is kept only as a keyed
+pseudonym (`services/contributors.py`), used to tell a team "this match is your
+own incident" and never returned by the API. Shared records carry the month they
+were shared, not the incident date. If the privacy check fails, the text is not
+sent to any LLM and cannot be shared.
+
+### The cross-organisation experiment
+
+`make eval-crossorg` runs the experiment behind the claim
+(`scripts/evaluate_crossorg.py`, data in `data/seed/crossorg_pairs.json`).
+Organisation A contributes 20 incidents; organisation B reports the same 20
+attack patterns in its own words. A's incidents sit among the 24-incident
+corpus, which acts as distractors. Offline mode, TF-IDF memory backend:
+
+| Measurement | Result |
+|---|---|
+| Identifiers removed: 171 marked by hand in 40 reports | **167 / 171 = 98%** (95% CI 94–99%) |
+| Attack terms lost to over-redaction | 2 / 165 = 1% |
+| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **72 / 72 = 100%** |
+| B recalls A's incident first: Precision@1 | **12 / 20 = 60%** (95% CI 39–78%) |
+| …in its top five: Recall@5 · MRR | **19 / 20 = 95%** · 0.75 |
+| B's top match has the same attack type | 18 / 20 = 90% |
+| A's recorded response recommended to B, with its source | 18 / 20 = 90% |
+| B's screens that showed anything naming A | **0 / 20** |
+| Shared records still naming A | 1 / 20 (two identifiers in one report) |
+| Same experiment without the privacy layer: Precision@1 · records naming A | 60% · **20 / 20** |
+
+Removing the victim's identity cost no retrieval quality on this set, and without
+the privacy layer every shared record named its victim. The four identifiers that
+survived (a phone number written with spaces, two single-word company names, a
+storage-bucket name) are reported as found rather than fixed after the fact. The
+40 reports are synthetic and were labelled by the project team, so independent
+annotation and real SOC reports are the next step. The Evidence page in the demo
+shows every number with its interval and every query.
 
 ---
 
@@ -64,23 +120,55 @@ make data      # download & process MITRE ATT&CK, CISA KEV and the CTI layers
 make seed      # load the historical incident corpus into memory
 make demo      # http://localhost:8501
 make eval      # measure accuracy against the labelled evaluation set
+make eval-crossorg  # the cross-organisation sharing experiment
 ```
 
 ### Measured results
 
-`make eval` scores the pipeline against 8 labelled cases written independently
-of the seed corpus. Current rule-based numbers (no API key, no network):
+Two kinds of number, kept apart on purpose. **Development** cases are the ones
+the rules were built and tuned on; a high score there shows the system does
+what it was designed to do. **Held-out** cases are the test: the system had
+never seen them, their labels were fixed first, and it was run on them once.
 
-| Metric | Result |
+`make eval` prints both. Offline mode, no API key, no network:
+
+| Held-out test | Result |
 |---|---|
-| Attack type accuracy | **100%** |
-| Initial vector accuracy | **100%** |
-| Sector accuracy | **100%** |
-| Severity band accuracy | **100%** |
-| ATT&CK mapping precision / recall / F1 | **87% / 88% / 86%** |
-| Memory retrieval precision@1 | **100%** |
-| Privacy verified clean (0 residual leaks) | **100%** |
-| Mean end-to-end latency | **0.40 s** |
+| Attack type — 32 real incident summaries (Wikipedia, verbatim) | **24 / 28 = 86%** (95% CI 69–94%) |
+| Sector — same summaries | 11 / 25 = 44% (95% CI 27–63%) |
+| Identifiers removed — names marked by hand in those summaries | **53 / 55 = 96%** |
+| Identifiers removed — 40 new sentences, 10 categories | **51 / 53 = 96%** |
+| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **44%**, precision 62% |
+| …of which the learned mapper, when it answers | precision **87%** |
+
+| Development (36 cases, tuned on these) | Result |
+|---|---|
+| Attack type / initial vector / sector | 86% / 92% / 92% |
+| ATT&CK techniques — precision / recall / F1 | 95% / 52% / 67% |
+| Memory retrieval precision@1 (8 cases) | 8 / 8 |
+| Mean end-to-end latency | ≈ 0.3 s |
+
+What these say, plainly:
+
+- **Sector is the weak number.** A real write-up names the organisation rather
+  than describing its business, and the privacy layer removes the name. The
+  classifier is left with whatever generic words remain.
+- **The privacy figures are first-run figures.** The four identifiers that
+  survived exposed three bugs (a machine name before a full stop, a bank read
+  as a roman numeral, a brand that starts with a digit). They are fixed and
+  have regression tests, and the held-out sets now pass in full — but 96% is
+  what an untouched test measured, so 96% is what is reported.
+- **Technique mapping has one label per sentence**, so a second technique the
+  sentence really does describe counts as wrong. Precision is a lower bound.
+- **Before these changes**, on 28 reports the rules had never seen, the
+  extractor named the attack type for 8 and found 17% of the techniques, and
+  19 of 34 realistic sentences leaked an identifier.
+
+```bash
+make eval           # development + held-out + privacy audit
+make eval-mapper    # technique mapping on MITRE-labelled sentences
+make eval-crossorg  # organisation A shares, organisation B recalls
+```
 
 No API key is required. Without one the system runs in **rule-based mode**: every
 stage still executes, extraction is deterministic instead of model-assisted.
@@ -117,27 +205,50 @@ make api       # http://localhost:8000/docs
 
 ## What makes each stage defensible
 
-### ① Privacy Layer — `backend/app/services/sanitizer.py`
+### ① Privacy Layer — `sanitizer.py`, `name_detector.py`, `lexicon.py`
 
-Redaction is done with regular expressions, not a model. A regex cannot decide to
-leak an IP address.
+Redaction is done with rules and word lists, not a model. A rule cannot decide
+to leak an IP address, and the same report always gives the same output.
 
-- **Fails closed.** The optional LLM pass may only *add* redactions, never remove them.
+Identifiers come in two kinds, and each has its own mechanism:
+
+- **Identifiers with a shape** — addresses, mailboxes, host names, accounts,
+  ticket numbers — are found by regular expressions.
+- **Identifiers without one** — people, organisations, places. Nothing marks
+  "Aramco" or "Sara" as a name except that it is capitalised and is not a
+  word. So the layer reads capitalisation against three vocabularies: ordinary
+  English words, public security terms (every technique, malware, group,
+  vendor and product name MITRE and CISA publish), and given names. A
+  capitalised token that is in none of them is a name.
+
+Properties:
+
+- **Fails closed.** Where it cannot tell a name from a word, it removes it. An
+  unfamiliar product name is lost; an unfamiliar person is not leaked. Text in
+  a script it cannot read — Arabic has no capital letter to mark a name — is
+  withheld whole, with the Latin-script terms inside it left for the extractor.
+- **Reads the sentence, not just the token.** "Target" is a word; "Target
+  disclosed a breach" is a retailer. "Cisco IOS XE" is a product; "Cisco
+  confirmed a breach of its network" is a victim.
 - **Analytically lossless.** The same value always maps to the same token, so
   "one attacker mailbox" and "three attacker mailboxes" stay distinguishable.
-  A single value of a type renders as `[IP_REDACTED]`; multiple distinct values
-  become `[IP_REDACTED_1]`, `[IP_REDACTED_2]`.
-- **Preserves the fingerprint.** CVE ids, ATT&CK technique ids and file hashes are
-  the *attack's* identity, not the victim's, so they are explicitly protected.
-- **Self-verifying.** `verify_clean()` re-scans the sanitized output for
-  high-risk identifiers. The UI shows the result as a PASS/FAIL, so the privacy
-  claim is demonstrated rather than asserted.
+- **Preserves the fingerprint.** CVE ids, ATT&CK technique ids, file hashes
+  and registry keys are the *attack's* identity, so they are protected.
+- **Self-checking.** `verify_clean()` runs every detector a second time over
+  the output. It is a self-check, not independent verification — the
+  independent measurement is the hand-marked audit in `make eval`.
 
 ```
-john@company.sa   →  [EMAIL_REDACTED]
-10.10.23.41       →  [IP_REDACTED]
-CVE-2024-21412    →  CVE-2024-21412     (preserved — this is the attack's DNA)
+Saudi Aramco detected the intrusion   →  [NAME_REDACTED] detected the intrusion
+Ahmed Al-Qahtani opened the file      →  [PERSON_REDACTED] opened the file
+moved from fin-ws-042 to dc01         →  moved from [HOSTNAME_REDACTED_1] to [HOSTNAME_REDACTED_2]
+10.10.23.41                           →  [IP_REDACTED]
+CVE-2024-21412, Mimikatz, PowerShell  →  unchanged — this is the attack's DNA
 ```
+
+What it does not claim: that free text is anonymous. A date, a size and a rare
+sector can still narrow down a victim. The guarantee the system rests on is
+structural and lives one stage later — see *Privacy by construction* below.
 
 ### ② Attack DNA — `backend/app/services/dna_extractor.py`
 
@@ -156,6 +267,14 @@ The reusable fingerprint of an incident:
 Splitting `attack_type` from `initial_vector` matters: phishing that ends in
 ransomware is a **ransomware** incident that *arrived by* phishing. Filing it as
 "phishing" would sit it next to the wrong playbooks.
+
+Techniques are found three ways, and each mapping says which: an id the
+report states, a phrase from a curated table, or **resemblance to the ~17,600
+sentences MITRE has labelled** (`example_mapper.py`) — a nearest-example vote
+that needs no model download, abstains unless its neighbours agree, and
+attaches the MITRE sentence as evidence rather than the report's own words.
+Nothing the report denies is counted: "no data was exfiltrated" is not
+exfiltration (`negation.py`).
 
 Every extraction is checked against the DNA schema (`validate_dna`), including
 the privacy invariant that `embedding_text` may never contain a redaction token
@@ -295,9 +414,22 @@ The privacy promise is enforced by the schema, not by convention:
   fields — never from the report.
 - The token→original map stays in memory for the audit panel; it is never persisted,
   embedded, or sent to a model.
-- The LLM, when enabled, only ever sees text that has already been sanitized.
+- The LLM, when enabled, only ever sees text that has already been sanitized,
+  and only when the privacy check passed.
+- Sharing is a separate, explicit step (`contribute()`), which takes the
+  analysed result and never the raw report, re-runs the privacy check, and
+  sanitizes the team's free-text response notes as well.
+- The contributing organisation is stored as an HMAC pseudonym under a
+  server-side key (`backend/.pseudonym_key` or `ATTACKDNA_PSEUDONYM_KEY`), absent
+  from every API response.
 
-`tests/test_pipeline.py` asserts each of these.
+- The Attack DNA itself is assembled from closed vocabularies: enumerated
+  types, ATT&CK ids and names, and MITRE's own example sentences. No free
+  text from the report can enter it — so a name the privacy layer misses
+  still cannot reach the record that is embedded and shared.
+
+`tests/test_pipeline.py`, `tests/test_privacy_names.py` and
+`tests/test_cross_organization.py` assert each of these.
 
 ---
 
@@ -309,7 +441,11 @@ backend/app/
   db/database.py               SQLAlchemy models (raw_text NULL by default)
   models/schemas.py            request/response contracts
   services/
-    sanitizer.py               ① Privacy Layer
+    sanitizer.py               ① Privacy Layer — identifiers with a shape
+    name_detector.py           ① … and the names that have none
+    lexicon.py                 the vocabularies that tell a name from a word
+    negation.py                what the report says did not happen
+    example_mapper.py          technique mapping learned from MITRE's examples
     knowledge_base.py          ATT&CK, KEV and CTI loaders
     mitre_mapper.py            behaviour → ATT&CK, with evidence
     kev_enricher.py            CVE → known-exploited status
@@ -322,21 +458,31 @@ backend/app/
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
     simulator.py               ⑥ safe tabletop generation
-  pipelines/analyze.py         analyze() / ingest() / reindex_memory()
+    contributors.py            keyed pseudonyms for contributing organisations
+    document_reader.py         PDF / Word / text reports to plain text
+  pipelines/analyze.py         analyze() / contribute() / ingest() / reindex_memory()
   routes/                      FastAPI endpoints
-frontend/app.py                Streamlit demo — the full six-step journey
+frontend/app.py                Streamlit interface: attach → identity removed → DNA & matches → share
 scripts/
   download_*.py, process_*.py  knowledge-base preparation
   process_cti.py               ATT&CK mitigations, groups, software, campaigns
   seed_memory.py               load the historical corpus
-  evaluate.py                  accuracy measurement
+  process_examples.py          MITRE's labelled procedure examples
+  evaluate.py                  development sets, held-out test, privacy audit
+  evaluate_mapper.py           technique mapping on MITRE-labelled sentences
+  evaluate_crossorg.py         cross-organisation recall, privacy and behaviour
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
   seed/public_incidents.json   10 real publicly-documented breaches, cited
   seed/incidents.json          14 synthetic incidents for sector breadth
-  seed/evaluation_set.json     labelled cases for accuracy measurement
+  seed/evaluation_set.json     development set A (8 cases)
+  seed/evaluation_dev.json     development set B (28 cases)
+  seed/evaluation_heldout.json held-out test: 32 real incident summaries
+  seed/privacy_audit.json      identifiers marked by hand, 73 sentences
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
-tests/                         157 tests
+  seed/crossorg_pairs.json     20 attack patterns reported by two organisations
+  evaluation/                  latest cross-organisation results (read by the UI)
+tests/                         350 tests
 ```
 
 ---
@@ -344,8 +490,10 @@ tests/                         157 tests
 ## Testing
 
 ```bash
-make test     # 157 tests
-make eval     # accuracy measurement against labelled cases
+make test          # 350 tests
+make eval          # development sets, held-out test, privacy audit
+make eval-mapper   # technique mapping on MITRE-labelled sentences
+make eval-crossorg # cross-organisation recall, privacy and behaviour
 ```
 
 The suite covers redaction correctness, fingerprint preservation, ATT&CK mapping
@@ -361,7 +509,7 @@ stage?"*:
 - **Determinism.** The same report analysed repeatedly must produce an identical
   signature, severity and technique list.
 - **Performance.** Every prepared scenario must finish within a 5-second budget
-  (current mean: 0.40 s).
+  (current mean: about 0.3 s).
 - **Scenario hygiene.** No prepared demo scenario may leak an identifier.
 
 ---
@@ -374,10 +522,16 @@ stage?"*:
 - The **CTI layers** (`scripts/process_cti.py`) are optional enrichment. Without
   them the pipeline still runs — it just cannot attribute or cite official
   mitigations — so a fresh clone never breaks.
-- **No model training is involved anywhere.** The rule layers are curated
+- **Nothing is trained on anyone's incidents.** The rule layers are curated
   vocabularies, the embeddings come from a pre-trained MiniLM, and the optional
-  LLM is used through its API. There is nothing to fine-tune, and no training
-  data to collect.
+  LLM is used through its API. The one component that learns —
+  `example_mapper` — learns only from sentences MITRE publishes, is fitted in
+  under a second at first use, and has no weights to ship or fine-tune.
+- **Third-party data.** `data/processed/english_words.txt.gz` is the lower-case
+  entries of Webster's Second International (1934, copyright lapsed).
+  `procedure_examples.json.gz` is © The MITRE Corporation, reproduced under
+  the ATT&CK terms of use. The held-out summaries are © Wikipedia
+  contributors, CC BY-SA 4.0, each cited to its article.
 - The corpus has **two provenances**, and the UI never shows a recalled action
   without saying which:
   - `data/seed/public_incidents.json` — **10 real, publicly documented breaches**

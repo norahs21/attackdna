@@ -51,6 +51,17 @@ def _run(mode: str | None = None) -> AppTest:
     return app
 
 
+def _button(app: AppTest, label: str):
+    return next(b for b in app.button if b.label == label)
+
+
+def _analyze(app: AppTest, text: str = REPORT) -> AppTest:
+    """Paste a report and press the one button a team needs."""
+    app.text_area[0].set_value(text).run()
+    _button(app, "Remove identity and analyze").click().run()
+    return app
+
+
 def _screen_text(app: AppTest) -> str:
     """Everything rendered, flattened — what a reader would actually see."""
     parts = []
@@ -92,55 +103,62 @@ def test_the_app_starts_in_an_interpreter_that_has_imported_nothing():
 
 
 def test_every_mode_renders(corpus):
-    for mode in ["Analyze an incident", "Ask the memory", "Memory dashboard"]:
+    for mode in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
         app = _run(mode)
         assert not app.exception, f"{mode} raised {app.exception}"
 
 
 def test_the_dashboard_reports_what_memory_holds(corpus):
-    app = _run("Memory dashboard")
+    app = _run("Dashboard")
 
     assert not app.exception
     screen = _screen_text(app)
     assert "Incidents in memory" in screen
-    assert "ATT&CK techniques seen" in screen
+    assert "ATT&CK techniques" in screen
+    assert "Fingerprints in memory" in screen
 
 
 def test_an_empty_memory_dashboard_says_so_instead_of_crashing(clean_memory):
-    app = _run("Memory dashboard")
+    app = _run("Dashboard")
 
     assert not app.exception
     assert any("Memory is empty" in str(w.value) for w in app.warning)
 
 
-def test_analyzing_leads_with_the_verdict_then_the_evidence(corpus):
+def test_the_first_step_is_attaching_a_report_not_choosing_one(corpus):
+    """A security team arrives with its own report; the main flow never asks it to
+    pick someone else's. Sample reports exist, but only in the sidebar's demo panel."""
     app = _run()
-    app.text_area[0].set_value(REPORT).run()
-    app.button[0].click().run()
+
+    assert not app.exception
+    assert not app.main.selectbox, "the analysis flow should not open with a picker"
+    screen = _screen_text(app)
+    assert "Attach your incident report" in screen
+
+
+def test_privacy_is_the_first_result_then_the_verdict_then_sharing(corpus):
+    app = _analyze(_run())
 
     assert not app.exception
     screen = _screen_text(app)
-    verdict = screen.index("Verdict")
-    assert verdict < screen.index("Privacy Shield")
-    assert verdict < screen.index("Extract Attack DNA")
+    removed = screen.index("Sensitive information removed successfully")
+    assert removed < screen.index("Attack DNA and shared memory")
+    assert screen.index("Attack DNA and shared memory") < screen.index(
+        "Share with other organisations")
 
 
 def test_the_verdict_names_the_attack_and_the_first_action(corpus):
-    app = _run()
-    app.text_area[0].set_value(REPORT).run()
-    app.button[0].click().run()
+    app = _analyze(_run())
 
     screen = _screen_text(app)
     assert "Ransomware via phishing" in screen
     assert "Do this first" in screen
-    assert "identifying value(s) removed" in screen
+    assert "identifying value(s) were removed" in screen
 
 
 def test_nothing_identifying_reaches_the_screen(corpus):
     """The system's central promise, checked at the last place it could break."""
-    app = _run()
-    app.text_area[0].set_value(REPORT).run()
-    app.button[0].click().run()
+    app = _analyze(_run())
 
     screen = _screen_text(app)
     assert "Falcon Bank" not in screen
@@ -149,22 +167,69 @@ def test_nothing_identifying_reaches_the_screen(corpus):
     assert "REDACTED" in screen
 
 
-def test_the_report_download_is_offered(corpus):
+def test_nothing_is_stored_until_the_team_approves(corpus):
+    from app.db.database import IncidentDB
+
+    before = corpus.query(IncidentDB).count()
+    app = _analyze(_run())
+
+    assert corpus.query(IncidentDB).count() == before
+    share = _button(app, "Contribute to shared memory")
+    assert share.disabled, "sharing must need the approval box ticked first"
+
+
+def test_approving_adds_the_fingerprint_to_shared_memory(corpus):
+    from app.db.database import IncidentDB
+
     app = _run()
-    app.text_area[0].set_value(REPORT).run()
-    app.button[0].click().run()
+    app.sidebar.text_input[0].set_value("Falcon Bank Ltd").run()
+    _analyze(app)
+    app.checkbox[0].check().run()
+    _button(app, "Contribute to shared memory").click().run()
+
+    assert not app.exception
+    assert any("Added to shared memory" in str(s.value) for s in app.success)
+    shared = corpus.query(IncidentDB).filter(IncidentDB.provenance == "shared").all()
+    assert len(shared) == 1
+    record = shared[0]
+    assert record.raw_text is None
+    assert "Falcon" not in (record.sanitized_text + record.title)
+    assert record.contributor_ref and "Falcon" not in record.contributor_ref
+
+
+def test_keeping_it_private_stores_nothing(corpus):
+    from app.db.database import IncidentDB
+
+    before = corpus.query(IncidentDB).count()
+    app = _analyze(_run())
+    _button(app, "Keep private: analysis only").click().run()
+
+    assert not app.exception
+    assert any("Kept private" in str(i.value) for i in app.info)
+    assert corpus.query(IncidentDB).count() == before
+
+
+def test_the_report_download_is_offered(corpus):
+    app = _analyze(_run())
 
     assert not app.exception
     assert any("Download report" in str(b.label) for b in app.download_button)
 
 
 def test_a_too_short_report_is_rejected_with_a_message(corpus):
-    app = _run()
-    app.text_area[0].set_value("nope").run()
-    app.button[0].click().run()
+    app = _analyze(_run(), "nope")
 
     assert not app.exception
     assert any("at least a couple of sentences" in str(e.value) for e in app.error)
+
+
+def test_the_evidence_page_shows_the_cross_organisation_results(corpus):
+    app = _run("Evidence")
+
+    assert not app.exception
+    screen = _screen_text(app)
+    assert "Cross-org Precision@1" in screen or "No results yet" in str(
+        [w.value for w in app.warning])
 
 
 def test_asking_the_memory_puts_the_sources_under_the_answer(corpus):
@@ -178,3 +243,19 @@ def test_asking_the_memory_puts_the_sources_under_the_answer(corpus):
     # The retrieval statistics are a footnote, never a wall between the answer
     # and the evidence it was built from.
     assert screen.index("Sources") < screen.index("incident(s) retrieved")
+
+
+def test_the_interface_is_english_only(corpus):
+    import re
+
+    for page in ["Analyze a report", "Dashboard", "Ask the memory", "Evidence"]:
+        app = _run(page)
+        assert not re.search("[\u0600-\u06FF]", _screen_text(app)), f"Arabic on {page}"
+
+
+def test_day_and_night_both_render(corpus):
+    app = _run("Dashboard")
+    assert not app.exception
+    app.sidebar.toggle(key="dark_mode").set_value(False).run()
+    assert not app.exception
+    assert "--bg: #eceef1" in _screen_text(app)

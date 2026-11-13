@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.config import SIMILARITY_THRESHOLD, SIMILARITY_TOP_K
 from app.db.database import IncidentDB
 from app.services import vector_memory
+from app.services.contributors import same_contributor
 
 # Blend weights. Structure is weighted slightly higher than prose similarity
 # because shared techniques are the claim we actually want to make.
@@ -108,8 +109,14 @@ def find_similar_incidents(
     top_k: int = SIMILARITY_TOP_K,
     exclude_id: Optional[str] = None,
     threshold: float = SIMILARITY_THRESHOLD,
+    viewer_ref: Optional[str] = None,
 ) -> List[Dict]:
-    """Return past incidents that resemble this Attack DNA, best match first."""
+    """Return past incidents that resemble this Attack DNA, best match first.
+
+    `viewer_ref` is the asking organisation's pseudonym. Each match then says
+    whether it is that organisation's own incident, and nothing else about who
+    contributed it.
+    """
     # Recall stage: over-fetch so re-ranking has real choices to make.
     candidates = vector_memory.find_similar(
         dna["embedding_text"],
@@ -143,6 +150,7 @@ def find_similar_incidents(
             "incident_id": incident.id,
             "title": incident.title,
             "provenance": incident.provenance,
+            "from_your_organisation": same_contributor(incident.contributor_ref, viewer_ref),
             "source_name": incident.source_name,
             "source_url": incident.source_url,
             "why_it_matters": incident.why_it_matters,

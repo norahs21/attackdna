@@ -8,9 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.db.database import IncidentDB, MitigationDB, get_session
 from app.models.schemas import (
-    AnalyzeRequest, IngestRequest, MitigationAppendRequest, SanitizeRequest,
+    AnalyzeRequest, ContributeRequest, IngestRequest, MitigationAppendRequest, SanitizeRequest,
 )
-from app.pipelines.analyze import analyze, ingest, reindex_memory
+from app.pipelines.analyze import (
+    PrivacyGateError, analyze, contribute, ingest, reindex_memory,
+)
+from app.services.contributors import pseudonym
 from app.services import vector_memory
 from app.services.sanitizer import sanitize, verify_clean
 
@@ -43,7 +46,26 @@ def analyze_incident(request: AnalyzeRequest, session: Session = Depends(get_ses
         top_k=request.top_k,
         use_llm=request.use_llm,
         include_simulation=request.include_simulation,
+        viewer_ref=pseudonym(request.organisation),
     )
+
+
+@router.post("/contribute", status_code=201,
+             summary="Share an incident's Attack DNA with other organisations")
+def contribute_incident(request: ContributeRequest, session: Session = Depends(get_session)):
+    """The consent step, over HTTP.
+
+    The report is analysed, and only its sanitized text, Attack DNA and the
+    sanitized mitigations are stored. Refused with 422 if the privacy check
+    still finds an identifier, so nothing unverified enters shared memory.
+    """
+    result = analyze(session, request.text, use_llm=request.use_llm,
+                     include_simulation=False, viewer_ref=pseudonym(request.organisation))
+    try:
+        return contribute(session, result, organisation=request.organisation,
+                          mitigations=[m.model_dump() for m in request.mitigations])
+    except PrivacyGateError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/", status_code=201, summary="Analyze and commit an incident to memory")

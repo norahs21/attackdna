@@ -4,7 +4,7 @@
     {
       "id": "financial_services",
       "label": "Financial services — ransomware via phishing",
-      "highlight": "The full journey. Eight identifying values removed, a double-extortion ransomware chain mapped to ATT&CK, five similar incidents recalled, and containment advice this organisation has used five times before.",
+      "highlight": "The full journey. Every identifying value removed and listed, a double-extortion ransomware chain mapped to ATT&CK, five similar incidents recalled, and containment advice this organisation has used five times before.",
       "watch_for": [
         "Privacy Shield removes 8 values and the verification pass reports PASS",
         "Classified as ransomware entered via phishing — not as phishing",

@@ -10,7 +10,7 @@ PIP := .venv/bin/pip
 PYTHON := $(shell command -v python3.12 || command -v python3.11 || \
                   command -v python3.10 || command -v python3)
 
-.PHONY: help setup data seed api demo test eval check-llm clean reset all
+.PHONY: help setup data seed api demo test eval eval-mapper eval-crossorg check-llm clean reset all
 
 help:
 	@echo "ATTACKDNA"
@@ -22,7 +22,9 @@ help:
 	@echo "  make demo    Run the Streamlit demo        (http://localhost:8501)"
 	@echo "  make api     Run the FastAPI service        (http://localhost:8000/docs)"
 	@echo "  make test    Run the test suite"
-	@echo "  make eval    Measure accuracy against the labelled evaluation set"
+	@echo "  make eval    Development sets, held-out test and privacy audit"
+	@echo "  make eval-mapper  Technique mapping on MITRE-labelled sentences"
+	@echo "  make eval-crossorg  Organisation A shares, organisation B recalls"
 	@echo "  make check-llm  Verify the Claude API key works and show what it adds"
 	@echo "  make reset   Wipe the database and vector memory, then reseed"
 
@@ -56,11 +58,18 @@ data:
 	$(PY) scripts/download_mitre.py
 	$(PY) scripts/process_mitre.py
 	$(PY) scripts/process_cti.py
+	$(PY) scripts/process_examples.py
 	$(PY) scripts/download_kev.py
 	$(PY) scripts/process_kev.py
 
 eval:
 	$(PY) scripts/evaluate.py
+
+eval-mapper:
+	$(PY) scripts/evaluate_mapper.py
+
+eval-crossorg:
+	$(PY) scripts/evaluate_crossorg.py
 
 check-llm:
 	$(PY) scripts/check_llm.py

@@ -1,0 +1,465 @@
+{
+  "_readme": "Cross-organization recall set. Each pair is one attack pattern reported twice: once by a contributing organization (A) and once, later and in different words, by a second organization (B) that never sees A's report. A's report is analysed, sanitized and contributed to shared memory; B's report is the query. The test asks whether B recalls A's fingerprint, whether anything identifying A reaches B, and whether A's recorded response reaches B as a recommendation. All organizations, people, addresses and hosts are fabricated. Texts were written for this experiment after the rules were frozen; labels (attack_type, initial_vector, techniques, identifiers, behaviour terms) were fixed before the first run and nothing in the pipeline was tuned on them afterwards. Labels were written by the project team, not by independent analysts: independent annotation is listed as future work. 'identifiers' are every value that names or locates the victim and must not survive sanitization; 'behaviour' are attack terms a reader needs and the privacy layer must leave readable. Pairs deliberately share attack types with other pairs (three ransomware, three credential, two insider...), so recalling the right incident needs more than the attack label.",
+  "pairs": [
+    {
+      "id": "p01",
+      "pattern": "Ransomware delivered by a credential-harvesting phishing link, EDR disabled, SMB lateral movement, shadow copies deleted",
+      "labels": {"attack_type": "ransomware", "initial_vector": "phishing",
+                 "techniques": ["T1566", "T1059", "T1562", "T1021", "T1490", "T1486"]},
+      "a": {
+        "organization": "Al-Noor Specialist Hospital",
+        "text": "On 3 March the SOC at Al-Noor Specialist Hospital received an alert from WKS-RAD-044 in radiology. A nurse, Hessa Al-Mutairi (hessa.mutairi@alnoor-hospital.sa), had clicked a phishing link in an email from billing@med-invoices-portal.com and typed her credentials into a fake login page. The attacker signed in from 45.137.21.9, ran encoded PowerShell to disable the EDR agent, and moved laterally over SMB shares to FS-PACS-02. Volume shadow copies were deleted with vssadmin and files were encrypted on three file servers. A ransom note demanded payment in bitcoin. Contact: IT manager Khalid Al-Shehri, +966 50 381 2290.",
+        "identifiers": ["Al-Noor", "Hessa", "Mutairi", "hessa.mutairi@alnoor-hospital.sa", "45.137.21.9", "WKS-RAD-044", "FS-PACS-02", "Khalid", "Shehri", "+966 50 381 2290", "billing@med-invoices-portal.com"],
+        "behaviour": ["phishing link", "PowerShell", "EDR", "SMB", "shadow copies", "encrypted", "ransom note"],
+        "mitigations": [
+          {"action": "Isolate the infected workstations and file servers from the network", "category": "contain", "effectiveness": 0.95},
+          {"action": "Reset the phished account, revoke its sessions and enforce phishing-resistant MFA", "category": "eradicate", "effectiveness": 0.9},
+          {"action": "Restore file servers from offline immutable backups", "category": "recover", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Gulf Freight Logistics",
+        "text": "Gulf Freight Logistics' dispatch office lost access to its shared drives on a Thursday night. Investigation showed that an employee, Omar Haddad, had followed a link in a fake parcel-tracking email and entered his username and password on a spoofed login page. Using that account from 91.219.236.18, the intruders launched obfuscated PowerShell scripts that turned off the endpoint protection, then spread to other hosts through SMB file shares. Before encryption they removed the Windows shadow copies. Every file share was encrypted and a ransom note was left on each server. Reported by omar.haddad@gulffreight.com.",
+        "identifiers": ["Gulf Freight", "Omar", "Haddad", "91.219.236.18", "omar.haddad@gulffreight.com"],
+        "behaviour": ["link", "PowerShell", "SMB", "shadow copies", "encrypted", "ransom note"]
+      }
+    },
+    {
+      "id": "p02",
+      "pattern": "Double-extortion ransomware through an unpatched VPN appliance, RDP lateral movement, exfiltration before encryption",
+      "labels": {"attack_type": "ransomware", "initial_vector": "web_exploitation",
+                 "techniques": ["T1190", "T1021", "T1567", "T1486"]},
+      "a": {
+        "organization": "Northern Plains University",
+        "text": "Northern Plains University was hit by ransomware after attackers exploited CVE-2023-4966 on an unpatched VPN appliance at vpn.npu.edu. From the appliance they hijacked a session, used RDP to reach the domain controller DC-NPU-01 and copied research data to cloud storage with rclone. Two days later servers were encrypted and the group threatened to publish the stolen data on its leak site unless a ransom was paid. The incident was handled by Dr. Mariam Saleh, head of IT security.",
+        "identifiers": ["Northern Plains", "vpn.npu.edu", "DC-NPU-01", "Mariam", "Saleh"],
+        "behaviour": ["CVE-2023-4966", "VPN appliance", "RDP", "rclone", "encrypted", "leak site"],
+        "mitigations": [
+          {"action": "Patch the VPN appliance and terminate every existing VPN session", "category": "eradicate", "effectiveness": 0.95},
+          {"action": "Block outbound rclone and unsanctioned cloud storage at the proxy", "category": "contain", "effectiveness": 0.8},
+          {"action": "Restrict RDP to a jump host with MFA", "category": "harden", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Desert Steel Manufacturing",
+        "text": "At Desert Steel Manufacturing the remote access gateway had not been patched for CVE-2023-4966. Attackers took over an authenticated session on it, moved to internal servers using Remote Desktop, and uploaded engineering drawings to a cloud storage account. After the data was gone they encrypted the production servers and posted a sample of the stolen files on their leak site, demanding a ransom. Plant manager Yousef Al-Amri reported it from 10.40.12.8.",
+        "identifiers": ["Desert Steel", "Yousef", "Amri", "10.40.12.8"],
+        "behaviour": ["CVE-2023-4966", "remote access gateway", "Remote Desktop", "encrypted", "leak site"]
+      }
+    },
+    {
+      "id": "p03",
+      "pattern": "Business email compromise: mailbox takeover, inbox rule, vendor impersonation, redirected payment",
+      "labels": {"attack_type": "business_email_compromise", "initial_vector": "phishing",
+                 "techniques": ["T1566", "T1078", "T1114", "T1564"]},
+      "a": {
+        "organization": "Riyadh Towers Contracting",
+        "text": "Riyadh Towers Contracting lost SAR 1.2 million to invoice fraud. The accounts payable clerk, Abdullah Al-Ghamdi, had entered his password on a phishing page that looked like the Microsoft 365 sign-in. The attacker logged into his mailbox from 102.165.48.77, created an inbox rule that moved every message from the supplier into the RSS folder, and replied to an open invoice thread impersonating the vendor with updated banking details. The payment was wired to the new bank account. Reported to finance director Lama Al-Zahrani (lama.z@rtc-contracting.sa).",
+        "identifiers": ["Riyadh Towers", "Abdullah", "Ghamdi", "102.165.48.77", "Lama", "Zahrani", "lama.z@rtc-contracting.sa"],
+        "behaviour": ["invoice fraud", "phishing", "inbox rule", "updated banking details", "bank account"],
+        "mitigations": [
+          {"action": "Require call-back verification on a known number for any change of bank details", "category": "harden", "effectiveness": 0.95},
+          {"action": "Remove malicious inbox rules and revoke the mailbox sessions", "category": "contain", "effectiveness": 0.9},
+          {"action": "Ask the bank to recall the transfer within 24 hours", "category": "recover", "effectiveness": 0.6}
+        ]
+      },
+      "b": {
+        "organization": "Jeddah Municipality",
+        "text": "Jeddah Municipality's procurement team paid a contractor's invoice to a fraudster. A staff member, Rana Bakr, had received a phishing email and signed in on a fake Microsoft page. Using her mailbox, the attacker set up an inbox rule hiding replies from the contractor, then sent emails that appeared to come from the contractor asking for payment to a new bank account. The change of bank details was not checked by phone. The access came from 185.244.25.140.",
+        "identifiers": ["Jeddah", "Rana", "Bakr", "185.244.25.140"],
+        "behaviour": ["phishing", "inbox rule", "new bank account", "change of bank details"]
+      }
+    },
+    {
+      "id": "p04",
+      "pattern": "Credential stuffing against a customer portal leading to account takeover and stored-value fraud",
+      "labels": {"attack_type": "credential_attack", "initial_vector": "credential_attack",
+                 "techniques": ["T1110", "T1078"]},
+      "a": {
+        "organization": "Souq Plus Retail",
+        "text": "Souq Plus Retail saw 2.3 million failed login attempts against its customer portal shop.souqplus.com over one weekend, coming from residential proxies. The attackers were replaying username and password pairs from older breaches, a credential stuffing campaign. About 4,100 accounts were taken over, loyalty points were redeemed and saved payment cards were used for orders. The fraud team lead, Faisal Al-Dossary, noticed the spike in password reset requests.",
+        "identifiers": ["Souq Plus", "shop.souqplus.com", "Faisal", "Dossary"],
+        "behaviour": ["failed login", "username and password pairs", "credential stuffing", "loyalty points"],
+        "mitigations": [
+          {"action": "Rate-limit and challenge logins from residential proxy ranges", "category": "contain", "effectiveness": 0.85},
+          {"action": "Force password resets on affected accounts and check passwords against breach corpora", "category": "eradicate", "effectiveness": 0.9},
+          {"action": "Offer MFA to customers and require it for payment changes", "category": "harden", "effectiveness": 0.8}
+        ]
+      },
+      "b": {
+        "organization": "Falcon Wings Airline",
+        "text": "Falcon Wings Airline's frequent-flyer site recorded a burst of login attempts from thousands of IP addresses. Attackers were testing leaked password lists from other websites, and because customers reuse passwords, roughly 900 member accounts were taken over. Miles were transferred out and award tickets booked. The incident was escalated by Noura Al-Rasheed in the digital team after customers complained.",
+        "identifiers": ["Falcon Wings", "Noura", "Rasheed"],
+        "behaviour": ["login attempts", "leaked password", "taken over"]
+      }
+    },
+    {
+      "id": "p05",
+      "pattern": "Password spraying against cloud email without MFA, followed by mailbox data theft",
+      "labels": {"attack_type": "credential_attack", "initial_vector": "credential_attack",
+                 "techniques": ["T1110", "T1078", "T1114"]},
+      "a": {
+        "organization": "Ministry of Rural Affairs",
+        "text": "The Ministry of Rural Affairs detected password spraying against its Microsoft 365 tenant: a few common passwords tried against thousands of accounts, slowly, from 194.26.29.113. Seven accounts with weak passwords and no MFA were compromised, including that of advisor Saad Al-Qurashi. The attacker downloaded the mailboxes of those accounts over IMAP. The security officer, Huda Al-Sudairi, opened the case.",
+        "identifiers": ["Rural Affairs", "194.26.29.113", "Saad", "Qurashi", "Huda", "Sudairi"],
+        "behaviour": ["password spraying", "weak passwords", "no MFA", "IMAP"],
+        "mitigations": [
+          {"action": "Enforce MFA for every account and block legacy authentication such as IMAP", "category": "harden", "effectiveness": 0.95},
+          {"action": "Reset passwords of compromised accounts and ban common passwords", "category": "eradicate", "effectiveness": 0.9},
+          {"action": "Alert on many accounts failing authentication from one source", "category": "detect", "effectiveness": 0.8}
+        ]
+      },
+      "b": {
+        "organization": "Bin Khalid Law Firm",
+        "text": "Bin Khalid Law Firm found that someone had guessed weak passwords for several lawyers' email accounts by trying the same few passwords across the whole directory. The accounts had no MFA. Once in, the attacker synced the mailboxes, including client correspondence, through a legacy mail protocol. The partner, Tariq bin Khalid, was told by the IT provider at it@binkhalid-law.com.",
+        "identifiers": ["Bin Khalid", "Tariq", "it@binkhalid-law.com"],
+        "behaviour": ["guessed weak password", "no MFA"]
+      }
+    },
+    {
+      "id": "p06",
+      "pattern": "MFA fatigue push-bombing to gain VPN access, then directory discovery and data theft",
+      "labels": {"attack_type": "data_breach", "initial_vector": "credential_attack",
+                 "techniques": ["T1621", "T1078", "T1087", "T1567"]},
+      "a": {
+        "organization": "Najm Telecom",
+        "text": "A Najm Telecom engineer, Badr Al-Otaibi, received more than 60 MFA push notifications late at night and finally approved one; it was an MFA fatigue attack using his stolen credentials. The attacker connected to the VPN from 23.106.215.61, enumerated Active Directory with AdFind and exfiltrated network diagrams and customer data to a file sharing site. Analyst Reem Al-Harbi traced it from the VPN logs.",
+        "identifiers": ["Najm", "Badr", "Otaibi", "23.106.215.61", "Reem", "Harbi"],
+        "behaviour": ["MFA push", "MFA fatigue", "VPN", "AdFind", "exfiltrated"],
+        "mitigations": [
+          {"action": "Switch MFA to number matching and limit push prompts per hour", "category": "harden", "effectiveness": 0.9},
+          {"action": "Disable the account and invalidate its VPN certificates", "category": "contain", "effectiveness": 0.9},
+          {"action": "Alert on repeated MFA denials followed by an approval", "category": "detect", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Pixel Oasis Games",
+        "text": "At Pixel Oasis Games a developer was bombarded with sign-in approval requests on his phone until he accepted one. With his password, which had been bought from a credential marketplace, and the approved prompt, the intruder logged into the VPN, listed users and groups in Active Directory, and stole source code and player data. The developer, Ziad Mansour, reported the prompts the next morning.",
+        "identifiers": ["Pixel Oasis", "Ziad", "Mansour"],
+        "behaviour": ["VPN", "Active Directory", "player data"]
+      }
+    },
+    {
+      "id": "p07",
+      "pattern": "SQL injection on a public web application, customer database dumped and offered for sale",
+      "labels": {"attack_type": "data_breach", "initial_vector": "web_exploitation",
+                 "techniques": ["T1190", "T1005", "T1041"]},
+      "a": {
+        "organization": "Tamr Online Market",
+        "text": "Tamr Online Market's order-tracking page at track.tamrmarket.sa was vulnerable to SQL injection. An attacker at 5.188.206.14 used sqlmap to dump the customers table, about 380,000 records with names, phone numbers and addresses. The data was later offered for sale on a hacking forum. Developer Nasser Al-Juhani found the injected queries in the web server logs.",
+        "identifiers": ["Tamr", "track.tamrmarket.sa", "5.188.206.14", "Nasser", "Juhani"],
+        "behaviour": ["SQL injection", "sqlmap", "records", "hacking forum"],
+        "mitigations": [
+          {"action": "Fix the injectable query with parameterised statements", "category": "eradicate", "effectiveness": 0.95},
+          {"action": "Put the application behind a WAF with SQL injection rules", "category": "contain", "effectiveness": 0.8},
+          {"action": "Notify affected customers and the regulator", "category": "recover", "effectiveness": 0.7}
+        ]
+      },
+      "b": {
+        "organization": "Al-Rawabi College",
+        "text": "The admissions portal of Al-Rawabi College contained a SQL injection flaw in its application status search. Someone exploited it to extract the applicants database, including national ID numbers and contact details for 52,000 students, and posted on a forum offering the records for sale. Registrar Amal Al-Shammari was alerted by a journalist.",
+        "identifiers": ["Rawabi", "Amal", "Shammari"],
+        "behaviour": ["SQL injection", "records for sale"]
+      }
+    },
+    {
+      "id": "p08",
+      "pattern": "Web shell on an unpatched Exchange server, credential dumping with Mimikatz, persistence through scheduled tasks",
+      "labels": {"attack_type": "web_exploitation", "initial_vector": "web_exploitation",
+                 "techniques": ["T1190", "T1505", "T1003", "T1053"]},
+      "a": {
+        "organization": "Sahara Power Company",
+        "text": "Sahara Power Company's Exchange server MAIL-SPC-01 had not been patched for ProxyShell (CVE-2021-34473). Attackers dropped an ASPX web shell in the OWA directory, ran Mimikatz to dump credentials from LSASS, and created a scheduled task to keep access. They were found by threat hunter Majed Al-Anazi before any data left the network.",
+        "identifiers": ["Sahara Power", "MAIL-SPC-01", "Majed", "Anazi"],
+        "behaviour": ["CVE-2021-34473", "web shell", "Mimikatz", "LSASS", "scheduled task"],
+        "mitigations": [
+          {"action": "Patch Exchange and remove the web shells from the OWA directories", "category": "eradicate", "effectiveness": 0.95},
+          {"action": "Reset all privileged credentials exposed on the server", "category": "eradicate", "effectiveness": 0.85},
+          {"action": "Hunt for scheduled tasks created outside change windows", "category": "detect", "effectiveness": 0.8}
+        ]
+      },
+      "b": {
+        "organization": "Kinda Engineering Consultants",
+        "text": "An unpatched on-premises Exchange server at Kinda Engineering Consultants was exploited through CVE-2021-34473. The intruder planted a web shell, dumped passwords from memory with Mimikatz and set up a scheduled task for persistence. The anomaly was spotted by sysadmin Waleed Fathi at 172.16.5.20.",
+        "identifiers": ["Kinda", "Waleed", "Fathi", "172.16.5.20"],
+        "behaviour": ["CVE-2021-34473", "web shell", "Mimikatz", "scheduled task"]
+      }
+    },
+    {
+      "id": "p09",
+      "pattern": "Supply-chain compromise through a trojanised vendor update that installed a backdoor beaconing over HTTPS",
+      "labels": {"attack_type": "supply_chain", "initial_vector": "supply_chain",
+                 "techniques": ["T1195", "T1071", "T1105"]},
+      "a": {
+        "organization": "Bank of the Two Rivers",
+        "text": "Bank of the Two Rivers installed a routine signed update for its branch queue-management software from vendor QueueSoft. The update had been tampered with before release in the vendor's build environment and carried a backdoor that beaconed to cdn-metrics-cloud.net over HTTPS every 30 minutes. Analyst Salman Al-Fahad found the beacon in proxy logs on host BR-QMS-17.",
+        "identifiers": ["Two Rivers", "Salman", "Fahad", "BR-QMS-17"],
+        "behaviour": ["signed update", "build environment", "backdoor", "HTTPS"],
+        "mitigations": [
+          {"action": "Remove the trojanised version and block the C2 domain", "category": "contain", "effectiveness": 0.9},
+          {"action": "Hold vendor updates in a staging ring with network monitoring before rollout", "category": "harden", "effectiveness": 0.8},
+          {"action": "Inventory every host that received the update", "category": "detect", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "General Authority for Statistics",
+        "text": "The General Authority for Statistics received a compromised update for its survey software through the supplier's auto-update. The vendor's build server had been breached, so the signed update included a backdoor that contacted an attacker server over HTTPS. Engineer Lulwa Al-Saud noticed periodic outbound connections from workstation GAS-SRV-09.",
+        "identifiers": ["General Authority for Statistics", "Lulwa", "GAS-SRV-09"],
+        "behaviour": ["compromised update", "build server", "signed update", "backdoor", "HTTPS"]
+      }
+    },
+    {
+      "id": "p10",
+      "pattern": "Typosquatted open-source package in the build pipeline stealing CI secrets and cloud keys",
+      "labels": {"attack_type": "supply_chain", "initial_vector": "supply_chain",
+                 "techniques": ["T1195", "T1552"]},
+      "a": {
+        "organization": "Wadi Pay",
+        "text": "Wadi Pay's CI pipeline pulled a typosquatted malicious package, 'reqeusts', that a developer, Hamad Al-Kuwari, had mistyped in requirements.txt. On install it read environment variables and sent the CI secrets, including AWS access keys, to an attacker webhook. The keys were used from 146.70.87.2 to list S3 buckets before rotation.",
+        "identifiers": ["Wadi Pay", "Hamad", "Kuwari", "146.70.87.2"],
+        "behaviour": ["typosquatted", "malicious package", "CI", "AWS access keys"],
+        "mitigations": [
+          {"action": "Rotate all secrets exposed to the pipeline", "category": "eradicate", "effectiveness": 0.95},
+          {"action": "Pin dependencies with hashes and use an internal package mirror", "category": "harden", "effectiveness": 0.9},
+          {"action": "Give CI jobs short-lived scoped credentials instead of static keys", "category": "harden", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Cloudy Desk SaaS",
+        "text": "Cloudy Desk SaaS discovered that a malicious package with a name one letter off a popular library had been added to a service's dependencies. It was a typosquatted package that, when the build ran, harvested the CI runner's environment variables and exfiltrated the cloud keys. Lead engineer Dana Mahmoud found unexpected API calls from 77.91.124.55.",
+        "identifiers": ["Cloudy Desk", "Dana", "Mahmoud", "77.91.124.55"],
+        "behaviour": ["malicious package", "typosquatted", "CI", "cloud keys"]
+      }
+    },
+    {
+      "id": "p11",
+      "pattern": "Managed service provider compromised; its remote management tool used to push ransomware to clients",
+      "labels": {"attack_type": "ransomware", "initial_vector": "supply_chain",
+                 "techniques": ["T1199", "T1072", "T1486"]},
+      "a": {
+        "organization": "Smile Dental Clinics",
+        "text": "Smile Dental Clinics' managed service provider, NetCare IT, was breached. The attackers used the MSP's remote monitoring and management tool to push a ransomware binary to every clinic workstation at once. Patient scheduling was encrypted at all 14 clinics. Clinic operations director Sultan Al-Mubarak learned of it when reception PCs showed the ransom note.",
+        "identifiers": ["Smile Dental", "NetCare", "Sultan", "Mubarak"],
+        "behaviour": ["managed service provider", "remote monitoring and management", "ransomware", "ransom note"],
+        "mitigations": [
+          {"action": "Disconnect the MSP's remote management agent until the provider is cleared", "category": "contain", "effectiveness": 0.95},
+          {"action": "Require the MSP to use MFA and per-client credentials", "category": "harden", "effectiveness": 0.85},
+          {"action": "Restore workstations from golden images", "category": "recover", "effectiveness": 0.8}
+        ]
+      },
+      "b": {
+        "organization": "Al-Mizan Accountants",
+        "text": "Al-Mizan Accountants outsources IT to a managed service provider. Intruders who had broken into the MSP used its RMM software to deploy ransomware to client machines. All of the firm's PCs were encrypted overnight and a ransom demand was left. Partner Ibrahim Al-Mizan called the MSP from +971 4 555 0192.",
+        "identifiers": ["Mizan", "Ibrahim", "+971 4 555 0192"],
+        "behaviour": ["managed service provider", "RMM", "ransomware", "ransom demand"]
+      }
+    },
+    {
+      "id": "p12",
+      "pattern": "Departing employee exfiltrates customer lists to personal cloud storage before leaving",
+      "labels": {"attack_type": "insider_threat", "initial_vector": "unknown",
+                 "techniques": ["T1567", "T1530"]},
+      "a": {
+        "organization": "Amana Insurance",
+        "text": "A departing employee at Amana Insurance, sales manager Rakan Al-Subaie, uploaded the full broker and customer list to his personal Google Drive during his last two weeks. DLP alerts on the upload were reviewed only after he had joined a competitor. HR contact: Shahad Al-Qahtani (shahad.q@amana-ins.sa).",
+        "identifiers": ["Amana", "Rakan", "Subaie", "Shahad", "Qahtani", "shahad.q@amana-ins.sa"],
+        "behaviour": ["departing employee", "personal Google Drive", "DLP"],
+        "mitigations": [
+          {"action": "Trigger enhanced DLP monitoring as soon as resignation is recorded", "category": "detect", "effectiveness": 0.85},
+          {"action": "Block personal cloud storage uploads from managed devices", "category": "harden", "effectiveness": 0.9},
+          {"action": "Send a legal preservation and return-of-data letter", "category": "recover", "effectiveness": 0.6}
+        ]
+      },
+      "b": {
+        "organization": "Shifa Pharmaceuticals",
+        "text": "Shifa Pharmaceuticals found that a researcher who had resigned copied formulation files and supplier contracts to a personal cloud storage account in the weeks before her departure. The insider used her normal access; nothing was hacked. The departing employee, Dr. Nada Hussein, is now at a rival firm.",
+        "identifiers": ["Shifa", "Nada", "Hussein"],
+        "behaviour": ["personal cloud storage", "insider", "departing employee"]
+      }
+    },
+    {
+      "id": "p13",
+      "pattern": "Former administrator whose access was never removed deletes virtual machines and backups",
+      "labels": {"attack_type": "insider_threat", "initial_vector": "unknown",
+                 "techniques": ["T1078", "T1485", "T1490"]},
+      "a": {
+        "organization": "Cedar Hosting",
+        "text": "Cedar Hosting lost 37 customer virtual machines when a former employee, system administrator Elias Haddad, logged into the hypervisor management console three weeks after his contract ended; his access had not been removed. He deleted the VMs and then the backup snapshots. The login came from 82.102.20.45.",
+        "identifiers": ["Cedar", "Elias", "Haddad", "82.102.20.45"],
+        "behaviour": ["former employee", "access had not been removed", "deleted", "backup snapshots"],
+        "mitigations": [
+          {"action": "Tie account deprovisioning to the HR leaver process with same-day removal", "category": "harden", "effectiveness": 0.95},
+          {"action": "Keep immutable offsite backups that admins cannot delete", "category": "harden", "effectiveness": 0.9},
+          {"action": "Restore customer VMs from offsite copies", "category": "recover", "effectiveness": 0.75}
+        ]
+      },
+      "b": {
+        "organization": "Eastern Province School District",
+        "text": "A terminated employee who used to administer the Eastern Province School District's servers still had a working admin account. A month after leaving, he signed in remotely, wiped the student information system servers and deleted their backups. The district's new IT lead, Mona Al-Dosari, found the activity in the audit log.",
+        "identifiers": ["Eastern Province", "Mona", "Dosari"],
+        "behaviour": ["terminated employee", "deleted their backups"]
+      }
+    },
+    {
+      "id": "p14",
+      "pattern": "Volumetric UDP amplification DDoS against an online service, mitigated by scrubbing",
+      "labels": {"attack_type": "denial_of_service", "initial_vector": "unknown",
+                 "techniques": ["T1498"]},
+      "a": {
+        "organization": "Arabian National Bank",
+        "text": "Arabian National Bank's online banking was knocked offline for three hours by a volumetric DDoS peaking at 310 Gbps. The traffic was DNS and memcached amplification aimed at the login front end, 212.71.4.10. The network operations lead, Turki Al-Saif, activated upstream scrubbing with the ISP.",
+        "identifiers": ["Arabian National", "212.71.4.10", "Turki", "Saif"],
+        "behaviour": ["DDoS", "Gbps", "amplification", "scrubbing"],
+        "mitigations": [
+          {"action": "Activate upstream DDoS scrubbing with the ISP", "category": "contain", "effectiveness": 0.9},
+          {"action": "Keep an always-on DDoS protection contract with pre-agreed runbooks", "category": "harden", "effectiveness": 0.85},
+          {"action": "Rate-limit DNS and block memcached UDP at the edge", "category": "contain", "effectiveness": 0.75}
+        ]
+      },
+      "b": {
+        "organization": "Sada News Channel",
+        "text": "During live election coverage, the Sada News Channel website was taken down by a flood of junk traffic, a distributed denial-of-service attack using amplification that reached about 180 gigabits per second. Streaming was unavailable for two hours until the CDN absorbed the traffic. Web editor Hala Nasser posted the outage notice.",
+        "identifiers": ["Sada", "Hala", "Nasser"],
+        "behaviour": ["junk traffic", "denial-of-service", "amplification", "gigabits per second"]
+      }
+    },
+    {
+      "id": "p15",
+      "pattern": "Exposed container API exploited to run a cryptominer",
+      "labels": {"attack_type": "malware_infection", "initial_vector": "web_exploitation",
+                 "techniques": ["T1190", "T1610", "T1496"]},
+      "a": {
+        "organization": "Qamar Research Institute",
+        "text": "Qamar Research Institute's GPU cluster slowed to a crawl. An unauthenticated Docker API on gpu-node-07.qri.local had been exposed to the internet; attackers started containers running XMRig to mine cryptocurrency. Cluster admin Hatem Al-Jabri found the miners by their connections to a Monero pool.",
+        "identifiers": ["Qamar", "gpu-node-07.qri.local", "Hatem", "Jabri"],
+        "behaviour": ["unauthenticated", "Docker API", "exposed to the internet", "XMRig", "mine cryptocurrency"],
+        "mitigations": [
+          {"action": "Close the Docker API to the internet and require TLS client authentication", "category": "eradicate", "effectiveness": 0.95},
+          {"action": "Kill the mining containers and remove the images", "category": "contain", "effectiveness": 0.9},
+          {"action": "Alert on outbound connections to mining pools", "category": "detect", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Mirage Media",
+        "text": "Mirage Media's cloud bill tripled in a week. A Kubernetes worker had an unauthenticated container API exposed to the internet, and someone used it to launch containers mining cryptocurrency with XMRig. DevOps engineer Fares Khoury traced the CPU spike to pods he did not recognise at 34.88.12.201.",
+        "identifiers": ["Mirage", "Fares", "Khoury", "34.88.12.201"],
+        "behaviour": ["unauthenticated", "exposed to the internet", "XMRig", "mining cryptocurrency"]
+      }
+    },
+    {
+      "id": "p16",
+      "pattern": "Infostealer from cracked software steals browser session cookies, leading to SaaS account takeover",
+      "labels": {"attack_type": "malware_infection", "initial_vector": "unknown",
+                 "techniques": ["T1204", "T1539", "T1555"]},
+      "a": {
+        "organization": "Bright Idea Agency",
+        "text": "A designer at Bright Idea Agency, Lina Farouk, installed a cracked copy of a design tool on her work laptop. It carried an infostealer that took saved browser passwords and session cookies. Days later the attacker reused her session cookies to access the agency's social media management platform and posted scam ads on client pages. Laptop: BIA-MAC-12.",
+        "identifiers": ["Bright Idea", "Lina", "Farouk", "BIA-MAC-12"],
+        "behaviour": ["cracked", "infostealer", "session cookies", "browser passwords"],
+        "mitigations": [
+          {"action": "Revoke all sessions for accounts used on the infected laptop", "category": "contain", "effectiveness": 0.9},
+          {"action": "Block unsanctioned software installation on work devices", "category": "harden", "effectiveness": 0.85},
+          {"action": "Re-image the laptop and reset every saved credential", "category": "eradicate", "effectiveness": 0.9}
+        ]
+      },
+      "b": {
+        "organization": "Lantern Games",
+        "text": "Lantern Games' community manager downloaded pirated video editing software at home on a company laptop. An information stealer inside it captured stored browser passwords and session cookies, which the attacker replayed to hijack the studio's streaming and social accounts without needing MFA. Reported by Karim Saad, karim@lanterngames.io.",
+        "identifiers": ["Lantern", "Karim", "Saad", "karim@lanterngames.io"],
+        "behaviour": ["information stealer", "session cookies", "browser passwords"]
+      }
+    },
+    {
+      "id": "p17",
+      "pattern": "Destructive wiper deployed domain-wide through Group Policy scheduled tasks",
+      "labels": {"attack_type": "malware_infection", "initial_vector": "unknown",
+                 "techniques": ["T1484", "T1053", "T1561", "T1485"]},
+      "a": {
+        "organization": "Gulf Petrochemical Industries",
+        "text": "Gulf Petrochemical Industries suffered a destructive wiper attack. Having gained domain admin, the attacker created a Group Policy object that ran a scheduled task on every domain-joined machine, overwriting the master boot record and deleting files. About 6,000 workstations became unbootable. CISO Abdulaziz Al-Faraj led recovery; the GPO was named 'Update-GPI'.",
+        "identifiers": ["Gulf Petrochemical", "Abdulaziz", "Faraj", "Update-GPI"],
+        "behaviour": ["wiper", "Group Policy", "scheduled task", "master boot record"],
+        "mitigations": [
+          {"action": "Remove the malicious GPO and disconnect domain controllers from the network", "category": "contain", "effectiveness": 0.85},
+          {"action": "Tier admin accounts and alert on new GPOs creating scheduled tasks", "category": "detect", "effectiveness": 0.85},
+          {"action": "Rebuild workstations from offline images", "category": "recover", "effectiveness": 0.8}
+        ]
+      },
+      "b": {
+        "organization": "Port of Dammam Operator",
+        "text": "Port of Dammam Operator's terminals stopped booting one morning. Destructive malware had been pushed through a new Group Policy that created a scheduled task on all domain machines; the wiper overwrote the boot record and erased data. Container tracking systems were down for four days. Operations manager Hamza Al-Ali coordinated the rebuild.",
+        "identifiers": ["Dammam", "Hamza", "Ali"],
+        "behaviour": ["destructive malware", "Group Policy", "scheduled task", "wiper", "boot record"]
+      }
+    },
+    {
+      "id": "p18",
+      "pattern": "Publicly exposed cloud storage bucket containing database backups",
+      "labels": {"attack_type": "data_breach", "initial_vector": "web_exploitation",
+                 "techniques": ["T1530"]},
+      "a": {
+        "organization": "Wafa Health Insurance",
+        "text": "A security researcher told Wafa Health Insurance that an S3 bucket, wafa-claims-backup, was misconfigured and publicly readable. It held database backups with 210,000 members' claim records. Access logs showed downloads from 103.75.190.11 before the bucket was locked. Data protection officer Ghada Al-Mansour handled notification.",
+        "identifiers": ["Wafa", "wafa-claims-backup", "103.75.190.11", "Ghada", "Mansour"],
+        "behaviour": ["S3 bucket", "misconfigured", "publicly readable", "database backups"],
+        "mitigations": [
+          {"action": "Block public access at the account level for all storage buckets", "category": "harden", "effectiveness": 0.95},
+          {"action": "Scan cloud storage configuration continuously for public exposure", "category": "detect", "effectiveness": 0.9},
+          {"action": "Notify affected members and the regulator", "category": "recover", "effectiveness": 0.7}
+        ]
+      },
+      "b": {
+        "organization": "TalentBridge Recruitment",
+        "text": "TalentBridge Recruitment left a cloud storage bucket with database backups of candidate CVs open to anyone on the internet because of a misconfigured access policy. A researcher found it with a bucket scanner; logs showed the records were exposed and downloaded by unknown parties. Head of compliance Joud Al-Sharif opened the incident.",
+        "identifiers": ["TalentBridge", "Joud", "Sharif"],
+        "behaviour": ["cloud storage bucket", "database backups", "misconfigured", "exposed"]
+      }
+    },
+    {
+      "id": "p19",
+      "pattern": "Help-desk vishing to reset MFA, then SSO access to cloud applications and data theft",
+      "labels": {"attack_type": "data_breach", "initial_vector": "phishing",
+                 "techniques": ["T1566", "T1078", "T1530"]},
+      "a": {
+        "organization": "Oasis Hotels Group",
+        "text": "A caller impersonating employee Mansour Al-Jaber phoned the Oasis Hotels Group help desk in a vishing attack and convinced the agent to reset his MFA. The attacker enrolled a new device, signed into the SSO portal from 154.47.21.6, and downloaded the guest loyalty database from the CRM. Security manager Wejdan Al-Hamdan led the response.",
+        "identifiers": ["Oasis Hotels", "Mansour", "Jaber", "154.47.21.6", "Wejdan", "Hamdan"],
+        "behaviour": ["vishing", "help desk", "MFA", "SSO"],
+        "mitigations": [
+          {"action": "Require identity verification through a manager or video call before any MFA reset", "category": "harden", "effectiveness": 0.9},
+          {"action": "Revoke the enrolled device and all SSO sessions", "category": "contain", "effectiveness": 0.9},
+          {"action": "Alert on MFA re-enrollment followed by bulk downloads", "category": "detect", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Sahm Mobile",
+        "text": "Sahm Mobile's IT service desk received a call from someone posing as a field engineer, a vishing call, asking to reset his multi-factor authentication. After the reset the attacker registered their own phone, logged into the single sign-on portal and exported subscriber records from a cloud application. The impersonated engineer, Khalil Ayoub, said he never called.",
+        "identifiers": ["Sahm", "Khalil", "Ayoub"],
+        "behaviour": ["vishing", "single sign-on"]
+      }
+    },
+    {
+      "id": "p20",
+      "pattern": "Malicious macro attachment drops a loader, then Cobalt Strike and a banking trojan",
+      "labels": {"attack_type": "malware_infection", "initial_vector": "phishing",
+                 "techniques": ["T1566", "T1204", "T1059", "T1071"]},
+      "a": {
+        "organization": "Safina Freight",
+        "text": "An accountant at Safina Freight, Rami Khalil, opened a malicious attachment, a Word document asking him to enable macros. The macro ran PowerShell that downloaded a loader, which installed a Cobalt Strike beacon and later the QakBot banking trojan on FIN-PC-03. The beacon talked to 194.180.48.12 over HTTPS.",
+        "identifiers": ["Safina", "Rami", "Khalil", "FIN-PC-03", "194.180.48.12"],
+        "behaviour": ["malicious attachment", "macros", "PowerShell", "loader", "Cobalt Strike", "banking trojan"],
+        "mitigations": [
+          {"action": "Block macros in documents from the internet by policy", "category": "harden", "effectiveness": 0.95},
+          {"action": "Isolate the host and block the beacon's C2 address", "category": "contain", "effectiveness": 0.9},
+          {"action": "Hunt for Cobalt Strike beacons across the estate", "category": "detect", "effectiveness": 0.85}
+        ]
+      },
+      "b": {
+        "organization": "Tabuk City Council",
+        "text": "A Tabuk City Council employee, Asma Al-Balawi, received a malicious email with an Excel attachment and enabled macros to view it. The macro launched PowerShell to fetch a loader; the loader installed Cobalt Strike and then a banking trojan that stole credentials. The council's SOC saw beaconing over HTTPS from workstation TCC-HR-21.",
+        "identifiers": ["Tabuk", "Asma", "Balawi", "TCC-HR-21"],
+        "behaviour": ["malicious email", "macros", "PowerShell", "loader", "Cobalt Strike", "banking trojan"]
+      }
+    }
+  ]
+}
