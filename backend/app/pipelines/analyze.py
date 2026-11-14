@@ -9,7 +9,9 @@
     Similar Incidents
          ↓  4. Mitigation Memory      mitigation_memory.recall_mitigations
     Recommended Response
-         ↓  5. Safe Simulation        simulator.build_simulation
+         ↓  5. Next step              next_step.predict_next_steps
+    What the attacker will likely do next
+         ↓  6. Safe Simulation        simulator.build_simulation
     Tabletop Exercise
 
 Three entry points:
@@ -39,6 +41,7 @@ from app.services import llm_client, vector_memory
 from app.services.contributors import pseudonym
 from app.services.dna_extractor import extract_dna
 from app.services.mitigation_memory import recall_mitigations
+from app.services.next_step import predict_next_steps
 from app.services.sanitizer import sanitize, verify_clean
 from app.services.similarity import find_similar_incidents
 from app.services.simulator import build_simulation
@@ -85,7 +88,10 @@ def analyze(
     # --- Stage 4: Mitigation Memory ---
     mitigations = recall_mitigations(similar, [t["id"] for t in dna["techniques"]])
 
-    # --- Stage 5: Safe Simulation ---
+    # --- Stage 5: What the attacker will likely do next ---
+    next_steps = predict_next_steps([t["id"] for t in dna["techniques"]], session=session)
+
+    # --- Stage 6: Safe Simulation ---
     simulation = build_simulation(dna, use_llm=use_llm) if include_simulation else None
 
     return {
@@ -93,6 +99,7 @@ def analyze(
         "dna": dna,
         "similar_incidents": similar,
         "mitigations": mitigations,
+        "next_steps": next_steps,
         "simulation": simulation,
         "meta": {
             "llm_available": llm_client.is_available(),

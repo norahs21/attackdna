@@ -67,6 +67,23 @@ def build(result: dict, title: str = "Incident analysis",
         lines.append(f"- **Closest incident in memory:** {best['title']} "
                      f"({best['similarity']:.0%} match)")
 
+    # --- Next step -------------------------------------------------------
+    prediction = result.get("next_steps") or {}
+    if prediction.get("steps"):
+        heading = ("What the attacker will likely do next" if prediction["mode"] == "next"
+                   else "Not in the report: check for these")
+        lines += _heading(heading)
+        lines.append(f"From the {prediction['similar_attacks']} known attacks most similar "
+                     "to this one.")
+        lines.append("")
+        for number, step in enumerate(prediction["steps"], 1):
+            stop = (f" Stop it: {step['stop_with']['name']} ({step['stop_with']['id']})."
+                    if step.get("stop_with") else "")
+            lines.append(f"{number}. **{step['technique_id']} {step['name']}** "
+                         f"({step['tactic_label']}): seen in {step['likelihood']:.0%} of "
+                         f"similar attacks.{stop}")
+        lines.append("")
+
     # --- DNA -------------------------------------------------------------
     lines += _heading("Attack DNA")
     lines += ["```", dna["signature"], "```", ""]

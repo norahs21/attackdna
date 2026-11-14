@@ -13,13 +13,18 @@ record. With the security team's approval, that fingerprint joins a **shared
 memory**: the next organisation hit by the same pattern recalls it, sees why it
 matched and what worked, and never learns who was attacked.
 
+It also looks ahead. From the attack seen so far, ATTACKDNA finds the known
+attacks that behaved most like it and shows **what the attacker will likely do
+next**, with the control that stops each step, so a team can act before the
+attack gets there.
+
 ---
 
 ## How a security team uses it
 
 | Page | What the team does | What it sees |
 |---|---|---|
-| **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
+| **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, **what the attacker will likely do next**, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
 | **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
 | **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
 
@@ -56,6 +61,9 @@ data the system was not tuned on; offline, no LLM.
 | Attack type correct | **85.7%** | 24 of 28 real incident summaries (Wikipedia, verbatim) |
 | ATT&CK techniques found | **81.6%** | 3,218 of 3,945 MITRE sentences about attackers never seen in training |
 | …of suggestions, correct | 60.1% | a lower bound: each sentence has a single label |
+| **Next step** | | |
+| Next step predicted | **66.7%** | 26 of 39 threat groups and campaigns never seen in training: shown the first half of the attack, one of three predictions was a step they took later (always guessing the most common steps: 59%) |
+| …for malware and tools | 53.6% | 74 of 138 tool profiles (guessing: 51%) |
 | **Across organisations** | | |
 | B finds A's incident first | **55%** | 11 of 20 attacks reported by two organisations in different words; second in 7 of the other 9 |
 | …in its top five | **95%** | 19 of 20 |
@@ -73,6 +81,17 @@ the British Library's 2024 report on its ransomware attack (18-page PDF): the
 library, its sites and its staff are removed, the attacker (Rhysida) is kept,
 and it is read as ransomware entering through compromised credentials, with
 14 ATT&CK techniques.
+
+**Predicting the next step.** MITRE profiles ~930 threat groups, malware
+families and campaigns by the techniques they use. A held-out fifth is put in
+kill-chain order; the system sees the first half and names three later steps,
+never the ten techniques almost every attack uses (they would tell a defender
+nothing). The lead over guessing is clear for threat groups and campaigns and
+small for malware and tools, whose profiles list what a tool can do rather than
+the steps of one attack. These profiles summarise many intrusions and their
+order comes from the kill chain, not from timestamps; 39 attacker profiles is a
+small sample. Settings were chosen on a development split
+(`services/next_step.py`, `scripts/evaluate_next_step.py`).
 
 **No sector.** Attack DNA does not record which industry the victim is in.
 Once names are removed, the sector is itself a clue to who the victim was, so
@@ -102,7 +121,9 @@ the top-five figure (95%) and response reuse (90%) are unchanged.
                               ▼
                     ④ Mitigation Memory        what worked before, cited
                               ▼
-                    ⑤ Safe Simulation          defensive tabletop exercise
+                    ⑤ Next Step                what similar attacks did next
+                              ▼
+                    ⑥ Safe Simulation          defensive tabletop exercise
 ```
 
 ---
@@ -319,6 +340,17 @@ The two sub-scores are reported separately, which is what shows the re-rank doin
 real work: on the demo corpus, five ransomware incidents all score 0.92–0.97
 semantically, and only structural overlap separates them.
 
+### Next step — `backend/app/services/next_step.py`
+
+The techniques seen so far are compared with two pools of known attacks: MITRE's
+profiles of ~930 threat groups, malware families and campaigns, and the
+incidents in shared memory. The 50 most similar (sharing a rare technique counts
+for more than sharing PowerShell) vote on what comes at a later kill-chain
+stage. Each predicted step shows the share of similar attacks that took it and
+the official ATT&CK mitigation that stops it. If the report already reaches the
+final stage, the same vote lists steps similar attacks took that the report does
+not mention, as things to hunt for.
+
 ### ⑤ Mitigation Memory — `backend/app/services/mitigation_memory.py`
 
 Recommendations come from three clearly-separated origins, and the label is
@@ -430,6 +462,7 @@ backend/app/
     vector_memory.py           ③ Vector Memory (3-tier backend)
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
+    next_step.py               what the attacker will likely do next
     simulator.py               ⑥ safe tabletop generation
     contributors.py            keyed pseudonyms for contributing organisations
     document_reader.py         PDF / Word / text reports to plain text

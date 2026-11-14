@@ -327,9 +327,46 @@ def verdict_card(dna: dict, similar: list, mitigations: dict) -> str:
         f'<div class="row"><span class="rule" style="background:{colour}"></span>'
         f'<span><span class="k">{key}</span><span class="v">{value}</span></span></div>'
         for colour, key, value in rows)
-    return (f'<div class="verdict"><div class="headline">{attack} via {vector}</div>'
+    via = (f" via {vector}" if vector not in ("unknown", dna["attack_type"].replace("_", " "))
+           else "")
+    return (f'<div class="verdict"><div class="headline">{attack}{via}</div>'
             f'<div class="sub">{len(dna["techniques"])} ATT&CK '
             f'techniques · severity {dna["severity"]}</div>{row_html}</div>')
+
+
+def next_step_card(prediction: dict) -> str:
+    """What the attacker will likely do next, from the most similar known attacks."""
+    steps = (prediction or {}).get("steps") or []
+    if not steps:
+        return ""
+    if prediction["mode"] == "next":
+        title = "What the attacker will likely do next"
+        why = (f"The report reaches <b>{theme.esc(prediction['after'])}</b>. These are the "
+               f"next steps taken by the {prediction['similar_attacks']} known attacks that "
+               "behaved most like this one")
+    else:
+        title = "Not in the report: check for these"
+        why = ("The report already reaches the final stage. These steps were taken by the "
+               f"{prediction['similar_attacks']} known attacks that behaved most like this one, "
+               "but the report does not mention them")
+    if prediction.get("from_memory"):
+        why += f", {prediction['from_memory']} of them from the shared memory"
+    why += "."
+    cards = []
+    for number, step in enumerate(steps, 1):
+        share = step["likelihood"]
+        memory = (f" · in {step['seen_in_memory']} incident(s) in memory"
+                  if step.get("seen_in_memory") else "")
+        stop = (f'<div class="stop">Stop it: <b>{theme.esc(step["stop_with"]["name"])}</b> '
+                f'<code>{step["stop_with"]["id"]}</code></div>' if step.get("stop_with") else "")
+        cards.append(
+            f'<div class="step"><div class="top"><span class="n">{number}</span>'
+            f'<span class="tac">{theme.esc(step["tactic_label"])}</span></div>'
+            f'<div class="tech"><code>{step["technique_id"]}</code> {theme.esc(step["name"])}</div>'
+            f'<div class="bar"><span style="width:{min(100, share * 100):.0f}%"></span></div>'
+            f'<div class="seen">Seen in {share:.0%} of similar attacks{memory}</div>{stop}</div>')
+    return (f'<div class="next"><div class="title">{title}</div><div class="why">{why}</div>'
+            f'<div class="grid">{"".join(cards)}</div></div>')
 
 
 # --------------------------------------------------------------------------
@@ -517,6 +554,7 @@ if result["meta"].get("llm_blocked_by_privacy_gate"):
     st.warning("The LLM was not used for this report because the privacy check did not pass.")
 
 html(verdict_card(dna, similar, mitigations))
+html(next_step_card(result.get("next_steps")))
 
 receipt = analysis.get("receipt")
 if receipt:

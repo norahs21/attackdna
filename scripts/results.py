@@ -7,6 +7,7 @@ says what it means. The detailed scripts behind them:
 
     scripts/evaluate_mapper.py     ATT&CK technique mapping
     scripts/evaluate_crossorg.py   organisation A shares, organisation B recalls
+    scripts/evaluate_next_step.py  predicting the attacker's next step
     scripts/evaluate.py            per-case detail of the held-out incident set
 
 Writes data/evaluation/results.json.
@@ -92,6 +93,7 @@ def main() -> None:
     c = classification()
     mapper = read("mapper_results.json")
     crossorg = read("crossorg_results.json")
+    nxt = read("next_step_results.json")
 
     rows = [
         ("PRIVACY", None, None),
@@ -111,6 +113,16 @@ def main() -> None:
                   "seen in training"),
                  ("…of suggestions, correct", f"{f['precision']:5.1%}",
                   "a lower bound: each sentence has one label")]
+    if nxt:
+        a, t = nxt["attackers"], nxt["tools"]
+        rows += [
+            ("NEXT STEP", None, None),
+            ("Next step predicted", f"{a['hit_at_3']:5.1%}",
+             f"{a['found']} of {a['cases']} threat groups/campaigns never seen in training: 1 of 3 "
+             f"predictions right (guessing: {a['shortcut_hit_at_3']:.0%})"),
+            ("…for malware and tools", f"{t['hit_at_3']:5.1%}",
+             f"{t['found']} of {t['cases']} (guessing: {t['shortcut_hit_at_3']:.0%})"),
+        ]
     if crossorg:
         r = crossorg["cross_org_recall"]
         rows += [
@@ -134,7 +146,8 @@ def main() -> None:
             print(f"\n{label}")
             continue
         print(f"  {label:<28} {value:>7}   {note}")
-    missing = [n for n, v in (("make eval-mapper", mapper), ("make eval-crossorg", crossorg)) if not v]
+    missing = [n for n, v in (("make eval-mapper", mapper), ("make eval-crossorg", crossorg),
+                              ("make eval-next-step", nxt)) if not v]
     if missing:
         print(f"\n  (run {' and '.join(missing)} for the remaining rows)")
     print()
@@ -143,6 +156,7 @@ def main() -> None:
     (EVALUATION / "results.json").write_text(json.dumps(
         {"privacy": p, "classification": c,
          "techniques": mapper["final"] if mapper else None,
+         "next_step": {k: nxt[k] for k in ("attackers", "tools", "all")} if nxt else None,
          "cross_org": {k: crossorg["cross_org_recall"][k] for k in
                        ("precision_at_1", "recall_at_5", "mitigation_reuse",
                         "queries_exposing_A", "queries")} if crossorg else None},

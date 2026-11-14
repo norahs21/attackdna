@@ -300,6 +300,26 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .verdict .row .v { color: var(--ink) !important; }
 .verdict .row .v em { color: var(--ink2) !important; font-style: normal; }
 
+/* ---------- Next step ---------- */
+.next { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--serious);
+  border-radius: 16px; padding: 1.05rem 1.3rem 1.15rem; margin: 0 0 1rem; box-shadow: var(--shadow); }
+.next .title { font-size: 1.12rem; font-weight: 700; color: var(--ink) !important; }
+.next .why { color: var(--muted) !important; font-size: .8rem; margin: .1rem 0 .85rem; }
+.next .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .7rem; }
+.next .step { border: 1px solid var(--border); border-radius: 12px; padding: .75rem .85rem; background: var(--surface2); }
+.next .top { display: flex; align-items: center; gap: .5rem; }
+.next .n { width: 22px; height: 22px; border-radius: 50%; flex: none; display: inline-flex; align-items: center;
+  justify-content: center; font-size: .72rem; font-weight: 750; background: var(--serious); color: var(--bg) !important; }
+.next .tac { color: var(--muted) !important; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+.next .tech { color: var(--ink) !important; font-weight: 650; font-size: .95rem; margin: .45rem 0 .5rem; line-height: 1.3; }
+.next .tech code { font-size: .78rem; }
+.next .bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.next .bar span { display: block; height: 100%; background: var(--serious); border-radius: 3px; }
+.next .seen { color: var(--ink2) !important; font-size: .76rem; margin-top: .3rem; }
+.next .stop { color: var(--ink2) !important; font-size: .8rem; margin-top: .55rem; padding-top: .5rem;
+  border-top: 1px solid var(--border); }
+.next .stop b { color: var(--good-ink) !important; font-weight: 650; }
+
 /* ---------- Facts, signature ---------- */
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin: .3rem 0 1rem; }
 .facts .f { border: 1px solid var(--border); border-radius: 12px; padding: .6rem .8rem; background: var(--surface); box-shadow: var(--shadow); }
