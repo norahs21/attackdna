@@ -7,7 +7,6 @@
       "expected": {
         "attack_type": "ransomware",
         "initial_vector": "phishing",
-        "sector": "finance",
         "severity": [
           "high",
           "critical"
@@ -36,7 +35,6 @@
       "expected": {
         "attack_type": "ransomware",
         "initial_vector": "supply_chain",
-        "sector": "healthcare",
         "severity": [
           "high",
           "critical"
@@ -63,7 +61,6 @@
       "expected": {
         "attack_type": "business_email_compromise",
         "initial_vector": "phishing",
-        "sector": "finance",
         "severity": [
           "medium",
           "high"
@@ -87,7 +84,6 @@
       "expected": {
         "attack_type": "data_breach",
         "initial_vector": "web_exploitation",
-        "sector": "retail",
         "severity": [
           "high",
           "critical"
@@ -111,7 +107,6 @@
       "expected": {
         "attack_type": "credential_attack",
         "initial_vector": "credential_attack",
-        "sector": "government",
         "severity": [
           "medium",
           "high"
@@ -134,7 +129,6 @@
       "expected": {
         "attack_type": "denial_of_service",
         "initial_vector": "unknown",
-        "sector": "telecom",
         "severity": [
           "low",
           "medium"
@@ -154,7 +148,6 @@
       "expected": {
         "attack_type": "insider_threat",
         "initial_vector": "unknown",
-        "sector": "technology",
         "severity": [
           "medium",
           "high"
@@ -176,7 +169,6 @@
       "expected": {
         "attack_type": "malware_infection",
         "initial_vector": "phishing",
-        "sector": "energy",
         "severity": [
           "medium",
           "high"

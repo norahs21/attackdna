@@ -3,8 +3,9 @@
 The demo is the deliverable — a traceback on stage on a screen nobody could
 test is the worst possible failure, and the whole UI used to be untested. These
 run the real Streamlit script headlessly in each mode and assert the things a
-presenter depends on: that it renders at all, that the verdict card leads, and
-that no identifying value survives onto the screen.
+presenter depends on: that it renders at all, that the result reads in four
+numbered sections with privacy first, and that no identifying value survives
+onto the screen.
 """
 from pathlib import Path
 
@@ -114,7 +115,10 @@ def test_the_dashboard_reports_what_memory_holds(corpus):
     assert not app.exception
     screen = _screen_text(app)
     assert "Incidents in memory" in screen
-    assert "ATT&CK techniques" in screen
+    # The key figures are HTML: "&" is escaped. (This passed before only because
+    # the old Settings panel printed the phrase in the sidebar.)
+    assert "ATT&amp;CK techniques" in screen
+    assert "Response actions" in screen
     assert "Fingerprints in memory" in screen
 
 
@@ -137,7 +141,7 @@ def test_the_platform_opens_on_attaching_a_report(corpus):
     assert not app.sidebar.text_input, "the organisation is configuration, not a field"
 
 
-def test_privacy_is_the_first_result_then_the_verdict(corpus):
+def test_privacy_is_the_first_result_then_the_attack_dna(corpus):
     app = _analyze(_run())
 
     assert not app.exception
@@ -146,12 +150,17 @@ def test_privacy_is_the_first_result_then_the_verdict(corpus):
         "Ransomware via phishing")
 
 
-def test_the_verdict_names_the_attack_and_the_first_action(corpus):
+def test_the_result_reads_in_four_sections_in_order(corpus):
+    """Identity removed, then the Attack DNA, then memory, then what to do."""
     app = _analyze(_run())
 
+    assert not app.exception
     screen = _screen_text(app)
+    headings = ["1 · Sensitive information removed", "2 · Attack DNA of this report",
+                "3 · Similar attacks in memory", "4 · If you face this attack: what to do"]
+    positions = [screen.index(heading) for heading in headings]
+    assert positions == sorted(positions)
     assert "Ransomware via phishing" in screen
-    assert "Do this first" in screen
     assert "identifying value(s) removed" in screen
 
 
@@ -206,11 +215,30 @@ def test_with_the_switch_on_the_analysis_adds_only_the_fingerprint(corpus):
     assert "Ransomware via phishing" in _screen_text(app)
 
 
-def test_the_report_download_is_offered(corpus):
+def test_the_prototype_shows_only_the_core_flow(corpus):
+    """Deferred to future work: kept in the backend, not shown on screen."""
     app = _analyze(_run())
 
     assert not app.exception
-    assert any("Download report" in str(b.label) for b in app.download_button)
+    assert not app.download_button
+    assert not app.tabs
+    screen = _screen_text(app)
+    for deferred in ("Tabletop exercise", "threat-actor resemblance",
+                     "Official MITRE ATT&CK mitigations", "DNA signature", "Do this first"):
+        assert deferred not in screen, f"{deferred!r} is future work"
+    assert not any("Settings" in str(e.label) for e in app.sidebar.expander)
+
+
+def test_what_to_do_shows_at_most_three_actions_per_phase(corpus):
+    app = _analyze(_run())
+
+    assert not app.exception
+    screen = _screen_text(app)
+    after = screen[screen.index("4 · If you face this attack: what to do"):]
+    phases = after.split("#### ")[1:]
+    assert phases, "section 4 should group actions by phase"
+    for phase in phases:
+        assert phase.count('class="pill') <= 3, phase[:40]
 
 
 def test_a_too_short_report_is_rejected_with_a_message(corpus):
@@ -222,11 +250,31 @@ def test_a_too_short_report_is_rejected_with_a_message(corpus):
 
 def test_asking_needs_no_report_first(corpus):
     app = _run("Ask the memory")
-    app.text_input[0].set_value("What worked against ransomware in finance?").run()
+    app.text_area(key="situation").set_value(
+        "A spearphishing link harvested credentials and the attacker ran encoded "
+        "PowerShell on the laptop.").run()
     next(b for b in app.button if b.label == "Ask").click().run()
 
     assert not app.exception
-    assert "Sources" in _screen_text(app)
+    screen = _screen_text(app)
+    headings = ["1 · What worked against this", "2 · Attackers who got in the same way",
+                "3 · What attackers did next in similar incidents"]
+    positions = [screen.index(heading) for heading in headings]
+    assert positions == sorted(positions)
+    assert "not a prediction" in screen
+
+
+def test_asking_never_shows_an_identifying_value(corpus):
+    app = _run("Ask the memory")
+    app.text_area(key="situation").set_value(
+        "Sara Alharbi at Falcon Bank clicked a phishing link from soc@falconbank.example; "
+        "PowerShell then ran on 10.20.30.40.").run()
+    next(b for b in app.button if b.label == "Ask").click().run()
+
+    assert not app.exception
+    screen = _screen_text(app)
+    for value in ("Sara Alharbi", "Falcon Bank", "soc@falconbank", "10.20.30.40"):
+        assert value not in screen
 
 
 def test_the_dashboard_has_no_incident_comparison(corpus):

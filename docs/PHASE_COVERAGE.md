@@ -43,7 +43,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 | Detect Sensitive Corporate Identifiers | ✅ | orgs, hostnames, accounts, user paths, secrets |
 | Sanitize Incident Reports | ✅ | `sanitize()` |
 | Validate Sanitized Output | ✅ | `verify_clean()` self-check + hand-marked audit in `make eval` (held-out: 96%) |
-| Test Privacy Pipeline | ✅ | `tests/test_sanitizer.py` — 13 tests |
+| Test Privacy Pipeline | ✅ | `tests/test_sanitizer.py` — 34 tests, `tests/test_privacy_names.py` — 82 tests |
 
 ## Phase 4 — Attack DNA Extraction
 
@@ -146,13 +146,13 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 
 | Task | Status | Where |
 |---|---|---|
-| Functional Testing | ✅ | 93 tests |
+| Functional Testing | ✅ | 369 tests |
 | AI Output Testing | ✅ | `tests/test_dna_and_mapping.py` |
 | Attack DNA Accuracy Testing | ✅ | `make eval` — held-out type 86%; development type/vector 86/92% |
 | MITRE Mapping Testing | ✅ | F1 = 84% on labelled cases |
 | Similarity Search Testing | ✅ | precision@1 = 8/8 (development set A) |
 | Mitigation Relevance Testing | ✅ | citation and ranking assertions |
-| Privacy Testing | ✅ | 13 tests + 0 residual leaks across all cases |
+| Privacy Testing | ✅ | 116 privacy tests; hand-marked audit: 275 of 279 identifiers removed (98.6%), the 4 survivors reported in `make results` |
 | Edge Case Testing | ✅ | empty input, no techniques, unparseable text |
 | Error Handling Testing | ✅ | 404/400/422 paths, LLM failure fallback |
 | Performance Testing | ✅ | 5 s budget per scenario; mean ≈ 0.3 s |
@@ -194,7 +194,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 |---|---|---|
 | Final Code Review | ✅ | consistent structure, documented modules |
 | Final Security Review | ✅ | no secrets committed; `.env` gitignored; raw text not stored |
-| Final Privacy Review | ✅ | 0 residual leaks; schema-enforced; validated per extraction |
+| Final Privacy Review | ✅ | 98.6% of hand-marked identifiers removed; schema-enforced; validated per extraction |
 | Final UI Review | ✅ | all six stages render, no exceptions |
 | Final Documentation | ✅ | README + this coverage map |
 | Final README | ✅ | `README.md` |

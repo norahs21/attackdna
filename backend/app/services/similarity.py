@@ -157,6 +157,13 @@ def find_similar_incidents(
             "attack_type": incident.attack_type,
             "initial_vector": incident.initial_vector,
             "severity": incident.severity,
+            # The past incident's own attack chain, so a team can see what that
+            # attacker went on to do. Read-only: not used in the score above.
+            "tactics": incident.get_json("tactics", []),
+            "techniques": [
+                {"id": t.get("id"), "name": t.get("name"), "tactics": t.get("tactics", [])}
+                for t in incident.get_json("techniques", []) if isinstance(t, dict)
+            ],
             "signature": incident.signature,
             "summary": incident.summary,
             "root_cause": incident.root_cause,
