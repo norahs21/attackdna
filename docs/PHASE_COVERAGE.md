@@ -146,7 +146,7 @@ Legend: ✅ done · ⬜ your task (presentation / submission work)
 
 | Task | Status | Where |
 |---|---|---|
-| Functional Testing | ✅ | 368 tests |
+| Functional Testing | ✅ | 369 tests |
 | AI Output Testing | ✅ | `tests/test_dna_and_mapping.py` |
 | Attack DNA Accuracy Testing | ✅ | `make eval` — held-out type 86%; development type/vector 86/92% |
 | MITRE Mapping Testing | ✅ | F1 = 84% on labelled cases |

@@ -525,7 +525,7 @@ data/
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
   seed/crossorg_pairs.json     20 attack patterns reported by two organisations
   evaluation/                  latest cross-organisation results (read by the UI)
-tests/                         368 tests
+tests/                         369 tests
 ```
 
 ---
@@ -533,7 +533,7 @@ tests/                         368 tests
 ## Testing
 
 ```bash
-make test          # 368 tests
+make test          # 369 tests
 make results       # the results on one page
 ```
 
