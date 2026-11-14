@@ -229,6 +229,18 @@ def test_the_prototype_shows_only_the_core_flow(corpus):
     assert not any("Settings" in str(e.label) for e in app.sidebar.expander)
 
 
+def test_what_to_do_shows_at_most_three_actions_per_phase(corpus):
+    app = _analyze(_run())
+
+    assert not app.exception
+    screen = _screen_text(app)
+    after = screen[screen.index("4 · If you face this attack: what to do"):]
+    phases = after.split("#### ")[1:]
+    assert phases, "section 4 should group actions by phase"
+    for phase in phases:
+        assert phase.count('class="pill') <= 3, phase[:40]
+
+
 def test_a_too_short_report_is_rejected_with_a_message(corpus):
     app = _analyze(_run(), "nope")
 

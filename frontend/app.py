@@ -100,6 +100,8 @@ API_URL = os.getenv("ATTACKDNA_API_URL", "").rstrip("/")
 ASSETS = Path(__file__).resolve().parent / "assets"
 
 PAGES = ["Analyze a report", "Dashboard", "Ask the memory"]
+# Section 4 of an analysis shows at most this many actions per response phase.
+ACTIONS_PER_PHASE = 3
 
 st.set_page_config(page_title="ATTACKDNA", page_icon="■", layout="wide")
 state = st.session_state
@@ -572,9 +574,10 @@ for index, match in enumerate(similar):
 
 # 4 — what to do if this attack is met again.
 section(4, "If you face this attack: what to do")
+st.caption("The three strongest actions in each phase: what worked before first.")
 for group in mitigations["by_phase"]:
     st.markdown(f"#### {group['label']}")
-    for action in group["actions"]:
+    for action in group["actions"][:ACTIONS_PER_PHASE]:
         label, kind = action_track(action)
         html(f'{theme.pill(label, kind)} {theme.esc(action["action"])}')
         if action["sources"]:
