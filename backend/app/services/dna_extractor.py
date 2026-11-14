@@ -11,7 +11,7 @@ comparable — which is what makes a past incident's response reusable today.
 Extraction is hybrid:
   * a deterministic rule layer always runs and always produces a complete DNA;
   * an optional LLM layer enriches it (narrative summary, extra techniques,
-    sharper sector/impact calls) and is merged conservatively.
+    extra impacts) and is merged conservatively.
 """
 from __future__ import annotations
 
@@ -92,7 +92,15 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                           ("guessed weak password", 4), ("weak password", 3),
                           ("default password", 3), ("password reuse", 4), ("reused password", 4),
                           ("username and password pairs", 5), ("no mfa", 2),
-                          ("dormant account", 3)],
+                          ("dormant account", 3),
+                          # Access through an account whose password the attacker
+                          # already had, on a remote-access server without MFA.
+                          ("compromised credentials", 4), ("credentials were compromised", 4),
+                          ("compromise of privileged account", 5),
+                          ("privileged account credentials", 4),
+                          ("not subject to multi-factor", 4), ("without multi-factor", 4),
+                          ("no multi-factor", 4), ("lack of mfa", 3),
+                          ("third-party access", 2), ("terminal server", 2)],
     "insider_threat": [("insider", 5), ("disgruntled employee", 5), ("departing employee", 4),
                        ("privilege abuse", 3), ("unauthorized access by staff", 4),
                        ("former employee", 5), ("ex-employee", 5), ("terminated employee", 5),
@@ -165,18 +173,22 @@ TECHNIQUE_TYPE_HINTS: Dict[str, tuple] = {
     "T1195": ("supply_chain", 5), "T1199": ("supply_chain", 3),
 }
 
-# Sector vocabulary. These deliberately favour words describing the affected
-# *function* over words in the organisation's name, because the Privacy Layer
-# redacts company names: "Qasr Financial Group" becomes "[ORG_REDACTED] Group"
-# and takes the word "Financial" with it. What survives is how the analyst
-# described the business — "the accounting division", "clinical workstations",
-# "the subscriber portal" — so that is what the classifier reads.
+# Words for what kind of organisation something is. Attack DNA does NOT record
+# a sector: once names are removed, which industry the victim is in is itself
+# something that can point back to it, so it is not inferred or shared. The
+# Privacy Layer still uses these words (lexicon.sector_words) to recognise
+# company names such as "Colonial Pipeline".
 SECTORS: Dict[str, List[str]] = {
-    "finance": ["bank", "banking", "financial", "fintech", "insurance", "payment", "sama",
-                "trading", "brokerage", "finance department", "finance team", "finance officer",
-                "accounting", "accounts payable", "treasury", "wire transfer", "client records",
-                "investment", "credit bureau", "card issuer", "credit card", "payments firm",
-                "lender", "stock exchange", "online banking", "insurer"],
+    # Only words for what a financial organisation *is*. Every organisation has
+    # a finance team, pays invoices, invests in its systems and counts the
+    # financial cost of an attack; those words said "finance" about a national
+    # library's incident review, so they no longer count.
+    "finance": ["bank", "banking", "fintech", "insurance", "sama", "brokerage",
+                "financial institution", "financial services", "financial firm",
+                "investment firm", "investment bank", "asset manager", "trading platform",
+                "credit bureau", "card issuer", "payments firm", "payment processor",
+                "payments company", "lender", "stock exchange", "online banking", "insurer",
+                "credit union", "bank account holders", "account holders"],
     "healthcare": ["hospital", "clinic", "patient", "medical", "healthcare", "pharmacy", "phi",
                    "clinical", "health regulator", "care provider",
                    "protected health information", "prescription", "healthcare claims",
@@ -212,6 +224,15 @@ SECTORS: Dict[str, List[str]] = {
                    "kubernetes", "cloud bill"],
     "manufacturing": ["factory", "manufacturing", "production line", "plant", "industrial",
                       "assembly line", "manufacturer", "production scheduling"],
+    # Libraries, museums, archives and heritage bodies: frequent ransomware
+    # targets with no sector of their own before (found with the British
+    # Library's 2024 incident review). No bare "library": a code library is
+    # software.
+    "culture": ["national library", "public library", "public libraries", "the library",
+                "library services", "library users", "reading room", "reading rooms",
+                "libraries", "museum", "museums", "heritage", "archives", "gallery",
+                "galleries", "exhibition", "exhibitions", "cultural", "collections",
+                "manuscripts"],
     "logistics": ["logistics", "shipping", "port", "freight", "supply depot", "warehouse",
                   "container tracking", "cargo", "freight forwarder", "shipment", "customs",
                   "consignment"],
@@ -258,7 +279,6 @@ guess, reconstruct or invent what those tokens originally were.
 Summarise the attack's behaviour for defensive reuse. Output ONLY a JSON object:
 {
   "attack_type": "<one of: ransomware, phishing, business_email_compromise, data_breach, web_exploitation, credential_attack, insider_threat, supply_chain, denial_of_service, malware_infection, unknown>",
-  "sector": "<one of: finance, healthcare, government, energy, education, retail, telecom, technology, manufacturing, logistics, unknown>",
   "technique_ids": ["T1566.002", "..."],
   "impacts": ["<subset of: data_encrypted, data_exfiltrated, service_disruption, financial_loss, credential_compromise, regulatory_exposure>"],
   "summary": "<two-sentence, victim-free description of the attack chain>",
@@ -354,7 +374,7 @@ def _match_keywords(text_lower: str, vocab: Dict[str, List[str]]) -> Dict[str, i
 
     Boundaries are not optional here. Plain substring matching makes "isp" fire
     on "dispute" and "ics" on "logistics", which silently files incidents under
-    the wrong sector — a bug found by running real public breach reports through
+    the wrong category — a bug found by running real public breach reports through
     the extractor.
     """
     scores: Dict[str, int] = {}
@@ -386,9 +406,6 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
             type_scores[label] = type_scores.get(label, 0) + weight
     attack_type, initial_vector = _classify_attack(type_scores, text_lower)
 
-    sector_scores = _match_keywords(text_lower, SECTORS)
-    sector = max(sector_scores, key=sector_scores.get) if sector_scores else "unknown"
-
     impact_scores = _match_keywords(text_lower, IMPACTS)
     impacts = sorted(impact_scores, key=impact_scores.get, reverse=True)
 
@@ -398,7 +415,6 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
         "attack_type": attack_type,
         "initial_vector": initial_vector,
         "attack_type_candidates": dict(sorted(type_scores.items(), key=lambda kv: -kv[1])),
-        "sector": sector,
         "techniques": mapping["techniques"],
         "tactics": mapping["tactics"],
         "cves": cves,
@@ -422,8 +438,6 @@ def _merge_llm(dna: dict, sanitized_text: str, llm_result: Optional[dict]) -> di
         dna["attack_type"] = llm_result["attack_type"]
         if dna.get("initial_vector") == "unknown" and dna["attack_type"] in VECTOR_TYPES:
             dna["initial_vector"] = dna["attack_type"]
-    if dna["sector"] == "unknown" and llm_result.get("sector") in SECTORS:
-        dna["sector"] = llm_result["sector"]
 
     # Techniques are additive: re-run the mapper so LLM ids get the same
     # enrichment, confidence scoring and parent/sub-technique handling.
@@ -449,12 +463,10 @@ def _fallback_summary(dna: dict) -> str:
     type_label = dna["attack_type"].replace("_", " ")
     chain = " → ".join(TACTIC_LABELS.get(t, t.title()) for t in dna["tactics"][:5]) or "an unclassified chain"
     impacts = ", ".join(i.replace("_", " ") for i in dna["impacts"][:3]) or "no impact recorded"
-    sector = dna["sector"].replace("_", " ")
-    where = f" against a {sector} organisation" if sector != "unknown" else ""
     vector = dna.get("initial_vector", "unknown")
     entry = f" entered via {vector.replace('_', ' ')}," if vector not in ("unknown", dna["attack_type"]) else ""
     return (
-        f"A {type_label} incident{where}{entry} following {chain}. "
+        f"A {type_label} incident{entry} following {chain}. "
         f"Observed impact: {impacts}."
     )
 
@@ -487,7 +499,7 @@ def build_signature(dna: dict) -> str:
     """A compact, human-readable fingerprint used for display and matching.
 
     Example:
-        RANSOMWARE | finance | initial-access:T1566.002 > execution:T1059.001
+        RANSOMWARE | initial-access:T1566.002 > execution:T1059.001
         > impact:T1486 | impact:data_encrypted+data_exfiltrated
 
     The chain is ordered by the kill chain, not by confidence, so the signature
@@ -504,7 +516,7 @@ def build_signature(dna: dict) -> str:
         steps.append(f"{tactic}:{technique['id']}")
     chain = " > ".join(steps) if steps else "no-techniques"
     impacts = "+".join(dna["impacts"][:4]) if dna["impacts"] else "none"
-    return f"{dna['attack_type'].upper()} | {dna['sector']} | {chain} | impact:{impacts}"
+    return f"{dna['attack_type'].upper()} | {chain} | impact:{impacts}"
 
 
 def embedding_text(dna: dict) -> str:
@@ -518,7 +530,6 @@ def embedding_text(dna: dict) -> str:
     return (
         f"Attack type: {dna['attack_type'].replace('_', ' ')}. "
         f"Initial vector: {dna.get('initial_vector', 'unknown').replace('_', ' ')}. "
-        f"Sector: {dna['sector']}. "
         f"Tactics: {tactic_text}. "
         f"Techniques: {technique_text}. "
         f"Vulnerabilities: {', '.join(dna['cves']) or 'none'}. "
@@ -558,7 +569,7 @@ def extract_dna(sanitized_text: str, ioc_counts: Dict[str, int] | None = None,
 # Schema validation
 # --------------------------------------------------------------------------
 REQUIRED_FIELDS = {
-    "attack_type": str, "initial_vector": str, "sector": str, "severity": str,
+    "attack_type": str, "initial_vector": str, "severity": str,
     "signature": str, "summary": str, "embedding_text": str, "extraction_mode": str,
     "techniques": list, "tactics": list, "cves": list, "cve_details": list,
     "impacts": list, "ioc_classes": dict, "kev": dict, "iocs": dict, "attribution": dict,
@@ -585,8 +596,6 @@ def validate_dna(dna: dict) -> List[str]:
 
     if dna.get("attack_type") not in set(ATTACK_TYPES) | {"unknown"}:
         problems.append(f"unknown attack_type: {dna.get('attack_type')}")
-    if dna.get("sector") not in set(SECTORS) | {"unknown"}:
-        problems.append(f"unknown sector: {dna.get('sector')}")
     if dna.get("severity") not in VALID_SEVERITIES:
         problems.append(f"invalid severity: {dna.get('severity')}")
 

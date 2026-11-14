@@ -7,7 +7,7 @@ that were actually retrieved.
 
     "Have we seen double extortion in healthcare?"
     "What worked against ransomware that disabled EDR?"
-    "Which sector gets hit by phishing most often?"
+    "Which entry vector leads to ransomware most often?"
 
 Three properties make the answer trustworthy rather than merely fluent:
 
@@ -58,7 +58,7 @@ REWRITE_SYSTEM = """You turn a security analyst's question into an English searc
 
 Return ONLY JSON: {"query": "<english search query>", "language": "<ar|en>"}
 
-The query is matched against incident records describing attack type, sector,
+The query is matched against incident records describing attack type, entry vector,
 MITRE ATT&CK techniques, impacts and response actions. Use the vocabulary those
 records would use. Do not answer the question — only rewrite it as a query."""
 
@@ -138,7 +138,7 @@ def _incident_context(incident: IncidentDB, similarity: float) -> str:
         f"  Title: {incident.title}\n"
         f"  Date: {occurred} | Retrieval score: {similarity:.0%}\n"
         f"  Type: {incident.attack_type} | Entry vector: {incident.initial_vector} | "
-        f"Sector: {incident.sector} | Severity: {incident.severity}\n"
+        f"Severity: {incident.severity}\n"
         f"  Summary: {incident.summary}\n"
         f"  Kill chain: {tactics}\n"
         f"  Techniques: {techniques}\n"
@@ -175,7 +175,6 @@ def _sources(retrieved: List[Dict]) -> List[Dict]:
             "incident_id": entry["incident"].id,
             "title": entry["incident"].title,
             "attack_type": entry["incident"].attack_type,
-            "sector": entry["incident"].sector,
             "severity": entry["incident"].severity,
             "occurred_at": (entry["incident"].occurred_at.date().isoformat()
                             if entry["incident"].occurred_at else None),
@@ -213,7 +212,7 @@ def _fallback_answer(question: str, relevant: List[Dict]) -> str:
         lines.append(
             f"• {incident.title} ({entry['similarity']:.0%} match) — "
             f"{incident.attack_type} via {incident.initial_vector}, "
-            f"{incident.sector}, severity {incident.severity}."
+            f"severity {incident.severity}."
         )
         top = sorted(
             incident.mitigations,

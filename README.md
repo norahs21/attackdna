@@ -20,7 +20,7 @@ matched and what worked, and never learns who was attacked.
 | Page | What the team does | What it sees |
 |---|---|---|
 | **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
-| **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, sectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
+| **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
 | **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
 
 **Add to memory** is a switch in the navigation rail, next to **Dark mode**. With
@@ -42,41 +42,43 @@ own incident" and never returned by the API. Shared records carry the month they
 were shared, not the incident date. If the privacy check fails, the text is not
 sent to any LLM and cannot be shared.
 
-### The cross-organisation experiment
+## Results
 
-`make eval-crossorg` runs the experiment behind the claim
-(`scripts/evaluate_crossorg.py`, data in `data/seed/crossorg_pairs.json`).
-Organisation A contributes 20 incidents; organisation B reports the same 20
-attack patterns in its own words. A's incidents sit among the 24-incident
-corpus, which acts as distractors. Offline mode, no LLM, MiniLM memory and hybrid
-technique mapping:
+`make results` measures everything and prints this page. Every figure comes from
+data the system was not tuned on; offline, no LLM.
 
-| Measurement | Result |
-|---|---|
-| Identifiers removed: 171 marked by hand in 40 reports | **167 / 171 = 98%** (95% CI 94–99%) |
-| Attack terms lost to over-redaction | 2 / 165 = 1% |
-| ATT&CK techniques kept after sanitization (raw DNA vs sanitized DNA) | **81 / 81 = 100%** |
-| B recalls A's incident first: Precision@1 | **14 / 20 = 70%** (95% CI 48–85%) |
-| …in its top five: Recall@5 · MRR | **20 / 20 = 100%** · 0.81 |
-| B's top match has the same attack type | 19 / 20 = 95% |
-| A's recorded response recommended to B, with its source | 17 / 20 = 85% |
-| B's screens that showed anything naming A | **0 / 20** |
-| Shared records still naming A | 1 / 20 (two identifiers in one report) |
-| Same experiment without the privacy layer: Precision@1 · records naming A | 70% · **20 / 20** |
+| | Result | What it means |
+|---|---|---|
+| **Privacy** | | |
+| Identifiers removed | **98.6%** | 275 of 279 names, emails, IPs, hosts and phone numbers, marked by hand in 112 texts |
+| Attack terms kept | **99.0%** | 189 of 191 behaviour words survived the redaction |
+| **Attack DNA** | | |
+| Attack type correct | **85.7%** | 24 of 28 real incident summaries (Wikipedia, verbatim) |
+| ATT&CK techniques found | **81.6%** | 3,218 of 3,945 MITRE sentences about attackers never seen in training |
+| …of suggestions, correct | 60.1% | a lower bound: each sentence has a single label |
+| **Across organisations** | | |
+| B finds A's incident first | **55%** | 11 of 20 attacks reported by two organisations in different words; second in 7 of the other 9 |
+| …in its top five | **95%** | 19 of 20 |
+| A's response reused by B | 90% | recommended with its source named |
+| Screens that named A | **0 of 20** | B never learns who A is |
 
-Removing the victim's identity cost no retrieval quality on this set, and without
-the privacy layer every shared record named its victim. The four identifiers that
-survived (a phone number written with spaces, two single-word company names, a
-storage-bucket name) are reported as found rather than fixed after the fact. The
-40 reports are synthetic and were labelled by the project team, so independent
-annotation and real SOC reports are the next step. Every number, with its
-interval and every query, is written to `data/evaluation/crossorg_results.json`.
+Organisation A's 20 incidents sit among 24 corpus incidents that act as
+distractors; the 40 reports are synthetic and labelled by the team, so
+independent annotation and real SOC reports are the next step. The four
+identifiers that survived (a phone number written with spaces, two one-word
+company names, a storage-bucket name) are reported, not fixed after the fact.
 
-With the offline TF-IDF backend instead of MiniLM (no ChromaDB installed), the
-same experiment gives Precision@1 60%, Recall@5 95% and MRR 0.75; privacy and
-exposure figures are identical.
+The system has also been run end to end on a real published incident review,
+the British Library's 2024 report on its ransomware attack (18-page PDF): the
+library, its sites and its staff are removed, the attacker (Rhysida) is kept,
+and it is read as ransomware entering through compromised credentials, with
+14 ATT&CK techniques.
 
----
+**No sector.** Attack DNA does not record which industry the victim is in.
+Once names are removed, the sector is itself a clue to who the victim was, so
+it is neither inferred nor shared, and matching uses behaviour alone. The
+measured cost: B finds A's incident first in 55% of attacks instead of 65%;
+the top-five figure (95%) and response reuse (90%) are unchanged.
 
 ## The pipeline
 
@@ -128,59 +130,15 @@ make setup     # virtualenv + dependencies (picks Python 3.12 when available)
 make data      # download & process MITRE ATT&CK, CISA KEV and the CTI layers
 make seed      # load the historical incident corpus into memory
 make demo      # http://localhost:8501
-make eval      # measure accuracy against the labelled evaluation set
-make eval-crossorg  # the cross-organisation sharing experiment
+make results   # the results on one page
 ```
 
-### Measured results
-
-Two kinds of number, kept apart on purpose. **Development** cases are the ones
-the rules were built and tuned on; a high score there shows the system does
-what it was designed to do. **Held-out** cases are the test: the system had
-never seen them, their labels were fixed first, and it was run on them once.
-
-`make eval` prints both. Offline mode, no API key, no network:
-
-| Held-out test | Result |
-|---|---|
-| Attack type — 32 real incident summaries (Wikipedia, verbatim) | **24 / 28 = 86%** (95% CI 69–94%) |
-| Sector — same summaries | 11 / 25 = 44% (95% CI 27–63%) |
-| Identifiers removed — names marked by hand in those summaries | **53 / 55 = 96%** |
-| Identifiers removed — 40 new sentences, 10 categories | **51 / 53 = 96%** |
-| ATT&CK technique mapping — 3,945 MITRE-labelled sentences about 214 sources never seen in fitting | recall **65%**, precision 62% (hybrid) |
-| …with TF-IDF only (no MiniLM) | recall 44%, precision 62% |
-
-| Development (36 cases, tuned on these) | Result |
-|---|---|
-| Attack type / initial vector / sector | 86% / 92% / 92% |
-| ATT&CK techniques — precision / recall / F1 | 95% / 52% / 67% |
-| Memory retrieval precision@1 (8 cases) | 8 / 8 |
-| Mean end-to-end latency | ≈ 0.3 s |
-
-What these say, plainly:
-
-- **Sector is the weak number.** A real write-up names the organisation rather
-  than describing its business, and the privacy layer removes the name. The
-  classifier is left with whatever generic words remain.
-- **The privacy figures are first-run figures.** The four identifiers that
-  survived exposed three bugs (a machine name before a full stop, a bank read
-  as a roman numeral, a brand that starts with a digit). They are fixed and
-  have regression tests, and the held-out sets now pass in full — but 96% is
-  what an untouched test measured, so 96% is what is reported.
-- **Technique mapping has one label per sentence**, so a second technique the
-  sentence really does describe counts as wrong. Precision is a lower bound.
-- **Hybrid mapping** fuses the TF-IDF vote with a MiniLM vote over the same
-  MITRE examples. Its rule and floor were chosen on a development split of the
-  training sources; the held-out sources were measured once afterwards. Recall
-  rose from 44% to 65% at about the same precision (62.2% to 61.5%). It needs
-  ChromaDB; without it the mapper falls back to TF-IDF.
-- **Before these changes**, on 28 reports the rules had never seen, the
-  extractor named the attack type for 8 and found 17% of the techniques, and
-  19 of 34 realistic sentences leaked an identifier.
+For the detail behind each figure:
 
 ```bash
-make eval           # development + held-out + privacy audit
-make eval-mapper    # technique mapping on MITRE-labelled sentences
+make results        # the table above
+make eval           # per-case detail of the held-out incident set and privacy audit
+make eval-mapper    # technique mapping (--compare shows earlier versions)
 make eval-crossorg  # organisation A shares, organisation B recalls
 ```
 
@@ -260,8 +218,8 @@ moved from fin-ws-042 to dc01         →  moved from [HOSTNAME_REDACTED_1] to [
 CVE-2024-21412, Mimikatz, PowerShell  →  unchanged — this is the attack's DNA
 ```
 
-What it does not claim: that free text is anonymous. A date, a size and a rare
-sector can still narrow down a victim. The guarantee the system rests on is
+What it does not claim: that free text is anonymous. A date or a size can
+still narrow down a victim; for that reason the industry is not recorded at all. The guarantee the system rests on is
 structural and lives one stage later — see *Privacy by construction* below.
 
 ### ② Attack DNA — `backend/app/services/dna_extractor.py`
@@ -345,7 +303,8 @@ analyst has no way to check the machine's work. So retrieval is two-stage:
 
 1. **Recall** — vector memory returns semantically nearby DNA.
 2. **Re-rank** — candidates are re-scored on *structural* overlap: shared ATT&CK
-   techniques, shared tactics, attack type, initial vector, shared CVEs, sector.
+   techniques, shared tactics, attack type, initial vector, shared CVEs. Never
+   sector: the victim's industry is not recorded.
 
 Every match carries the reasons that produced it:
 
@@ -488,7 +447,7 @@ scripts/
 data/
   processed/                   ATT&CK, KEV and CTI layers (committed)
   seed/public_incidents.json   10 real publicly-documented breaches, cited
-  seed/incidents.json          14 synthetic incidents for sector breadth
+  seed/incidents.json          14 synthetic incidents for breadth
   seed/evaluation_set.json     development set A (8 cases)
   seed/evaluation_dev.json     development set B (28 cases)
   seed/evaluation_heldout.json held-out test: 32 real incident summaries
@@ -505,9 +464,7 @@ tests/                         350 tests
 
 ```bash
 make test          # 350 tests
-make eval          # development sets, held-out test, privacy audit
-make eval-mapper   # technique mapping on MITRE-labelled sentences
-make eval-crossorg # cross-organisation recall, privacy and behaviour
+make results       # the results on one page
 ```
 
 The suite covers redaction correctness, fingerprint preservation, ATT&CK mapping
@@ -553,8 +510,8 @@ stage?"*:
     Target, SolarWinds, Kaseya, Uber), compiled from public reporting with the
     source URL on every entry. These answer the first question anyone asks of a
     memory system: where does the memory come from?
-  - `data/seed/incidents.json` — **14 synthetic incidents** covering sectors the
-    public set does not. Every organisation, person and identifier is invented.
+  - `data/seed/incidents.json` — **14 synthetic incidents** covering attack patterns
+    the public set does not. Every organisation, person and identifier is invented.
 - Reports of both kinds are stored un-sanitized on purpose: seeding runs them
   through the real Privacy Layer, so the seeded corpus is proof the pipeline works
   rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the

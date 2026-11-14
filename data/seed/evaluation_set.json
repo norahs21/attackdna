@@ -28,7 +28,7 @@
           "service_disruption"
         ]
       },
-      "expected_similar_to": "Ransomware via phishing link — regional bank"
+      "expected_similar_to": "Ransomware via phishing link"
     },
     {
       "id": "eval_02",
@@ -55,7 +55,7 @@
           "regulatory_exposure"
         ]
       },
-      "expected_similar_to": "Ransomware via compromised MSP — healthcare group"
+      "expected_similar_to": "Ransomware via compromised MSP"
     },
     {
       "id": "eval_03",
@@ -79,7 +79,7 @@
           "credential_compromise"
         ]
       },
-      "expected_similar_to": "Business email compromise — logistics"
+      "expected_similar_to": "Business email compromise"
     },
     {
       "id": "eval_04",
@@ -103,7 +103,7 @@
           "regulatory_exposure"
         ]
       },
-      "expected_similar_to": "Web application exploitation and data breach — e-commerce"
+      "expected_similar_to": "Web application exploitation and data breach"
     },
     {
       "id": "eval_05",
@@ -126,7 +126,7 @@
           "credential_compromise"
         ]
       },
-      "expected_similar_to": "Password spraying against remote access — government agency"
+      "expected_similar_to": "Password spraying against remote access"
     },
     {
       "id": "eval_06",
@@ -146,7 +146,7 @@
           "service_disruption"
         ]
       },
-      "expected_similar_to": "DDoS against public services — telecom"
+      "expected_similar_to": "DDoS against public services"
     },
     {
       "id": "eval_07",
@@ -168,7 +168,7 @@
           "data_exfiltrated"
         ]
       },
-      "expected_similar_to": "Insider data theft before resignation — technology"
+      "expected_similar_to": "Insider data theft before resignation"
     },
     {
       "id": "eval_08",
@@ -192,7 +192,7 @@
         ],
         "impacts": []
       },
-      "expected_similar_to": "Phishing attachment leading to remote access trojan — energy"
+      "expected_similar_to": "Phishing attachment leading to remote access trojan"
     }
   ]
 }

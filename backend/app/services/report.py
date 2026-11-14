@@ -58,7 +58,6 @@ def build(result: dict, title: str = "Incident analysis",
     lines += [
         f"- **Attack type:** {dna['attack_type'].replace('_', ' ')}",
         f"- **Initial vector:** {(dna.get('initial_vector') or 'unknown').replace('_', ' ')}",
-        f"- **Sector:** {dna['sector']}",
         f"- **Severity:** {dna['severity']}",
         f"- **Identifying values removed:** {privacy['total_redactions']} "
         f"({'self-check passed' if privacy['verified_clean'] else 'SELF-CHECK FAILED'})",

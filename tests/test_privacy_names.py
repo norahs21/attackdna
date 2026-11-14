@@ -155,8 +155,45 @@ def test_a_name_the_layer_misses_still_cannot_reach_the_attack_dna():
     dna = extract_dna(raw, use_llm=False)
 
     record = json.dumps({key: dna[key] for key in (
-        "attack_type", "initial_vector", "sector", "severity", "signature", "summary",
+        "attack_type", "initial_vector", "severity", "signature", "summary",
         "embedding_text", "techniques", "tactics", "impacts", "cves")})
     for identifier in ("Zubair", "Qureshi", "Marwah", "mwp-eng-0042", "Yanbu"):
         assert identifier not in record, f"{identifier} reached the Attack DNA"
     assert dna["attack_type"] == "ransomware"
+
+
+# --------------------------------------------------------------------------
+# Long formal reports (found with the British Library's 2024 incident review)
+# --------------------------------------------------------------------------
+def test_the_attacker_s_name_is_kept_and_the_victim_s_removed():
+    out = sanitize("The British Library said the attack was claimed by the Rhysida "
+                   "ransomware gang, which exfiltrated data.").sanitized_text
+    assert "Rhysida" in out
+    assert "British Library" not in out
+
+
+def test_an_english_word_that_names_a_gang_is_kept_only_as_an_actor():
+    assert "Royal" in sanitize("Files were encrypted by the Royal ransomware group.").sanitized_text
+    assert "Royal Mail" not in sanitize("Royal Mail said its export service was disrupted."
+                                        ).sanitized_text
+
+
+def test_capitalised_terms_of_the_trade_are_not_organisations():
+    report = ("Access was gained at the Terminal Services server, which was not subject "
+              "to Multi-Factor Authentication, and Privileged Access Management was absent.")
+    out = sanitize(report).sanitized_text
+    for term in ("Terminal Services", "Multi-Factor Authentication", "Privileged Access Management"):
+        assert term in out, term
+
+
+def test_words_after_a_pdf_bullet_glyph_are_read_as_line_starts():
+    out = sanitize("Status:\n Some risk to the exhibition programme\n"
+                   " Significant disruption to readers").sanitized_text
+    assert "Some risk" in out and "Significant disruption" in out
+
+
+def test_one_stray_capital_does_not_remove_a_word_from_the_whole_report():
+    report = ("5. Implement network segmentation across the estate.\n"
+              "16. Implement Government standards and review them yearly.")
+    out = sanitize(report).sanitized_text
+    assert "Implement network segmentation" in out

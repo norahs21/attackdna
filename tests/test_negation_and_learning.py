@@ -79,12 +79,6 @@ def test_a_ransomware_family_names_the_attack_without_the_word():
     assert dna["attack_type"] == "ransomware"
 
 
-def test_a_build_pipeline_is_not_an_oil_pipeline():
-    dna = extract_dna("A CI pipeline at a software company pulled a typosquatted npm package.",
-                      use_llm=False)
-    assert dna["sector"] == "technology"
-
-
 def test_a_contained_foothold_is_not_low_severity():
     report = ("A phishing email installed a backdoor that beaconed to its C2 server. "
               "The host was isolated before any lateral movement and no data was exfiltrated.")
@@ -161,7 +155,7 @@ def test_the_held_out_set_is_real_text_with_its_sources():
         assert case["source_url"].startswith("https://en.wikipedia.org/"), case["id"]
         assert len(case["text"]) > 200, case["id"]
         expected = case["expected"]
-        assert any(expected[field] for field in ("attack_type", "sector")), case["id"]
+        assert expected.get("attack_type") or expected.get("sector"), case["id"]
 
 
 def test_the_development_set_does_not_overlap_the_held_out_one():

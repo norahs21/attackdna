@@ -100,7 +100,7 @@ def test_an_entry_vector_that_is_genuinely_unknown_stays_unknown():
 
 def test_dna_contains_every_expected_field():
     dna = extract_dna(RANSOMWARE_REPORT, use_llm=False)
-    for field in ("attack_type", "initial_vector", "sector", "severity", "signature",
+    for field in ("attack_type", "initial_vector", "severity", "signature",
                   "techniques", "tactics", "cves", "cve_details", "kev", "impacts",
                   "summary", "embedding_text", "extraction_mode"):
         assert field in dna, f"missing {field}"
@@ -174,3 +174,41 @@ def test_unknown_cve_is_not_flagged():
 def test_extractors_tolerate_empty_input(text):
     assert extract_cves(text) == []
     assert map_to_attack(text)["techniques"] == []
+
+
+# --------------------------------------------------------------------------
+# No sector, and the entry vector on real reports
+# --------------------------------------------------------------------------
+def test_the_dna_does_not_guess_the_victims_sector():
+    """Once names are removed, the victim's industry is not inferred or shared."""
+    from app.services.dna_extractor import extract_dna
+
+    text = ("Ransomware encrypted the library services and the reading rooms closed. "
+            "Patient records at the hospital and the bank's payment systems were spared.")
+    dna = extract_dna(text, {}, use_llm=False)
+    assert "sector" not in dna
+    for word in ("library", "hospital", "bank", "healthcare", "finance", "culture"):
+        assert word not in dna["signature"].lower()
+        assert word not in dna["embedding_text"].lower()
+        assert word not in dna["summary"].lower()
+
+
+def test_entry_through_stolen_credentials_without_mfa_is_a_credential_attack():
+    from app.services.dna_extractor import extract_dna
+
+    text = ("The attackers used compromised credentials of a third-party account on the "
+            "terminal server, which was not subject to multi-factor authentication, and "
+            "then encrypted the file servers with ransomware.")
+    dna = extract_dna(text, {}, use_llm=False)
+    assert dna["attack_type"] == "ransomware"
+    assert dna["initial_vector"] == "credential_attack"
+
+
+def test_a_long_report_gets_a_handful_of_learned_techniques_not_one_per_sentence():
+    from app.services import example_mapper
+
+    if not example_mapper.CLASSIFIER_PATH.exists():
+        return
+    text = " ".join(f"The library opened exhibition number {i} to the public." for i in range(40))
+    text += " The attackers ran PowerShell to download a payload and encrypted the servers."
+    assert len(example_mapper.suggest(text)) <= example_mapper.MAX_LEARNED_PER_REPORT

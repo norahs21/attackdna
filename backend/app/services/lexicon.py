@@ -139,6 +139,55 @@ execution reconnaissance resource ransomware malware phishing spearphishing
 email network event log logs task scheduler volume shadow copy safe mode
 virtual private enterprise admins administrators users accounts account
 services data database backup backups storage file files notes actions taken
+terminal privileged multi factor multifactor monitoring segmentation
+management governance assurance essentials infrastructure architecture
+vulnerability vulnerabilities penetration testing scanning logging audit
+encryption decryption isolation remediation rebuild restore resilience
+continuity incident incidents breach breaches cyber security operations centre
+center soc siem edr xdr mfa pam iam sso vpn rdp
+""")
+
+# Ransomware families and criminal groups reports name, beyond the ATT&CK
+# software and groups the knowledge base already lists. Naming the attacker is
+# behaviour, not victim identity, so these stay readable. Several are also
+# English words ("Play", "Royal", "Hive"); those are kept only when the next
+# word says they are an actor (THREAT_ACTOR_WORDS), so "Royal Mail" still goes.
+THREAT_NAMES = _words("""
+rhysida lockbit blackcat alphv akira medusa royal blacksuit conti ryuk revil
+sodinokibi darkside blackmatter clop cl0p maze egregor netwalker avaddon hive
+lorenz quantum zeppelin cuba avoslocker babuk ragnar ragnarlocker vice society
+blackbasta basta play bianlian karakurt snatch doppelpaymer dharma crysis
+phobos mallox trigona noescape cactus qilin agenda ransomhub hunters 8base
+interlock ghost cring scattered spider lapsus shinyhunters killnet noname057
+lazarus sandworm fin7 fin12 wizard spider
+""")
+THREAT_ACTOR_WORDS = _words("""
+ransomware gang group actor actors operators operator affiliate affiliates
+crew team malware variant strain locker encryptor collective
+""")
+
+# Written numbers: "Section Four", "Phase Two". Never anyone's name.
+NUMBER_WORDS = _words("""
+one two three four five six seven eight nine ten eleven twelve thirteen
+fourteen fifteen sixteen seventeen eighteen nineteen twenty first second third
+fourth fifth sixth seventh eighth ninth tenth
+""")
+
+# The last word of a capitalised technical or process phrase: "Multi-Factor
+# Authentication", "Terminal Services", "Privileged Access Management",
+# "Information Governance Strategy". A run of ordinary words ending in one of
+# these is a term of the trade, not an organisation. Deliberately absent:
+# library, bank, hospital, centre, mail, pipeline, group, board, council: words
+# that end real organisations' names ("British Library", "Royal Mail").
+TERM_HEADS = _words("""
+authentication authorization services service server servers system systems
+management strategy policy policies programme program framework plan plans
+process processes procedure procedures controls control assessment review
+monitoring protection detection response recovery access directory gateway
+firewall platform governance security operations essentials regulations
+standard standards requirements guidance assurance architecture
+infrastructure portfolio software hardware segmentation encryption backup
+backups logging testing training awareness
 """)
 
 # Modern general vocabulary a 1934 word list does not carry.
@@ -359,6 +408,7 @@ def public_terms() -> FrozenSet[str]:
     phrases by `public_ngrams`, and the everyday IT nouns are listed by hand.
     """
     terms = set(TECH_EXTRAS) | set(STRUCTURE_WORDS) | set(IT_WORDS)
+    terms.update(name for name in THREAT_NAMES if name not in ordinary_words())
     terms.update(acronym.lower() for acronym in SECURITY_ACRONYMS)
 
     techniques = _safe(kb.load_techniques, [])

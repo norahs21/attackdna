@@ -12,7 +12,7 @@ What it shows, top to bottom:
     Composition        member contributions vs real breaches vs synthetic
     Attack mix         a donut of attack types
     Behaviour          most-seen ATT&CK techniques and kill-chain coverage
-    Context            entry vectors, sectors, severity
+    Context            entry vectors, severity
     Incidents          the most recent fingerprints, with provenance
     What worked        actions ranked by reported effectiveness
 
@@ -198,15 +198,12 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
                          "name": r["name"]} for r in overview["top_techniques"]],
                        colours, value_title="Incidents", max_rows=8))
 
-    # --- Row 3: vectors, sectors, severity --------------------------------
-    cols = st.columns(3)
+    # --- Row 3: vectors, severity ------------------------------------------
+    cols = st.columns(2)
     with cols[0]:
         with card_box("How attackers got in", "Entry vector, kept apart from outcome"):
             _show(_bar(overview["by_initial_vector"], colours, value_title="Incidents", max_rows=6))
     with cols[1]:
-        with card_box("Sectors", "Inferred from the report, not the name"):
-            _show(_bar(overview["by_sector"], colours, value_title="Incidents", max_rows=6))
-    with cols[2]:
         severity_colours = {band["label"]: colours[theme.SEVERITY_STATUS[band["label"]]]
                             for band in overview["by_severity"]}
         with card_box("Severity", "In fixed order, never sorted by count"):
@@ -226,7 +223,6 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
             "Source": theme.provenance_pill(i["provenance"]),
             "Attack": i["attack_type"].replace("_", " "),
             "Entry": i["initial_vector"].replace("_", " "),
-            "Sector": i["sector"],
             "Severity": theme.severity_pill(i["severity"]),
             "Techniques": len(i["technique_ids"]),
         } for i in recent], html_columns={"Source", "Severity"}, strong={"Incident"},

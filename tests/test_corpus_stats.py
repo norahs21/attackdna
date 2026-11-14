@@ -52,8 +52,8 @@ def test_the_headline_counts_are_the_corpus(corpus):
 
 
 def test_counts_come_back_ranked_largest_first(corpus):
-    sectors = corpus_stats.overview(corpus)["by_sector"]
-    counts = [row["count"] for row in sectors]
+    types = corpus_stats.overview(corpus)["by_attack_type"]
+    counts = [row["count"] for row in types]
 
     assert counts == sorted(counts, reverse=True)
     assert sum(counts) == 3
@@ -121,6 +121,7 @@ def test_the_api_serves_the_same_numbers_as_the_dashboard(corpus):
         body = client.get("/stats").json()
 
     assert body["incidents"] == overview["incidents"]
-    assert body["by_sector"] == overview["by_sector"]
+    assert body["by_attack_type"] == overview["by_attack_type"]
+    assert "by_sector" not in body
     assert body["by_severity"] == overview["by_severity"]
     assert "knowledge_base" in body and "memory" in body

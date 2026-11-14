@@ -263,13 +263,12 @@ Official MITRE ATT&CK mitigations
 | **مصطلح أمني ينحذف بالغلط** | `sanitizer.py` | `HOSTNAME_ALLOWLIST` : ٩٤ |
 | **تربطين عبارة بتقنية ATT&CK** ⭐ | `mitre_mapper.py` | `ALIASES` : ٢٥ |
 | **تمنعين تطابق اسم خاطئ** | `mitre_mapper.py` | `NAME_MATCH_STOPLIST` : ١١٩ |
-| **تضيفين نوع هجوم** | `dna_extractor.py` | `ATTACK_TYPES` : ٣٢ |
-| **عبارة تحسم التصنيف** | `dna_extractor.py` | `DECISIVE_MARKERS` : ٧٧ |
-| **تضيفين قطاع** | `dna_extractor.py` | `SECTORS` : ٩٢ |
-| **تضيفين نوع أثر** | `dna_extractor.py` | `IMPACTS` : ١١٩ |
-| **تعدّلين حساب الخطورة** | `dna_extractor.py` | `SEVERITY_WEIGHTS` : ١٣٢ |
-| **وزن الدلالي مقابل البنيوي** | `similarity.py` | `SEMANTIC_WEIGHT` : ٣٠ |
-| **أهمية كل إشارة تشابه** | `similarity.py` | `STRUCTURE_WEIGHTS` : ٣٤ |
+| **تضيفين نوع هجوم** | `dna_extractor.py` | `ATTACK_TYPES` : ٣٤ |
+| **عبارة تحسم التصنيف** | `dna_extractor.py` | `DECISIVE_MARKERS` : ١٤٧ |
+| **تضيفين نوع أثر** | `dna_extractor.py` | `IMPACTS` : ٢٤١ |
+| **تعدّلين حساب الخطورة** | `dna_extractor.py` | `SEVERITY_WEIGHTS` : ٢٦٥ |
+| **وزن الدلالي مقابل البنيوي** | `similarity.py` | `SEMANTIC_WEIGHT` : ٣١ |
+| **أهمية كل إشارة تشابه** | `similarity.py` | `STRUCTURE_WEIGHTS` : ٣٥ |
 | **ضوابط أساسية لتقنية** | `mitigation_memory.py` | `BASELINE_CONTROLS` : ٤٤ |
 | **الكشف المتوقع لتقنية** | `simulator.py` | `DETECTION_CATALOG` : ٢٤ |
 | **إجراءات الاستجابة** | `simulator.py` | `RESPONSE_ACTIONS` : ٨٩ |

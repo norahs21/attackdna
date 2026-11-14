@@ -68,7 +68,6 @@ def test_the_healthcare_scenario_separates_vector_from_outcome(clean_memory, sce
     dna = analyze(clean_memory, scenario["text"], use_llm=False)["dna"]
     assert dna["attack_type"] == "ransomware"
     assert dna["initial_vector"] == "supply_chain"
-    assert dna["sector"] == "healthcare"
 
 
 # --- Determinism ----------------------------------------------------------
@@ -147,6 +146,6 @@ def test_the_evaluation_set_is_well_formed():
     assert len(cases) >= 5
     for case in cases:
         expected = case["expected"]
-        assert expected["attack_type"] and expected["sector"]
+        assert expected["attack_type"]
         assert expected["techniques"], f"{case['id']} has no expected techniques"
         assert case["expected_similar_to"], f"{case['id']} has no retrieval target"

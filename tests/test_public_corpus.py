@@ -52,11 +52,10 @@ def test_every_incident_records_what_was_done(public_incidents):
             }
 
 
-def test_the_corpus_covers_several_sectors_and_attack_types(public_incidents):
+def test_the_corpus_covers_several_attack_types(public_incidents):
     """Breadth is what makes retrieval meaningful rather than a lookup table."""
     dnas = [extract_dna(sanitize(i["text"]).sanitized_text, use_llm=False)
             for i in public_incidents]
-    assert len({d["sector"] for d in dnas}) >= 5
     assert len({d["attack_type"] for d in dnas}) >= 3
 
 
@@ -65,7 +64,6 @@ def test_no_public_incident_is_left_unclassified(public_incidents):
     for incident in public_incidents:
         dna = extract_dna(sanitize(incident["text"]).sanitized_text, use_llm=False)
         assert dna["attack_type"] != "unknown", f"{incident['title']} has no attack type"
-        assert dna["sector"] != "unknown", f"{incident['title']} has no sector"
         assert dna["techniques"], f"{incident['title']} mapped to no ATT&CK techniques"
         assert dna["validation"]["valid"], dna["validation"]["problems"]
 
