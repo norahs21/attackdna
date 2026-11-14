@@ -145,9 +145,17 @@ downloadable report, and LLM settings.
 
 1. Larger, independently labelled evaluation sets, including practitioner reports.
 2. A pilot with a SOC on its own sanitized reports.
-3. Export of Attack DNA in STIX 2.1 for existing sharing platforms.
-4. Arabic-language reports.
-5. A multi-organisation deployment with accounts and access control.
+3. Predicting the attacker's next step. A first version is kept in pull
+   request #16 (branch `claude/eager-cray-db8wv0`, `services/next_step.py`):
+   shown the first half of 177 held-out ATT&CK profiles, at least one of its
+   three predictions was a step the attacker really took later in 56.5% of
+   cases, against 53.1% for guessing the most common steps (66.7% against 59.0%
+   on the 39 threat groups and campaigns). The lead is small and the sample
+   modest, so it is not part of this prototype; until then, Ask the memory
+   shows what attackers did next in similar past incidents, as a record.
+4. Export of Attack DNA in STIX 2.1 for existing sharing platforms.
+5. Arabic-language reports.
+6. A multi-organisation deployment with accounts and access control.
 
 ---
 
