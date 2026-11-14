@@ -115,7 +115,10 @@ def test_the_dashboard_reports_what_memory_holds(corpus):
     assert not app.exception
     screen = _screen_text(app)
     assert "Incidents in memory" in screen
-    assert "ATT&CK techniques" in screen
+    # The key figures are HTML: "&" is escaped. (This passed before only because
+    # the old Settings panel printed the phrase in the sidebar.)
+    assert "ATT&amp;CK techniques" in screen
+    assert "Response actions" in screen
     assert "Fingerprints in memory" in screen
 
 
