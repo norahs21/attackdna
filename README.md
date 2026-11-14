@@ -19,9 +19,9 @@ matched and what worked, and never learns who was attacked.
 
 | Page | What the team does | What it sees |
 |---|---|---|
-| **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | First, **"Sensitive information removed successfully"** with counts per category; then the verdict, the Attack DNA with ATT&CK evidence, similar incidents (another organisation's marked *identity withheld*), the recommended response with sources, and a tabletop exercise |
+| **Analyze a report** | Attaches the report as written (PDF, Word or text) and presses **Analyze** | Four sections, top to bottom: **1** sensitive information removed, with counts per category; **2** the Attack DNA with ATT&CK evidence; **3** similar attacks in memory (another organisation's marked *identity withheld*), why they match, what was done and how well it worked; **4** what to do if this attack is met again, each action with its source |
 | **Dashboard** | — | What shared memory holds: key figures, incidents over time, where the memory comes from, attack mix, most-seen ATT&CK techniques, entry vectors, severity, kill-chain coverage, latest fingerprints, best-performing actions |
-| **Ask the memory** | Types a question | An answer built only from incidents in memory, with the sources it cites |
+| **Ask the memory** | Describes what has happened so far | Three answers from memory: **1** what worked against this; **2** attackers who got in the same way, and what they did; **3** what attackers did next in similar past incidents (a record, not a prediction) |
 
 **Add to memory** is a switch in the navigation rail, next to **Dark mode**. With
 it on, the team can list the response actions it took, and **Analyze and add to
@@ -56,11 +56,21 @@ data the system was not tuned on; offline, no LLM.
 | Attack type correct | **85.7%** | 24 of 28 real incident summaries (Wikipedia, verbatim) |
 | ATT&CK techniques found | **81.6%** | 3,218 of 3,945 MITRE sentences about attackers never seen in training |
 | …of suggestions, correct | 60.1% | a lower bound: each sentence has a single label |
+
+The technique figures are measured on single sentences from MITRE, each
+describing one technique. On whole reports the mapping is more precise but
+misses more: on the 40 cross-organisation reports, 84% of suggested techniques
+were correct and 49% of labelled techniques were found
+(`data/evaluation/crossorg_results.json`).
 | **Across organisations** | | |
 | B finds A's incident first | **55%** | 11 of 20 attacks reported by two organisations in different words; second in 7 of the other 9 |
 | …in its top five | **95%** | 19 of 20 |
 | A's response reused by B | 90% | recommended with its source named |
 | Screens that named A | **0 of 20** | B never learns who A is |
+
+The samples are small, so these figures are indicative, not conclusive: the
+95% confidence interval for "B finds A's incident first" runs from 34% to 74%,
+and for attack type from 69% to 94%.
 
 Organisation A's 20 incidents sit among 24 corpus incidents that act as
 distractors; the 40 reports are synthetic and labelled by the team, so
@@ -107,6 +117,40 @@ the top-five figure (95%) and response reuse (90%) are unchanged.
 
 ---
 
+## Prototype status
+
+ATTACKDNA is a working prototype: it shows the whole idea end to end, offline,
+on one machine, and measures itself on data it was not tuned on. It is not yet
+a product.
+
+**Works now:** the privacy layer, the Attack DNA with ATT&CK evidence, shared
+memory with explainable recall, response actions with their source,
+contribution between organisations, the dashboard and Ask the memory.
+
+**Limits of this prototype**
+
+- Evaluation sets are small (28 real summaries, 20 cross-organisation pairs),
+  and the cross-organisation reports are synthetic, written and labelled by
+  the team.
+- No real SOC reports yet, and no independent annotation of the test sets.
+- English-language reports only.
+- One machine, SQLite, no user accounts, roles or deployment.
+
+**Computed but not shown on screen yet** (kept in the backend and its tests,
+for the next version): threat-actor resemblance, the indicator profile,
+official ATT&CK mitigations, the defensive tabletop exercise, the
+downloadable report, and LLM settings.
+
+**Next steps towards the full system**
+
+1. Larger, independently labelled evaluation sets, including practitioner reports.
+2. A pilot with a SOC on its own sanitized reports.
+3. Export of Attack DNA in STIX 2.1 for existing sharing platforms.
+4. Arabic-language reports.
+5. A multi-organisation deployment with accounts and access control.
+
+---
+
 ## Documentation
 
 | Document | What it covers |
@@ -132,6 +176,23 @@ make seed      # load the historical incident corpus into memory
 make demo      # http://localhost:8501
 make results   # the results on one page
 ```
+
+### Running on Windows
+
+Without `make`, in PowerShell, from the repository folder:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\activate          # if scripts are blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -r backend/requirements.txt -r backend/requirements-vector.txt
+python scripts/seed_memory.py --reset
+streamlit run frontend/app.py
+```
+
+If seeding stops after "Seeding 24 incident(s)…" with no error, onnxruntime
+(used by ChromaDB for MiniLM) has crashed: update the Microsoft Visual C++
+Redistributable (`winget install --id Microsoft.VCRedist.2015+.x64 -e`), open a
+new PowerShell and seed again.
 
 For the detail behind each figure:
 
@@ -431,6 +492,7 @@ backend/app/
     similarity.py              ④ explainable re-ranking
     mitigation_memory.py       ⑤ recalled + framework + baseline actions
     simulator.py               ⑥ safe tabletop generation
+    guidance.py                Ask the memory: what worked, same way in, what came next
     contributors.py            keyed pseudonyms for contributing organisations
     document_reader.py         PDF / Word / text reports to plain text
   pipelines/analyze.py         analyze() / contribute() / ingest() / reindex_memory()
@@ -455,7 +517,7 @@ data/
   seed/demo_scenarios.json     prepared demo scenarios with presenter notes
   seed/crossorg_pairs.json     20 attack patterns reported by two organisations
   evaluation/                  latest cross-organisation results (read by the UI)
-tests/                         350 tests
+tests/                         368 tests
 ```
 
 ---
@@ -463,7 +525,7 @@ tests/                         350 tests
 ## Testing
 
 ```bash
-make test          # 350 tests
+make test          # 368 tests
 make results       # the results on one page
 ```
 
@@ -496,8 +558,11 @@ stage?"*:
 - **Nothing is trained on anyone's incidents.** The rule layers are curated
   vocabularies, the embeddings come from a pre-trained MiniLM, and the optional
   LLM is used through its API. The one component that learns —
-  `example_mapper` — learns only from sentences MITRE publishes, is fitted in
-  under a second at first use, and has no weights to ship or fine-tune.
+  `example_mapper` and its technique classifier — learns only from sentences
+  MITRE publishes. The classifier is a small logistic regression over MiniLM
+  vectors, trained once by `scripts/train_technique_classifier.py` and
+  committed as `data/processed/technique_classifier.npz` (about 1 MB); nothing
+  is fine-tuned.
 - **Third-party data.** `data/processed/english_words.txt.gz` is the lower-case
   entries of Webster's Second International (1934, copyright lapsed).
   `procedure_examples.json.gz` is © The MITRE Corporation, reproduced under
@@ -517,6 +582,22 @@ stage?"*:
   rather than a hand-cleaned shortcut. Titles are not sanitized — for a breach the
   victim has already disclosed, the name is public record, and keeping it is what
   makes the memory auditable.
+
+---
+
+## References
+
+1. B. E. Strom et al., "MITRE ATT&CK: Design and Philosophy," The MITRE Corporation, 2018. https://attack.mitre.org
+2. Cybersecurity and Infrastructure Security Agency, "Known Exploited Vulnerabilities Catalog." https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+3. C. Wagner, A. Dulaunoy, G. Wagener and A. Iklody, "MISP: The Design and Implementation of a Collaborative Threat Intelligence Sharing Platform," ACM WISCS, 2016.
+4. OASIS, "STIX Version 2.1," OASIS Standard, 2021.
+5. N. Reimers and I. Gurevych, "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks," EMNLP-IJCNLP, 2019.
+6. W. Wang et al., "MiniLM: Deep Self-Attention Distillation for Task-Agnostic Compression of Pre-Trained Transformers," NeurIPS, 2020.
+7. P. Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks," NeurIPS, 2020.
+8. G. Salton and C. Buckley, "Term-weighting approaches in automatic text retrieval," Information Processing & Management 24(5), 1988.
+9. MITRE ATT&CK procedure examples (`data/processed/procedure_examples.json.gz`), © The MITRE Corporation, under the ATT&CK terms of use.
+10. Held-out incident summaries: English Wikipedia, CC BY-SA 4.0, each cited to its article in `data/seed/evaluation_heldout.json`.
+11. Public breaches in memory: Norsk Hydro, Colonial Pipeline, Change Healthcare, MOVEit, NotPetya, Equifax, Target, SolarWinds, Kaseya, Uber — source URL per entry in `data/seed/public_incidents.json`.
 
 ---
 
