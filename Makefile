@@ -10,7 +10,7 @@ PIP := .venv/bin/pip
 PYTHON := $(shell command -v python3.12 || command -v python3.11 || \
                   command -v python3.10 || command -v python3)
 
-.PHONY: help setup data embeddings seed api demo test results eval eval-mapper eval-crossorg check-llm clean reset all
+.PHONY: help setup data embeddings seed api demo test results eval eval-mapper eval-crossorg eval-next-step check-llm clean reset all
 
 help:
 	@echo "ATTACKDNA"
@@ -27,6 +27,7 @@ help:
 	@echo "  make eval-mapper  Technique mapping on MITRE-labelled sentences"
 	@echo "  make embeddings  Re-embed MITRE's examples for the hybrid mapper (~10 min)"
 	@echo "  make eval-crossorg  Organisation A shares, organisation B recalls"
+	@echo "  make eval-next-step  Predicting the attacker's next step"
 	@echo "  make check-llm  Verify the Claude API key works and show what it adds"
 	@echo "  make reset   Wipe the database and vector memory, then reseed"
 
@@ -70,6 +71,7 @@ data:
 results:
 	$(PY) scripts/evaluate_mapper.py
 	$(PY) scripts/evaluate_crossorg.py > /dev/null
+	$(PY) scripts/evaluate_next_step.py > /dev/null
 	$(PY) scripts/results.py
 
 eval:
@@ -85,6 +87,9 @@ embeddings:
 
 eval-crossorg:
 	$(PY) scripts/evaluate_crossorg.py
+
+eval-next-step:
+	$(PY) scripts/evaluate_next_step.py
 
 check-llm:
 	$(PY) scripts/check_llm.py

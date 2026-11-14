@@ -20,6 +20,32 @@
     "sentences": 3945,
     "suggested": 5356
   },
+  "next_step": {
+    "attackers": {
+      "cases": 39,
+      "found": 26,
+      "hit_at_3": 0.6666666666666666,
+      "precision_at_3": 0.41880341880341876,
+      "shortcut_found": 23,
+      "shortcut_hit_at_3": 0.5897435897435898
+    },
+    "tools": {
+      "cases": 138,
+      "found": 74,
+      "hit_at_3": 0.5362318840579711,
+      "precision_at_3": 0.2705314009661836,
+      "shortcut_found": 71,
+      "shortcut_hit_at_3": 0.5144927536231884
+    },
+    "all": {
+      "cases": 177,
+      "found": 100,
+      "hit_at_3": 0.5649717514124294,
+      "precision_at_3": 0.3032015065913371,
+      "shortcut_found": 94,
+      "shortcut_hit_at_3": 0.5310734463276836
+    }
+  },
   "cross_org": {
     "precision_at_1": {
       "value": 0.55,
