@@ -310,12 +310,53 @@ def origin_note(match: dict) -> str:
     return "past incident"
 
 
+CONFIDENCE_PILL = {"high": "good", "medium": "warning", "low": "serious", "none": "neutral"}
+AGREEMENT_TEXT = {
+    "agree": "words and behaviour agree",
+    "words only": "from the report's words only",
+    "behaviour only": "from the detected behaviour only",
+    "disagree": "words and behaviour disagree",
+    "none": "no evidence either way",
+}
+
+
+def confidence_html(dna: dict, field: str) -> str:
+    """A pill saying how sure the classification is, and why."""
+    record = (dna.get("classification") or {}).get(field)
+    if not record:
+        return ""
+    label = f"{record['confidence']} confidence · {AGREEMENT_TEXT[record['agreement']]}"
+    out = "<br>" + theme.pill(label, CONFIDENCE_PILL.get(record["confidence"], "neutral"))
+    if record.get("alternative"):
+        out += ("<br><small>alternative: "
+                + theme.esc(record["alternative"].replace("_", " ")) + "</small>")
+    return out
+
+
+def classification_table(dna: dict) -> str:
+    """What each voter said, for the analyst who wants to check the call."""
+    pretty = lambda value: (value or "unknown").replace("_", " ")  # noqa: E731
+    rows = []
+    for field, name in (("attack_type", "Attack type"), ("initial_vector", "Initial vector")):
+        record = (dna.get("classification") or {}).get(field)
+        if not record:
+            continue
+        behaviour = pretty(record["behaviour"])
+        if record.get("behaviour_entry_only"):
+            behaviour += " (entry only)"
+        rows.append({"Question": name, "Report's words": pretty(record["words"]),
+                     "Detected behaviour": behaviour,
+                     "Final": pretty(record["value"]),
+                     "Confidence": record["confidence"]})
+    return theme.table(rows, strong={"Final"}) if rows else ""
+
+
 def action_track(action: dict) -> tuple:
     """The label beside a recommended action, and its pill colour."""
     if action.get("origin") == "recalled":
         label = f"worked before · used in {action['times_used']} past incident(s)"
         if action.get("avg_effectiveness") is not None:
-            label += f" · avg effectiveness {action['avg_effectiveness']:.0%}"
+            label += f" · est. effectiveness {action['avg_effectiveness']:.0%}"
         return label, "accent"
     return "baseline control", "neutral"
 
@@ -418,9 +459,16 @@ if page == "Ask the memory":
             st.caption("Source: " + ", ".join(item["sources"]))
 
     vector = (result["dna"].get("initial_vector") or "unknown").replace("_", " ")
-    section(2, f"Attackers who got in the same way ({vector})")
-    if not advice["same_entry"]:
-        st.caption("No incident in memory started the same way.")
+    if vector == "unknown":
+        section(2, "Attackers who got in the same way")
+        st.caption("Your description does not say how the attacker got in. Mention the "
+                   "entry point (a phishing email, a VPN login, an exposed server) to "
+                   "compare it with past incidents.")
+    else:
+        section(2, f"Attackers who got in the same way ({vector})")
+        html(confidence_html(result["dna"], "initial_vector").removeprefix("<br>"))
+        if not advice["same_entry"]:
+            st.caption("No incident in memory started the same way.")
     for index, entry in enumerate(advice["same_entry"]):
         with st.expander(f"{entry['similarity']:.0%} — {entry['title']}", expanded=index == 0):
             html(theme.provenance_pill(entry.get("provenance"),
@@ -527,13 +575,20 @@ vector = (dna.get("initial_vector") or "unknown").replace("_", " ")
 html(f'<div class="verdict"><div class="headline">{theme.esc(attack)} via {theme.esc(vector)}'
      f'</div></div>')
 html(theme.facts([
-    ("Attack type", theme.esc(attack)),
-    ("Initial vector", theme.esc(vector.title())),
+    ("Attack type", theme.esc(attack) + confidence_html(dna, "attack_type")),
+    ("Initial vector", theme.esc(vector.title()) + confidence_html(dna, "initial_vector")),
     ("ATT&CK techniques", str(len(dna["techniques"]))),
     ("Severity", theme.severity_pill(dna["severity"])),
 ]))
 kill_chain = " → ".join(TACTIC_LABELS.get(t, t.title()) for t in dna["tactics"]) or "—"
 impacts = ", ".join(i.replace("_", " ").title() for i in dna["impacts"]) or "None recorded"
+if dna.get("classification"):
+    with st.expander("How this was classified"):
+        st.caption("Two independent opinions. The report's words are read against "
+                   "vocabularies; the detected behaviour is the ATT&CK techniques and "
+                   "known-exploited CVEs found in it, read without the words. When they "
+                   "agree the answer is marked high confidence.")
+        html(classification_table(dna))
 st.markdown(f"**Kill chain** · {kill_chain}")
 st.markdown(f"**Impact** · {impacts}")
 st.markdown("**MITRE ATT&CK techniques**")
@@ -568,9 +623,12 @@ for index, match in enumerate(similar):
             st.markdown("**What they did, and how well it worked**")
             html(theme.table(
                 [{"Phase": m["category"], "Action": m["action"],
-                  "Effectiveness": f"{m['effectiveness']:.0%}"
+                  "Est. effectiveness": f"{m['effectiveness']:.0%}"
                   if m["effectiveness"] is not None else "—"}
-                 for m in match["mitigations"]], numeric={"Effectiveness"}))
+                 for m in match["mitigations"]], numeric={"Est. effectiveness"}))
+            st.caption("Effectiveness is the outcome estimated by whoever recorded the "
+                       "incident; for public breaches, by the ATTACKDNA team from the "
+                       "published reporting. It is a judgement, not a measurement.")
 
 # 4 — what to do if this attack is met again.
 section(4, "If you face this attack: what to do")

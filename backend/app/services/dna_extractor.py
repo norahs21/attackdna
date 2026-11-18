@@ -19,7 +19,7 @@ import re
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-from app.services import llm_client
+from app.services import classification_vote, llm_client
 from app.services.attribution import attribute
 from app.services.ioc_extractor import extract_iocs
 from app.services.kev_enricher import enrich_cves, extract_cves, kev_summary
@@ -127,6 +127,27 @@ ATTACK_TYPES: Dict[str, List[tuple]] = {
                           ("destructive malware", 5), ("wiper", 5), ("information stealer", 5),
                           ("mine cryptocurrency", 5), ("cryptomining", 5), ("xmrig", 5),
                           ("loader", 2), ("payload", 1)],
+}
+
+# Evidence about how the attacker got in, and nothing else. A user who
+# "clicked a link in an email" says the entry was phishing; it says nothing
+# about what the attack became (a Qakbot infection that arrived as a OneNote
+# attachment is still a malware infection). These phrases therefore decide
+# the initial vector only, never the attack type. They are how a responder
+# describes the start of an incident before anyone has named it.
+ENTRY_EVIDENCE: Dict[str, List[tuple]] = {
+    "phishing": [("link in an email", 4), ("link in the email", 4), ("link in a message", 3),
+                 ("link in an e-mail", 4), ("email link", 3), ("suspicious email", 3),
+                 ("suspicious link", 3), ("clicked a link", 3), ("clicked the link", 3),
+                 ("clicked on a link", 3), ("email attachment", 3),
+                 ("attachment in an email", 4), ("opened an attachment", 3),
+                 ("opened the attachment", 3), ("onenote attachment", 4)],
+}
+
+# Techniques that show how the attacker got in, likewise counted for the
+# vector only. A user opening a malicious link or file is how phishing lands.
+TECHNIQUE_ENTRY_HINTS: Dict[str, tuple] = {
+    "T1204": ("phishing", 3),
 }
 
 # How the attacker got in vs. what they ultimately did. A report that says
@@ -347,13 +368,25 @@ def _decisive_type(text_lower: str) -> Optional[str]:
     return None
 
 
-def _classify_attack(type_scores: Dict[str, int], text_lower: str) -> tuple:
-    """Split the classification into (what it became, how it started)."""
-    if not type_scores:
+def _classify_attack(type_scores: Dict[str, int], text_lower: str,
+                     entry_scores: Optional[Dict[str, int]] = None) -> tuple:
+    """Split the classification into (what it became, how it started).
+
+    `entry_scores` is evidence about the entry vector only (ENTRY_EVIDENCE,
+    TECHNIQUE_ENTRY_HINTS). It is added to the vector scores and, when nothing
+    else is known, names the incident by how it started — as a report that only
+    says "phishing" always has been.
+    """
+    entry_scores = entry_scores or {}
+    if not type_scores and not entry_scores:
         return "unknown", "unknown"
 
     outcomes = {k: v for k, v in type_scores.items() if k in OUTCOME_TYPES}
     vectors = {k: v for k, v in type_scores.items() if k in VECTOR_TYPES}
+    for label, score in entry_scores.items():
+        vectors[label] = vectors.get(label, 0) + score
+    if not type_scores:
+        type_scores = dict(vectors)
 
     initial_vector = max(vectors, key=vectors.get) if vectors else "unknown"
 
@@ -395,6 +428,9 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
         if _term_matches(family, text_lower):
             type_scores["ransomware"] = type_scores.get("ransomware", 0) + 4
             break
+    # What the words alone say, kept for the vote before behaviour is mixed in.
+    word_type_scores = dict(type_scores)
+    word_entry_scores = _score_category(text_lower, ENTRY_EVIDENCE)
     for technique in mapping["techniques"]:
         hint = TECHNIQUE_TYPE_HINTS.get(technique["id"].split(".")[0])
         if hint:
@@ -404,7 +440,15 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
             if technique["confidence"] < 0.7:
                 weight = max(1, weight - 2)
             type_scores[label] = type_scores.get(label, 0) + weight
-    attack_type, initial_vector = _classify_attack(type_scores, text_lower)
+    entry_scores = dict(word_entry_scores)
+    for technique in mapping["techniques"]:
+        hint = TECHNIQUE_ENTRY_HINTS.get(technique["id"].split(".")[0])
+        if hint:
+            label, weight = hint
+            if technique["confidence"] < 0.7:
+                weight = max(1, weight - 2)
+            entry_scores[label] = entry_scores.get(label, 0) + weight
+    attack_type, initial_vector = _classify_attack(type_scores, text_lower, entry_scores)
 
     impact_scores = _match_keywords(text_lower, IMPACTS)
     impacts = sorted(impact_scores, key=impact_scores.get, reverse=True)
@@ -422,7 +466,19 @@ def _rule_based_dna(sanitized_text: str, ioc_counts: Dict[str, int]) -> dict:
         "ioc_classes": ioc_counts,
         "summary": "",
         "root_cause": "",
+        # Inputs to the vote; removed before the DNA leaves extract_dna.
+        "_word_type_scores": word_type_scores,
+        "_word_entry_scores": word_entry_scores,
     }
+
+
+def _vote(dna: dict, text_lower: str) -> dict:
+    """Words and behaviour each classify the incident; see classification_vote."""
+    kev = kev_summary(enrich_cves(dna["cves"]))
+    voters = classification_vote.classify_both(
+        dna["_word_type_scores"], dna["_word_entry_scores"],
+        dna["techniques"], kev, _classify_attack, text_lower)
+    return classification_vote.vote(dna, voters["words"], voters["behaviour"])
 
 
 def _merge_llm(dna: dict, sanitized_text: str, llm_result: Optional[dict]) -> dict:
@@ -477,7 +533,27 @@ INTRUSION_TACTICS = {"execution", "persistence", "privilege-escalation", "creden
                      "lateral-movement", "command-and-control", "exfiltration"}
 
 
+SEVERITY_ORDER = ["low", "medium", "high", "critical"]
+
+# Outcomes that are serious by nature, however short the report. Ransomware
+# that actually encrypted data has stopped the business somewhere; scoring it
+# "medium" because the report was brief would mislead a responder.
+SEVERITY_FLOORS = [
+    (lambda dna: dna.get("attack_type") == "ransomware"
+     and "data_encrypted" in dna.get("impacts", []), "high"),
+    (lambda dna: dna.get("attack_type") == "ransomware", "medium"),
+]
+
+
 def _severity(dna: dict, kev_info: dict) -> str:
+    band = _scored_severity(dna, kev_info)
+    for applies, floor in SEVERITY_FLOORS:
+        if applies(dna) and SEVERITY_ORDER.index(floor) > SEVERITY_ORDER.index(band):
+            band = floor
+    return band
+
+
+def _scored_severity(dna: dict, kev_info: dict) -> str:
     score = sum(SEVERITY_WEIGHTS.get(impact, 1) for impact in dna["impacts"])
     score += 3 if kev_info["known_exploited_count"] else 0
     score += min(3, len(dna["techniques"]) // 3)
@@ -542,11 +618,28 @@ def extract_dna(sanitized_text: str, ioc_counts: Dict[str, int] | None = None,
                 use_llm: bool = True) -> dict:
     """Extract the full Attack DNA from a sanitized incident report."""
     dna = _rule_based_dna(sanitized_text, ioc_counts or {})
+    text_lower = (sanitized_text or "").lower()
+
+    # Deterministic first: behaviour fills what the words could not, so the
+    # LLM (optional, online) is asked only about what both left unknown.
+    _vote(dna, text_lower)
+    before_llm = {field: dna[field] for field in ("attack_type", "initial_vector")}
 
     llm_result = None
     if use_llm and llm_client.is_available():
         llm_result = llm_client.complete_json(LLM_SYSTEM, sanitized_text)
     dna = _merge_llm(dna, sanitized_text, llm_result)
+
+    # Vote again on the final techniques (the LLM may have added some), so the
+    # recorded confidence describes the DNA that is actually returned.
+    classification = _vote(dna, text_lower)
+    for field, before in before_llm.items():
+        if before == "unknown" and dna[field] != "unknown" \
+                and classification[field]["decided_by"] == "combined":
+            classification[field]["decided_by"] = "llm"
+    dna["classification"] = classification
+    dna.pop("_word_type_scores", None)
+    dna.pop("_word_entry_scores", None)
 
     if not dna.get("summary"):
         dna["summary"] = _fallback_summary(dna)

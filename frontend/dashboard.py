@@ -232,11 +232,11 @@ def render(overview: dict, memory_stats: dict, incidents: List[Dict], mode: str,
     if overview["proven_actions"]:
         st.markdown(theme.card(
             "Actions with the strongest track record",
-            "Ranked by the average outcome reported across every incident that used them",
+            "Ranked by estimated outcome, weighted by how many incidents back it up",
             theme.table([{"Action": r["action"],
-                          "Avg. effectiveness": f"{r['effectiveness']:.0%}",
+                          "Est. effectiveness": f"{r['effectiveness']:.0%}",
                           "Incidents": r["times_used"]} for r in overview["proven_actions"]],
-                        numeric={"Avg. effectiveness", "Incidents"})), unsafe_allow_html=True)
+                        numeric={"Est. effectiveness", "Incidents"})), unsafe_allow_html=True)
 
     st.caption(f"Memory backend: {memory_stats['backend']} · "
                f"{memory_stats['incidents_in_memory']} incidents indexed")

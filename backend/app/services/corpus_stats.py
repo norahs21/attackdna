@@ -46,6 +46,18 @@ def _pretty(value: Optional[str]) -> str:
     return (value or "unknown").replace("_", " ")
 
 
+# Prior for ranking actions by estimated effectiveness: an action with no
+# evidence is assumed middling, and each incident that used it moves it one
+# step toward what was actually reported.
+EFFECTIVENESS_PRIOR = 0.6
+PRIOR_WEIGHT = 1.0
+
+
+def _shrunk(scores: List[float]) -> float:
+    """Mean effectiveness pulled toward the prior; more samples, less pull."""
+    return (sum(scores) + EFFECTIVENESS_PRIOR * PRIOR_WEIGHT) / (len(scores) + PRIOR_WEIGHT)
+
+
 def overview(session: Session) -> dict:
     """Everything the dashboard and /stats need, in one pass over the corpus."""
     incidents = session.query(IncidentDB).all()
@@ -97,12 +109,14 @@ def overview(session: Session) -> dict:
             "action": action,
             "effectiveness": sum(scores) / len(scores),
             "times_used": action_uses[action],
+            "rank_score": _shrunk(scores),
         }
         for action, scores in action_scores.items()
     ]
-    # Effectiveness first, then evidence: an action that worked once is ranked
-    # below one that worked as well twice.
-    proven_actions.sort(key=lambda row: (-row["effectiveness"], -row["times_used"],
+    # A single 100% is weaker evidence than four incidents at 92%. Ranking on
+    # the raw average put one-off actions on top; ranking on an average pulled
+    # toward a neutral prior lets evidence count without hiding the estimate.
+    proven_actions.sort(key=lambda row: (-row["rank_score"], -row["times_used"],
                                          row["action"]))
 
     return {
