@@ -61,6 +61,7 @@ Each organisation has its own private access to the platform. Its identity is st
 - **Privacy first.** Identity is removed before anything is stored or shared; only behaviour is kept; contributors are pseudonymous; the sector is not recorded.
 - **Behaviour, not indicators.** Matching is based on ATT&CK techniques, tactics, attack type, entry point and vulnerabilities, which change far more slowly than IP addresses or domains.
 - **Explainable.** Every match lists the reasons behind it (for example, "2 shared ATT&CK techniques, same entry: phishing"), and every recommended action carries its source and how often and how well it worked.
+- **Two independent opinions, with a confidence.** The attack type and the entry vector are decided twice: once from the report's words, and once from the detected behaviour alone (the ATT&CK techniques and known-exploited vulnerabilities), without reading the words. When the two agree, the answer is marked high confidence; when they disagree, the analyst sees both instead of a confident label.
 - **Resemblance, not attribution.** The platform says an attack resembles past ones; it never claims who the attacker is.
 
 ## 6. Related Work
@@ -102,14 +103,14 @@ To our knowledge, no existing system combines all of the following:
 1. **Removing the victim's identity from free-text reports** and reducing each incident to structured attacker behaviour.
 2. **Pseudonymous contribution** across organisations, so no organisation learns who another victim was.
 3. **Cross-organisation recall of response actions**, ranked by how often and how effectively they were used, each labelled with its source.
-4. **Explanations** for every match and every recommendation.
+4. **Explanations** for every match and every recommendation, and a **confidence** for every classification, from two independent opinions that must agree.
 5. **Help during an attack**, not only after it.
 
 For organisations, the value is practical: a repeat attack becomes a lookup, defenders reuse what already worked elsewhere, and smaller organisations without large security teams benefit from the experience of larger ones, without anyone exposing their identity.
 
 ## 8. Proof of Concept
 
-A working prototype shows the idea is feasible. On test data it was not tuned on, it removed **98.6%** of hand-marked identifiers (275 of 279), named the attack type correctly in **85.7%** of 28 real incident summaries taken from Wikipedia, and, when two organisations reported the same attack in different words, found the first organisation's incident among the top five results in **95%** of cases (19 of 20) while revealing who it was on **0 of 20** screens. The samples are small, so these figures are indicative rather than conclusive. The prototype runs on one machine; deploying it across organisations with separate accounts is the next step.
+A working prototype shows the idea is feasible. On test data it was not tuned on, it removed **98.6%** of hand-marked identifiers (275 of 279), named the attack type correctly in **85.7%** of 28 real incident summaries taken from Wikipedia, and, when two organisations reported the same attack in different words, found the first organisation's incident among the top five results in **95%** of cases (19 of 20) while revealing who it was on **0 of 20** screens. Its confidence levels are meaningful: when the words and the behaviour agreed on the attack type, the answer was right in **21 of 21** cases; when only one of them had an answer, in 33 of 37. The samples are small, so these figures are indicative rather than conclusive. The prototype runs on one machine; deploying it across organisations with separate accounts is the next step.
 
 ## 9. Challenges and Future Work
 
