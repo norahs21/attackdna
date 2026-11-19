@@ -10,7 +10,7 @@ PIP := .venv/bin/pip
 PYTHON := $(shell command -v python3.12 || command -v python3.11 || \
                   command -v python3.10 || command -v python3)
 
-.PHONY: help setup data embeddings seed api demo test results eval eval-mapper eval-crossorg check-llm clean reset all
+.PHONY: help setup data embeddings seed api demo test results eval eval-mapper eval-crossorg check-llm clean reset all explain samples calibration
 
 help:
 	@echo "ATTACKDNA"
@@ -28,6 +28,10 @@ help:
 	@echo "  make embeddings  Re-embed MITRE's examples for the hybrid mapper (~10 min)"
 	@echo "  make eval-crossorg  Organisation A shares, organisation B recalls"
 	@echo "  make check-llm  Verify the Claude API key works and show what it adds"
+	@echo "  make explain FILE=path   How one report was classified (words vs behaviour)"
+	@echo "  make explain TEXT=\"...\" The same for a sentence"
+	@echo "  make samples    Every sample report, one line each, with confidence"
+	@echo "  make calibration  How often each confidence level is right"
 	@echo "  make reset   Wipe the database and vector memory, then reseed"
 
 all: setup data seed
@@ -88,6 +92,19 @@ eval-crossorg:
 
 check-llm:
 	$(PY) scripts/check_llm.py
+
+explain:
+ifdef TEXT
+	$(PY) scripts/explain_classification.py --text "$(TEXT)"
+else
+	$(PY) scripts/explain_classification.py $(FILE)
+endif
+
+samples:
+	$(PY) scripts/explain_classification.py --samples
+
+calibration:
+	$(PY) scripts/explain_classification.py --calibration
 
 seed:
 	$(PY) scripts/seed_memory.py --reset

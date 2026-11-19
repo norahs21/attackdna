@@ -95,7 +95,15 @@ ALIASES: Dict[str, List[str]] = {
     # Lateral movement
     "T1021.001": ["rdp", "remote desktop protocol", "lateral rdp"],
     "T1021.002": ["smb share", "admin share", "psexec", "smb lateral"],
-    "T1021": ["lateral movement", "moved laterally", "pivoted to", "remote services"],
+    "T1021": ["lateral movement", "moved laterally", "pivoted to", "remote services",
+              # How a responder describes it before naming it.
+              "logins to other machines", "logins on other machines", "logins to other hosts",
+              "logins on other hosts", "logins to other computers", "logins to other servers",
+              "logged in to other machines", "logged into other machines",
+              "logged in to other hosts", "logged into other hosts",
+              "signed in to other machines", "spread to other machines",
+              "spread to other hosts", "spreading to other machines",
+              "accessed other machines", "connected to other machines"],
     "T1550": ["pass the hash", "pass the ticket", "token theft", "stolen session cookie"],
     # Collection / C2 / exfiltration
     "T1005": ["collected data", "staged files", "data from local system",

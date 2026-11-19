@@ -93,7 +93,7 @@ mr mrs ms dr eng
 # Vendors, products and technology names that are not (or not reliably) in
 # ATT&CK or the KEV catalog but appear constantly in incident reports.
 TECH_EXTRAS = _words("""
-microsoft windows linux unix macos mac ios android office outlook exchange
+microsoft windows linux unix macos mac ios android office outlook onenote exchange
 sharepoint onedrive teams azure entra defender sentinel intune bitlocker
 powershell wmi kerberos ntlm active directory google chrome workspace gmail
 amazon aws apple iphone ipad safari firefox mozilla edge oracle sap ibm cisco
