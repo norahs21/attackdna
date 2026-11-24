@@ -78,30 +78,6 @@ it is neither inferred nor shared, and matching uses behaviour alone. The
 measured cost: B finds A's incident first in 55% of attacks instead of 65%;
 the top-five figure (95%) and response reuse (90%) are unchanged.
 
-## The pipeline
-
-```
-                        Incident Report
-                              │
-                    ① Privacy Layer            deterministic redaction
-                              ▼
-                       Sanitized Incident
-                              │
-                    ② Attack DNA extraction    hybrid rules + LLM
-                              ▼
-        ┌─────────────┬───────┼────────┬──────────────┐
-        ▼             ▼       ▼        ▼              ▼
-  MITRE ATT&CK   CISA KEV  Vector   ATT&CK CTI    IoC profile
-  709 techniques  1,695     Memory  44 mitigations  shareable vs.
-                  KEV CVEs  ChromaDB 172 groups     victim-linked
-        └─────────────┴───────┼────────┴──────────────┘
-                              ▼
-                    ③ Similar Incidents        explainable re-ranking
-                              ▼
-                    ④ Mitigation Memory        what worked before, cited
-                              ▼
-                    ⑤ Safe Simulation          defensive tabletop exercise
-```
 
 ---
 
